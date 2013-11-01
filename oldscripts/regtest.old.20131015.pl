@@ -1,0 +1,1730 @@
+#!/usr/bin/perl -w
+# Author  : Xin Zhang, MMM/NCAR, 8/17/2009
+# Updates : March 2013, adapted for Loblolly (PC) and Yellowstone (Mike Kavulich) 
+#           April 2013, added bit-for-bit serial/dmpar test (Mike Kavulich)
+#
+#
+
+use strict;
+use Term::ANSIColor;
+use Time::HiRes qw(sleep gettimeofday);
+use Time::localtime;
+use Sys::Hostname;
+use File::Copy;
+use File::Path;
+use File::Basename;
+use File::Compare;
+use IPC::Open2;
+use Net::FTP;
+use Getopt::Long;
+
+# Start time:
+
+my $Start_time;
+my $tm = localtime;
+$Start_time=sprintf "Begin : %02d:%02d:%02d-%04d/%02d/%02d\n",
+        $tm->hour, $tm->min, $tm->sec, $tm->year+1900, $tm->mon+1, $tm->mday;
+
+my $Upload="no";
+my $Compiler_defined;
+my $Source_defined;
+my $Exec_defined;
+my $Debug_defined;
+my $Parallel_compile;
+
+GetOptions( "compiler=s" => \$Compiler_defined,
+            "source:s" => \$Source_defined, 
+            "upload:s" => \$Upload,
+            "exec:s" => \$Exec_defined,
+            "debug:s" => \$Debug_defined,
+            "j:s" => \$Parallel_compile) or &print_help_and_die;
+
+unless ( defined $Compiler_defined ) {
+  print "\nCOMPILER NOT SPECIFIED, ABORTING\n\n";
+  &print_help_and_die;
+}
+
+
+sub print_help_and_die {
+  print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --upload=[no]/yes
+                              --exec=[no]/yes --debug=[no]/yes --j=NUM_PROCS\n";
+  print "        compiler: Compiler name (supported options: xlf, pgi, g95, ifort, gfortran)\n";
+  print "        source:   Specify location of source code .tar file (use 'SVN' to retrieve from repositort\n";
+  print "        upload:   Uploads summary to web\n";
+  print "        exec:     Execute only; skips compile, utilizes existing executables\n\n";
+  print "        debug:    Compile with minimal optimization\n";
+  print "        j:        Number of processors to use in parallel compile (default 2)\n";
+  print "Please note:\n";
+  die "A compiler MUST be specified to run this script. Other options are optional.\n";
+}
+
+my $Exec;
+if (defined $Exec_defined && $Exec_defined ne 'no') {
+   $Exec = 1;
+} else {
+   $Exec = 0;
+}
+my $Debug;
+if (defined $Debug_defined && $Debug_defined ne 'no') {
+   $Debug = 1;
+} else {
+   $Debug = 0;
+}
+
+my $Parallel_compile_num;
+if (defined $Parallel_compile) {
+   $Parallel_compile_num = $Parallel_compile;
+} else {
+   $Parallel_compile_num = 2;
+}
+
+
+my $Revision = 'HEAD'; # Revision Number
+
+# Constant variables
+my $SVN_REP = 'https://svn-wrf-model.cgd.ucar.edu/trunk';
+my $Tester = getlogin();
+
+# Local variables
+my $Arch;
+my $Machine;
+my $Name;
+my $Compiler;
+my $Project;
+my $Source;
+my $Queue;
+my $Database;
+my $Baseline;
+my $MainDir;
+my @Message;
+my $Par="";
+my $Par_4dvar="";
+my $Type="";
+my $Clear = `clear`;
+my $Flush_Counter = 1;
+my $diffwrfdir = "";
+my $missvars;
+my %Experiments ;
+#   Sample %Experiments Structure: #####################
+#   
+#   %Experiments (
+#                  cv3_guo => \%record (
+#                                     index=> 1 
+#                                     cpu_mpi=> 32
+#                                     cpu_openmp=> 8
+#                                     status=>"open"
+#                                     paropt => { 
+#                                                serial => {
+#                                                           jobid => 89123
+#                                                           status => "pending"
+#                                                           starttime => 8912312131.2
+#                                                           endtime => 8912314560.2
+#                                                           walltime => 2529.0
+#                                                           compare => "ok"
+#                                                          } 
+#                                                smpar  => {
+#                                                           jobid => 89123
+#                                                           status => "done"
+#                                                           starttime => 8912312131.2
+#                                                           endtime => 8912314560.2
+#                                                           walltime => 2529.0
+#                                                           compare => "ok"
+#                                                          } 
+#                                               }
+#                                     )
+#                  t44_liuz => \%record (
+#                                     index=> 3 
+#                                     cpu_mpi=> 16
+#                                     cpu_openmp=> 4
+#                                     status=>"open"
+#                                     paropt => { 
+#                                                serial => {
+#                                                           jobid => 89123
+#                                                           status => "pending"
+#                                                           starttime => 8912312131.2
+#                                                           endtime => 8912314560.2
+#                                                           walltime => 2529.0
+#                                                           compare => "diff"
+#                                                          } 
+#                                               }
+#                                     )
+#                 )
+#########################################################
+my %Compile_options;
+my %Compile_options_4dvar;
+
+
+# What's my name?
+
+my $ThisGuy = `whoami`;
+chomp($ThisGuy);
+
+# Where am I?
+$MainDir = `pwd`;
+chomp($MainDir);
+
+# What's my hostname, system, and machine :
+
+my $Host = hostname();
+my $System = `uname -s`; chomp($System);
+my $Local_machine = `uname -m`; chomp($Local_machine);
+my $Machine_name = `uname -n`; chomp($Machine_name); 
+
+if ($Machine_name =~ /yslogin\d/) {$Machine_name = 'yellowstone'};
+if ($Machine_name =~ /caldera\d/) {$Machine_name = 'yellowstone'}; # DELETE THIS ONCE YS BACK IN SERVICE!!
+print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+print "!!!REMEMBER TO UNDO THIS ONCE YS IS BACK!!!\n";
+print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+
+
+#Sort out the compiler name and version differences
+
+my %convert_compiler = (
+    gfortran    => "gfortran",
+    gnu         => "gfortran",
+    pgf90       => "pgi",
+    pgi         => "pgi",
+    intel       => "ifort",
+    ifort       => "ifort",
+);
+
+my $Compiler_defined_conv .= $convert_compiler{$Compiler_defined};
+
+printf "NOTE: You specified '$Compiler_defined' as your compiler.\n Interpreting this as '$Compiler_defined_conv'.\n" unless ( $Compiler_defined eq $Compiler_defined_conv );
+
+$Compiler_defined = $Compiler_defined_conv;
+
+#if ($Machine_name eq 'yellowstone') {
+#   my %yellowstone_compiler = (
+#      gfortran    => "gnu",
+#      pgi         => "pgi",
+#      ifort       => "intel",
+#);
+#my $ys_compiler .= $yellowstone_compiler{$Compiler_defined};
+#}
+
+my $Compiler_version;
+if ($Machine_name eq 'yellowstone') {
+   $Compiler_version = $ENV{COMPILER_VERSION}
+}
+
+# Parse the task table:
+
+while (<DATA>) {
+     last if ( /^###/ && (keys %Experiments) > 0 );
+     next if /^#/;
+     if ( /^(\D)/ ) {
+         ($Arch, $Machine, $Name, $Source, $Compiler, $Project, $Queue, $Database, $Baseline) = 
+               split /\s+/,$_;
+     }
+
+     if ( /^(\d)+/ && ($System =~ /$Arch/i) ) {
+#       printf "Local_machine=$Local_machine Machine=$Machine \n";
+       if ( ($Local_machine =~ /$Machine/i) ) {
+#         printf "SUCCESS1 \n Compiler=$Compiler Compiler_defined=$Compiler_defined \n";
+         if ( ($Compiler =~ /$Compiler_defined/i) ) {
+            if ( ($Arch =~ /Linux/i) ) {
+#              printf "SUCCESS2 \n Machine_name=$Machine_name Name=$Name \n";
+              if ( ($Name =~ /$Machine_name/i) ) {
+                $_=~ m/(\d+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+)/x;
+                my @tasks = split /\|/, $6;
+                my %task_records;
+                $task_records{$_} = {} for @tasks;
+                my %record = (
+                     index => $1,
+                     test_type => $3,
+                     cpu_mpi => $4,
+                     cpu_openmp => $5,
+                     status => "open",
+                     paropt => \%task_records
+                );
+                $Experiments{$2} = \%record;
+                if ($Experiments{$2}{test_type} =~ /4DVAR/i) {
+                    foreach (@tasks) {
+                        $Par_4dvar = join('|',$Par_4dvar,$_) unless ($Par_4dvar =~ /$_/);
+                    }
+                } else {
+                    foreach (@tasks) {
+                        $Par = join('|',$Par,$_) unless ($Par =~ /$_/);
+                    }
+                }
+              };
+            } else {
+              $_=~ m/(\d+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+)/x;
+              my @tasks = split /\|/, $6;
+              my %task_records;
+              $task_records{$_} = {} for @tasks;
+              my %record = (
+                   index => $1,
+                   test_type => $3,
+                   cpu_mpi => $4,
+                   cpu_openmp => $5,
+                   status => "open",
+                   paropt => \%task_records
+              );
+              $Experiments{$2} = \%record;
+              $Par = $6 unless ($Par =~ /$6/);
+            };
+         }; 
+       };
+     }; 
+}
+
+
+if ($Par_4dvar =~ /serial/i) {
+    print "Note: 4DVAR serial builds not supported. Will not compile 4DVAR for serial.\n";
+    $Par_4dvar =~ s/serial\|//g;
+    $Par_4dvar =~ s/\|serial//g;
+}
+
+
+#Remove "|" from the start of parallelism strings
+$Par_4dvar =~ s/^\|//g;
+$Par =~ s/^\|//g;
+
+foreach my $name (keys %Experiments) {
+    unless ( $Type =~ $Experiments{$name}{test_type}) {
+        $Type = join('|',$Type,$Experiments{$name}{test_type});
+    }
+
+}
+
+
+$Source = $Source_defined if defined $Source_defined;
+
+printf "Finished parsing the table, the experiments are : \n";
+printf "#INDEX   EXPERIMENT                   TYPE                      CPU_MPI    CPU_OPENMP   PAROPT\n";
+printf "%-4d     %-27s  %-23s   %-8d   %-13d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n", 
+     $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
+         keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
+
+die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" unless (keys %Experiments) > 0 ; 
+
+
+# Set paths to necessary utilities, set BUFR read ENV variables if needed
+
+if ($Arch eq "Linux") {
+    if ($Machine_name =~ /yellowstone/i) { # Yellowstone
+        $diffwrfdir = "~/bin/";
+    } elsif ($Machine_name eq "loblolly") {
+        if ($Compiler=~/gfortran/i) {
+            $ENV{GFORTRAN_CONVERT_UNIT}='little_endian:94-99';
+        }
+    }
+}
+
+# What time is it?
+#
+   my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = gmtime(time);
+   $year += 1900;
+   $mon += 101;     $mon = sprintf("%02d", $mon % 100);
+   $mday += 100;    $mday = sprintf("%02d", $mday % 100);
+   $hour += 100;    $hour = sprintf("%02d", $hour % 100);
+   $min += 100;     $min = sprintf("%02d", $min % 100);
+   $sec += 100;     $sec = sprintf("%02d", $sec % 100);
+
+# Get the codes:
+if ($Exec) {
+     if ($Type =~ /4DVAR/i) {
+         $Revision = `svnversion WRFDA_4DVAR`;
+     } else {
+         $Revision = `svnversion WRFDA_3DVAR`;
+     }
+     chomp($Revision);
+     goto "SKIP_COMPILE";
+}
+
+unless ($Machine_name =~ /yellowstone/i) {$ENV{J}="-j $Parallel_compile_num"};
+
+
+#######################  BEGIN COMPILE 3DVAR  ########################
+if ($Type =~ /3DVAR/i) {
+  if ( -e 'WRFDA_3DVAR' && -r 'WRFDA_3DVAR' ) {
+       printf "Deleting the old WRFDA_3DVAR directory ... \n";
+       rmtree ('WRFDA_3DVAR') or die "Can not rmtree WRFDA_3DVAR :$!\n";
+  }
+
+  if ($Source eq "SVN") {
+       print "Getting the code from repository $SVN_REP to WRFDA_3DVAR...\n";
+       open (my $fh,"-|","svn","co","-r",$Revision,$SVN_REP,"WRFDA_3DVAR")
+            or die " Can't run svn export: $!\n";
+       while (<$fh>) {
+           $Revision = $1 if ( /revision \s+ (\d+)/x); 
+       }
+       close ($fh);
+       printf "Revision %5d is exported to WRFDA_3DVAR.\n",$Revision;
+  } else {
+       print "Getting the code from $Source to WRFDA_3DVAR...\n";
+       ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
+       ! system("mv", "WRFDA", "WRFDA_3DVAR") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR': $!\n";
+  }
+
+  # Check the revision number:
+
+  $Revision = `svnversion WRFDA_3DVAR`;
+  chomp($Revision);
+ 
+  # Change the working directory to WRFDA:
+
+  chdir "WRFDA_3DVAR" or die "Cannot chdir to WRFDA_3DVAR: $!\n";
+
+
+  # Locate the compile options base on the $compiler:
+  my $pid = open2( my $readme, my $writeme, './configure','wrfda');
+  print $writeme "1\n";
+  my @output = <$readme>;
+  waitpid($pid,0);
+  close ($readme);
+  close ($writeme);
+
+  # Add a slash before + in $Par :
+  $Par =~ s/\+/\\+/g;
+
+
+  foreach (@output) {
+    if ( ($Machine_name eq "yellowstone") ) {
+       if ($Compiler eq "gfortran" ) {
+          if ($_=~ m/(\d+)\. .*$Compiler .* ($Par) .*/ix) {
+             $Compile_options{$1} = $2;
+          }
+       } else {
+          if ($_=~ m/(\d+)\. .*$Compiler .* YELLOWSTONE .* ($Par) .*/ix) {
+             $Compile_options{$1} = $2;
+          }
+       }
+    } else {
+       if ( ($_=~ m/(\d+)\. .*$Compiler .* ($Par) .*/ix) &&
+            ! ($_=~/Cray/i) &&
+            ! ($_=~/YELLOWSTONE/i) &&
+            ! ($_=~/PGI accelerator/i) &&
+            ! ($_=~/SGI MPT/i)  ) {
+           $Compile_options{$1} = $2;
+       }
+    }
+  }
+
+
+  printf "Found 3DVAR compilation option for %6s, option %2d.\n",$Compile_options{$_}, $_ for (sort keys %Compile_options);
+
+  die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" if ( (keys %Compile_options) == 0 );
+
+  # Set the envir. variables:
+
+  if ($Arch eq "Linux") {
+      if ($Machine_name eq "yellowstone") { # Yellowstone
+          $ENV{CRTM}='1';
+          $ENV{BUFR}='1';
+          if ($Compiler=~/ifort/i) {   # INTEL
+              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_intel_$Compiler_version";
+              if (-d $RTTOV_dir) {
+                 $ENV{RTTOV} = $RTTOV_dir;
+              } else {
+                 print "$RTTOV_dir DOES NOT EXIST\n";
+                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+              }
+          } elsif ($Compiler=~/gfortran/i) {   # GNU
+              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_gnu_$Compiler_version";
+              if (-d $RTTOV_dir) {
+                 $ENV{RTTOV} = $RTTOV_dir;
+              } else {
+                 print "$RTTOV_dir DOES NOT EXIST\n";
+                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+              }
+          } elsif ($Compiler=~/pgi/i) {   # PGI 
+
+              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_pgi_$Compiler_version";
+              if (-d $RTTOV_dir) {
+                 $ENV{RTTOV} = $RTTOV_dir;
+              } else {
+                 print "$RTTOV_dir DOES NOT EXIST\n";
+                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+              }
+          }
+
+      } else { # Loblolly
+          if ($Compiler=~/pgi/i) {   # PGI
+              $ENV{CRTM}='1';
+              $ENV{BUFR}='1';
+              $ENV{RTTOV} ='/loblolly2/kavulich/REGRESSION/rttov101/pgi/';
+              $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-3.6.2_pgf90_gcc';
+          }
+          if ($Compiler=~/ifort/i) {   # INTEL
+              $ENV{CRTM}='1';
+              $ENV{BUFR}='1';
+          }
+          if ($Compiler=~/gfortran/i) {   # GFORTRAN
+              $ENV{CRTM}='1';
+              $ENV{BUFR}='1';
+              $ENV{RTTOV} ='/loblolly/kavulich/libs/rttov-10.1/gnu';
+              $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-3.6.3-gfortran-gcc';
+              $ENV{GFORTRAN_CONVERT_UNIT}='little_endian:94-99';
+          }
+      }
+      foreach my $key (keys %Compile_options) {
+          if ($Compile_options{$key} =~/sm/i) {
+              print "Note: shared-memory option $Compile_options{$key} was deleted for gfortran.\n";
+              foreach my $name (keys %Experiments) {
+                  foreach my $par (keys %{$Experiments{$name}{paropt}}) {
+                      delete $Experiments{$name}{paropt}{$par} if $par eq $Compile_options{$key} ;
+                      next ;
+                  }
+              }
+              delete $Compile_options{$key};
+          }
+      }
+  }
+  if ($Arch eq "Darwin") {   # Darwin
+      if ($Compiler=~/g95/i) {   # G95
+          $ENV{CRTM} ='1';
+          $ENV{BUFR} ='1';
+      }
+      if ($Compiler=~/pgi/i) {   # PGI
+          $ENV{CRTM} ='1';
+          $ENV{BUFR} ='1';
+          $ENV{NETCDF} ='/gum2/kavulich/libs/netcdf-3.6.3-pgf90-gcc/';
+      }
+  }
+
+
+  # Compile the code:
+
+  foreach my $option (sort keys %Compile_options) {
+       # configure wrfda
+       my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
+       die "clean -a exited with error $!\n" unless $status == 0;
+       if ( $Debug ) {
+         $pid = open2($readme, $writeme, './configure','-d','wrfda');
+       } else {
+         $pid = open2($readme, $writeme, './configure','wrfda');
+       }
+       print $writeme "$option\n";
+       @output = <$readme>;
+       waitpid($pid,0);
+       close ($readme);
+       close ($writeme);
+
+       if (($Arch eq "Linux") && ($Compiler =~ /pgi/i) && ($Compile_options{$option} =~ /sm/i)) {
+           open FHCONF, "<configure.wrf" or die "Where is configure.wrf: $!\n"; 
+           open FH, ">configure.wrf.new" or die "Cannot open configure.wrf.new: $!\n"; 
+           while ($_ = <FHCONF>) { 
+               $_ =~ s/-mp/-mp=nonuma/;
+               print FH $_;
+           }
+           close (FHCONF);
+           close (FH);
+
+           rename "configure.wrf.new", "configure.wrf";
+       }
+
+       # compile all_wrfvar
+       printf "Compiling in debug mode, compilation optimizations turned off.\n" unless ( !$Debug );
+       printf "Compiling WRFDA_3DVAR with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
+       my $begin_time = gettimeofday();
+       open FH, ">compile.log.$Compile_options{$option}" or die "Can not open file compile.log.$Compile_options{$option}.\n";
+       $pid = open (PH, "./compile all_wrfvar 2>&1 |");
+       while (<PH>) {
+           print FH;
+       }
+       close (PH);
+       close (FH);
+       my $end_time = gettimeofday();
+
+       # Check if the compilation is successful:
+
+       my @exefiles = glob ("var/build/*.exe");
+
+       die "The number of exe files is less than 42. \n" if (@exefiles < 42);
+
+       foreach ( @exefiles ) {
+           warn "The exe file $_ has problem. \n" unless -s ;
+       }
+
+
+       # Rename the da_wrfvar.exe:
+
+       rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}"
+           or die "Program da_wrfvar.exe not created: check your compilation log.\n";
+
+       printf "Compilation of WRFDA_3DVAR with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
+           $Compiler, $Compile_options{$option}, ($end_time - $begin_time);
+
+       # Save the compilation log file
+
+      if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+          mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+      }
+      copy( "compile.log.$Compile_options{$option}", "../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options{$option}\n../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec";
+
+  }
+
+  # Back to the upper directory:
+
+  chdir ".." or die "Cannot chdir to .. : $!\n";
+
+#######################  END COMPILE 3DVAR  ########################
+
+}
+
+
+#######################  BEGIN COMPILE 4DVAR  ########################
+
+if ($Type =~ /4DVAR/i) {
+
+  # Set WRFPLUS_DIR Environment variable
+
+
+  
+  my $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
+  chomp($WRFPLUSDIR);
+  $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
+
+
+
+  # Get WRFDA code
+
+  if ( -e 'WRFDA_4DVAR' && -r 'WRFDA_4DVAR' ) {
+       printf "Deleting the old WRFDA_4DVAR directory ... \n";
+       rmtree ('WRFDA_4DVAR') or die "Can not rmtree WRFDA_4DVAR :$!\n";
+  }
+
+  if ($Source eq "SVN") {
+       print "Getting the code from repository $SVN_REP to WRFDA...\n";
+       open (my $fh,"-|","svn","co","-r",$Revision,$SVN_REP,"WRFDA_4DVAR")
+            or die " Can't run svn export: $!\n";
+       while (<$fh>) {
+           $Revision = $1 if ( /revision \s+ (\d+)/x);
+       }
+       close ($fh);
+       printf "Revision %5d is exported to WRFDA_4DVAR.\n",$Revision;
+  } else {
+       print "Getting the code from $Source to WRFDA_4DVAR...\n";
+       ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
+       ! system("mv", "WRFDA", "WRFDA_4DVAR") or die "Can not move 'WRFDA' to 'WRFDA_4DVAR': $!\n";
+  }
+
+  # Check the revision number:
+  $Revision = `svnversion WRFDA_4DVAR`;
+  chomp($Revision);
+
+  # Change the working directory to WRFDA:
+
+  chdir "WRFDA_4DVAR" or die "Cannot chdir to WRFDA_4DVAR: $!\n";
+
+  # Locate the compile options base on the $compiler:
+  my $pid = open2( my $readme, my $writeme, './configure','4dvar');
+  print $writeme "1\n";
+  my @output = <$readme>;
+  waitpid($pid,0);
+  close ($readme);
+  close ($writeme);
+  foreach (@output) {
+    if ( ($Machine_name eq "yellowstone") ) {
+       if ($Compiler eq "gfortran" ) {
+          if ($_=~ m/(\d+)\. .*$Compiler .* ($Par_4dvar) .*/ix) {
+             $Compile_options_4dvar{$1} = $2;
+          }
+       } else {
+          if ($_=~ m/(\d+)\. .*$Compiler .* YELLOWSTONE .* ($Par_4dvar) .*/ix) {
+             $Compile_options_4dvar{$1} = $2;
+          }
+       }
+    } else {
+       if ( ($_=~ m/(\d+)\. .*$Compiler .* ($Par_4dvar) .*/ix) &&
+            ! ($_=~/Cray/i) &&
+            ! ($_=~/YELLOWSTONE/i) &&
+            ! ($_=~/PGI accelerator/i) &&
+            ! ($_=~/SGI MPT/i)  ) {
+           $Compile_options_4dvar{$1} = $2;
+       }
+    }
+  }
+
+
+  printf "Found 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$_}, $_ for (sort keys %Compile_options_4dvar);
+
+  die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" if ( (keys %Compile_options_4dvar) == 0 );
+
+  # Set the envir. variables:
+  if ($Arch eq "Linux") {
+      if ($Machine_name eq "yellowstone") { # Yellowstone
+          $ENV{CRTM}='1';
+          $ENV{BUFR}='1';
+          if ($Compiler=~/ifort/i) {   # INTEL
+              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_intel_$Compiler_version";
+              if (-d $RTTOV_dir) {
+                 $ENV{RTTOV} = $RTTOV_dir;
+              } else {
+                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+              }
+          } elsif ($Compiler=~/gfortran/i) {   # GNU
+              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_gnu_$Compiler_version";
+              if (-d $RTTOV_dir) {
+                 $ENV{RTTOV} = $RTTOV_dir;
+              } else {
+                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+              }
+          } elsif ($Compiler=~/pgi/i) {   # PGI
+
+              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_pgi_$Compiler_version";
+              if (-d $RTTOV_dir) {
+                 $ENV{RTTOV} = $RTTOV_dir;
+              } else {
+                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+              }
+          }
+
+      } else { # Loblolly
+          die "4DVAR not yet implemented for PC Linux\n";
+          if ($Compiler=~/pgi/i) {   # PGI
+              $ENV{CRTM}='1';
+              $ENV{BUFR}='1';
+              $ENV{RTTOV} ='/loblolly2/kavulich/REGRESSION/rttov101/pgi/';
+              $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-3.6.2_pgf90_gcc';
+          }
+          if ($Compiler=~/ifort/i) {   # INTEL
+              $ENV{CRTM}='1';
+              $ENV{BUFR}='1';
+          }
+      }
+  }
+  if ($Arch eq "Darwin") {   # Darwin
+      die "4DVAR not yet implemented for Mac\n";
+      if ($Compiler=~/g95/i) {   # G95
+          $ENV{CRTM} ='1';
+          $ENV{BUFR} ='1';
+      }
+      if ($Compiler=~/pgi/i) {   # PGI
+          $ENV{CRTM} ='1';
+          $ENV{BUFR} ='1';
+      }
+  }
+
+
+  # Compile the code:
+
+
+  foreach my $option (sort keys %Compile_options_4dvar) {
+       # configure 4dvar
+       my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
+       die "clean -a exited with error $!\n" unless $status == 0;
+       if ( $Debug ) {
+         $pid = open2($readme, $writeme, './configure','-d','4dvar');
+       } else {
+         $pid = open2($readme, $writeme, './configure','4dvar');
+       }
+       print $writeme "$option\n";
+       @output = <$readme>;
+       waitpid($pid,0);
+       close ($readme);
+       close ($writeme);
+
+       # compile all_wrfvar
+       printf "Compiling in debug mode, compilation optimizations turned off.\n" unless ( !$Debug );
+       printf "Compiling WRFDA_4DVAR with %10s for %6s ....\n", $Compiler, $Compile_options_4dvar{$option};
+       my $begin_time = gettimeofday();
+       open FH, ">compile.log.$Compile_options_4dvar{$option}" or die "Can not open file compile.log.$Compile_options_4dvar{$option}.\n";
+       $pid = open (PH, "./compile all_wrfvar 2>&1 |");
+       while (<PH>) {
+           print FH;
+       }
+       close (PH);
+       close (FH);
+
+#       system("./compile all_wrfvar >> compile.log.$Compile_options_4dvar{$option}");
+
+       my $end_time = gettimeofday();
+
+       # Check if the compilation is successful:
+
+       my @exefiles = glob ("var/build/*.exe");
+
+       foreach ( @exefiles ) {
+           warn "The exe file $_ has problem. \n" unless -s ;
+       }
+
+
+       # Rename the da_wrfvar.exe:
+       rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}"
+           or die "Program da_wrfvar.exe not created: check your compilation log.\n";
+
+       printf "Compilation of WRFDA_4DVAR with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
+           $Compiler, $Compile_options_4dvar{$option}, ($end_time - $begin_time);
+
+       # Save the compilation log file
+
+      if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+          mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+      }
+      copy( "compile.log.$Compile_options_4dvar{$option}", "../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options_4dvar{$option}\n../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec";
+
+  }
+
+  # Back to the upper directory:
+
+  chdir ".." or die "Cannot chdir to .. : $!\n";
+
+
+######################  END COMPILE 4DVAR  ########################
+
+}
+
+
+
+
+SKIP_COMPILE:
+
+if ($Type =~ /3DVAR/i) {
+    die "\nSTOPPING SCRIPT\n3DVAR code must be compiled in directory tree named 'WRFDA_3DVAR' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR");
+}
+if ($Type =~ /4DVAR/i) {
+    die "\nSTOPPING SCRIPT\n4DVAR code must be compiled in directory tree named 'WRFDA_4DVAR' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_4DVAR");
+}
+
+
+
+
+# Make working directory for each Experiments:
+
+
+if ( ($Machine_name eq "yellowstone") ) {
+    printf "Moving to scratch space: /glade/scratch/$ThisGuy/REGTEST_$Compiler\_$year$mon$mday\_$hour:$min:$sec\n";
+    mkpath("/glade/scratch/$ThisGuy/REGTEST_$Compiler\_$year$mon$mday\_$hour:$min:$sec") or die "Mkdir failed: $!";
+    chdir "/glade/scratch/$ThisGuy/REGTEST_$Compiler\_$year$mon$mday\_$hour:$min:$sec" or die "Chdir failed: $!";
+}
+
+foreach my $name (keys %Experiments) {
+
+     # Make working directory:
+
+     if ( -e $name && -r $name ) {
+          rmtree ($name) or die "Can not rmtree $name :$!\n";
+     }
+     mkdir "$name", 0755 or warn "Cannot make $name directory: $!\n";
+     if ( ($Machine_name eq "yellowstone") ) {
+         if ( -l "$MainDir/$name") {unlink "$MainDir/$name" or die "Cannot unlink '$MainDir/$name'"}
+         my $CurrDir = `pwd`;chomp $CurrDir;
+         symlink "$CurrDir/$name", "$MainDir/$name"
+             or warn "Cannot symlink '$CurrDir/$name' to main directory '$MainDir'";
+     }
+
+     unless ( -e "$Database/$name" ) {
+         die "DATABASE NOT FOUND: '$Database/$name'\n";
+     }
+     # Symbolically link all files ;
+
+     chdir "$name" or die "Cannot chdir to $name : $!\n";
+     my @allfiles = glob ("$Database/$name/*");
+     foreach (@allfiles) {
+         symlink "$_", basename($_)
+             or warn "Cannot symlink $_ to local directory: $!\n";
+     }
+     
+
+     printf "The directory for %-30s is ready.\n",$name;
+
+     my @files = glob("*.bufr");
+
+     # Back to the upper directory:
+
+     chdir ".." or die "Cannot chdir to .. : $!\n";
+
+}
+
+# Submit the jobs for each task and check the status of each task recursively:
+
+# How many experiments do we have ?
+
+my $remain_exps = scalar keys %Experiments;  
+
+#How many jobs do we have for each experiment ?
+
+my %remain_par;
+$remain_par{$_} = scalar keys %{$Experiments{$_}{paropt}} 
+    for keys %Experiments;
+
+#foreach my $name (keys %Experiments) {
+#  print "REMAIN_PAR{$name} = $remain_par{$name}\n";
+#}
+
+# preset the the status of all jobs .
+
+foreach my $name (keys %Experiments) {
+    $Experiments{$name}{status} = "pending";
+    foreach my $par (keys %{$Experiments{$name}{paropt}}) {
+        $Experiments{$name}{paropt}{$par}{status} = "pending";
+        $Experiments{$name}{paropt}{$par}{compare} = "--";
+        $Experiments{$name}{paropt}{$par}{walltime} = 0;
+        $Experiments{$name}{paropt}{$par}{queue} = $Experiments{$name}{test_type};
+    } 
+} 
+
+# Initial Status:
+
+&flush_status ();
+
+# submit job:
+
+if ( ($Machine_name eq "yellowstone") ) {
+    &submit_job_ys ;
+    chdir "$MainDir";
+    } else {
+    &submit_job ;
+    }
+
+
+# End time:
+
+my $End_time;
+$tm = localtime;
+$End_time=sprintf "End   : %02d:%02d:%02d-%04d/%02d/%02d\n",
+        $tm->hour, $tm->min, $tm->sec, $tm->year+1900, $tm->mon+1, $tm->mday;
+
+# Create the webpage:
+
+&create_webpage ();
+
+# Mail out summary:
+
+open (SENDMAIL, "|/usr/sbin/sendmail -oi -t -odq")
+       or die "Can't fork for sendmail: $!\n";
+
+print SENDMAIL  "From: $Tester\n";
+print SENDMAIL  "To: $Tester\@ucar.edu"."\n";
+print SENDMAIL  "Subject: Regression test summary\n";
+
+#print $Clear;
+#print @Message;
+print SENDMAIL $Start_time."\n";
+print SENDMAIL "Source :",$Source."\n";
+print SENDMAIL "Revision :",$Revision."\n";
+print SENDMAIL "Tester :",$Tester."\n";
+print SENDMAIL "Machine name :",$Host."\n";
+print SENDMAIL "Operating system :",$System,", ",$Machine."\n";
+print SENDMAIL "Compiler :",$Compiler."\n";
+print SENDMAIL "Baseline :",$Baseline."\n";
+print SENDMAIL @Message;
+print SENDMAIL $End_time."\n";
+
+close(SENDMAIL);
+
+#
+#
+#
+
+sub create_webpage {
+
+    open WEBH, ">summary_$Compiler.html" or
+        die "Can not open summary_$Compiler.html for write: $!\n";
+
+    print WEBH '<html>'."\n";
+    print WEBH '<body>'."\n";
+
+    print WEBH '<p>'."Regression Test Summary:".'</p>'."\n";
+    print WEBH '<ul>'."\n";
+    print WEBH '<li>'.$Start_time.'</li>'."\n";
+    print WEBH '<li>'."Source : $Source".'</li>'."\n";
+    print WEBH '<li>'."Revision : $Revision".'</li>'."\n";
+    print WEBH '<li>'."Tester : $Tester".'</li>'."\n";
+    print WEBH '<li>'."Machine name : $Host".'</li>'."\n";
+    print WEBH '<li>'."Operating system : $System".'</li>'."\n";
+    print WEBH '<li>'."Compiler : $Compiler".'</li>'."\n";
+    print WEBH '<li>'."Baseline : $Baseline".'</li>'."\n";
+    print WEBH '<li>'.$End_time.'</li>'."\n";
+    print WEBH '</ul>'."\n";
+
+    print WEBH '<table border="1">'."\n";
+#   print WEBH '<caption>Regression Test Summary</caption>'."\n";
+    print WEBH '<tr>'."\n";
+    print WEBH '<th>EXPERIMENT</th>'."\n";
+    print WEBH '<th>TYPE</th>'."\n";
+    print WEBH '<th>PAROPT</th>'."\n";
+    print WEBH '<th>CPU_MPI</th>'."\n";
+    print WEBH '<th>CPU_OMP</th>'."\n";
+    print WEBH '<th>STATUS</th>'."\n";
+    print WEBH '<th>WALLTIME(S)</th>'."\n";
+    print WEBH '<th>COMPARE</th>'."\n";
+    print WEBH '</tr>'."\n";
+
+    foreach my $name (sort keys %Experiments) {
+        foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
+            print WEBH '<tr>'."\n";
+            print WEBH '<tr';
+            if ($Experiments{$name}{paropt}{$par}{status} eq "error") {
+                print WEBH ' style="background-color:red;color:white">'."\n";
+            } elsif ($Experiments{$name}{paropt}{$par}{compare} eq "diff") {
+                print WEBH ' style="background-color:yellow">'."\n";
+            } else {
+                print WEBH '>'."\n";
+            }
+            print WEBH '<td>'.$name.'</td>'."\n";
+            print WEBH '<td>'.$Experiments{$name}{test_type}.'</td>'."\n";
+            print WEBH '<td>'.$par.'</td>'."\n";
+            print WEBH '<td>'.$Experiments{$name}{cpu_mpi}.'</td>'."\n";
+            print WEBH '<td>'.$Experiments{$name}{cpu_openmp}.'</td>'."\n";
+            print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{status}.'</td>'."\n";
+            printf WEBH '<td>'."%7.1f".'</td>'."\n",
+                         $Experiments{$name}{paropt}{$par}{walltime};
+            print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{compare}.'</td>'."\n";
+            print WEBH '</tr>'."\n";
+        }
+    }
+            print WEBH '</table>'."\n"; 
+
+    print WEBH '</body>'."\n";
+    print WEBH '</html>'."\n";
+
+    close (WEBH);
+
+# Send the summary to internet:
+
+    my $go_on='';
+
+    if ( $Upload =~ /yes/i ) {
+       if ( (!$Exec) && ($Revision =~ /\d+M$/) ) {
+          print "This revision appears to be modified, are you sure you want to upload the summary?\a\n";
+          while (!$go_on) {
+             $go_on = <>;
+             if ($go_on =~ /no/i) {
+                die "Summary not uploaded to web.\n";
+             } elsif ($go_on =~ /yes/i) {
+             } else {
+                print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
+             }
+          }
+       }
+
+       my $numexp= scalar keys %Experiments;
+
+       if ( $numexp < 20 ) {
+          $go_on='';
+          print "This run only includes $numexp of 20 tests, are you sure you want to upload?\a\n";
+          while (!$go_on) {
+             $go_on = <>;
+             if ($go_on =~ /no/i) {
+                die "Summary not uploaded to web.\n";
+             } elsif ($go_on =~ /yes/i) {
+             } else {
+                print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
+             }
+          }
+       }
+
+       unless ( $Source eq "SVN" ) {
+          $go_on='';
+          print "This revision, '$Source', may not be the trunk version,\nare you sure you want to upload?\a\n";
+          while (!$go_on) {
+             $go_on = <>;
+             if ($go_on =~ /no/i) {
+                die "Summary not uploaded to web.\n";
+             } elsif ($go_on =~ /yes/i) {
+             } else {
+                print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
+             }
+          }
+       }
+
+
+       my @uploadit = ("scp", "summary_$Compiler.html", "wrfhelp\@tea.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
+       system(@uploadit) == 0
+          or die "Uploading 'summary_$Compiler.html' to web failed: $?\n";
+       print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_$Compiler.html\n";
+    }
+}
+
+sub refresh_status {
+
+    my @mes; 
+
+    push @mes, "Experiment                  Paropt      CPU_MPI  CPU_OMP  Status    Walltime(s)    Compare\n";
+    push @mes, "==========================================================================================\n";
+
+    foreach my $name (sort keys %Experiments) {
+        foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
+            push @mes, sprintf "%-28s%-12s%-9d%-9d%-10s%-15d%-7s\n", 
+                    $name, $par, $Experiments{$name}{cpu_mpi}, 
+                    $Experiments{$name}{cpu_openmp}, 
+                    $Experiments{$name}{paropt}{$par}{status},
+                    $Experiments{$name}{paropt}{$par}{walltime},
+                    $Experiments{$name}{paropt}{$par}{compare};
+        }
+    }
+
+    push @mes, "==========================================================================================\n";
+    return @mes;
+}
+
+sub new_job {
+     
+     my ($nam, $com, $par, $cpun, $cpum) = @_;
+
+     # Enter into the experiment working directory:
+
+     chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
+     # Submit the job :
+
+     delete $ENV{OMP_NUM_THREADS};
+     $ENV{OMP_NUM_THREADS}=$cpum if ($par=~/sm/i);
+
+     if ($par=~/dm/i) { 
+         # system ("mpdallexit>/dev/null");
+         # system ("mpd&");
+         # sleep (0.1);
+         `mpirun -np $cpun ../WRFDA/var/build/da_wrfvar.exe.$com.$par`;
+         #`mpirun -np $cpun -machinefile ../hosts ../WRFDA/var/build/da_wrfvar.exe.$com.$par`;
+     } else {
+         `../WRFDA/var/build/da_wrfvar.exe.$com.$par > print.out.$Arch.$nam.$par.$Compiler`; 
+     }
+
+     rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
+
+     # Back to the upper directory:
+
+     chdir ".." or die "Cannot chdir to .. : $!\n";
+
+     return (-e "$nam/wrfvar_output") ? 1 : undef;
+
+}
+
+sub new_job_ys {
+
+     my ($nam, $com, $par, $cpun, $cpum, $types) = @_;
+
+     my $feedback;
+     # Enter into the experiment working directory:
+     
+
+
+#     if ($types =~ /GENBE/i) {
+#         printf "types: $types\n";
+#         $types =~ s/GENBE//i;
+#         $Experiments{$nam}{paropt}{$par}{queue} = $types;
+#         printf "New types: $types\n";
+     if ($types =~ /OBSPROC/i) {
+         printf "types: $types\n";
+         $types =~ s/OBSPROC//i;
+         $Experiments{$nam}{paropt}{$par}{queue} = $types;
+         printf "New types: $types\n";
+     } elsif ($types =~ /3DVAR/i) {
+         printf "types: $types\n";
+         $types =~ s/3DVAR//i;
+         $Experiments{$nam}{paropt}{$par}{queue} = $types;
+         printf "New types: $types\n";
+         
+         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
+         printf "Creating 3DVAR job: $nam, $par\n";
+
+
+         # Generate the LSF job script:
+
+         unlink "job_${nam}_3dvar_$par.csh" if -e 'job_$nam_$par.csh';
+         open FH, ">job_${nam}_3dvar_$par.csh" or die "Can not open a job_${nam}_$par.csh to write. $! \n";
+    
+         print FH '#!/bin/csh'."\n";
+         print FH '#',"\n";
+         print FH '# LSF batch script'."\n";
+         print FH '#'."\n";
+         print FH "#BSUB -J $nam"."\n";
+         # If more than 16 processors requested, can't use caldera
+         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "small" : $Queue)."\n";
+         printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
+                                        $cpun: 1;
+         print FH "#BSUB -o job_${nam}_$par.output"."\n";
+         print FH "#BSUB -e job_${nam}_$par.error"."\n";
+         print FH "#BSUB -W 30"."\n";
+         print FH "#BSUB -P $Project"."\n";
+         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
+         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
+                                                    1 : (($cpun < 16 ) ? $cpun : 16);
+         print FH "\n";
+         print FH ( $par eq 'smpar' || $par eq 'dm+sm') ?
+             "setenv OMP_NUM_THREADS $cpum\n" :"\n";
+         print FH "\n";
+         
+         print FH ($par eq 'serial' || $par eq 'smpar') ?
+             "$MainDir/WRFDA_3DVAR/var/build/da_wrfvar.exe.$com.$par\n" :
+             "mpirun.lsf $MainDir/WRFDA_3DVAR/var/build/da_wrfvar.exe.$com.$par\n";
+
+         print FH "\n";
+    
+         close (FH);
+
+         # Submit the job
+
+         $feedback = ` bsub < job_${nam}_3dvar_$par.csh 2>/dev/null `;
+
+         # Return to the upper directory
+         chdir ".." or die "Cannot chdir to .. : $!\n";
+
+     } elsif ($types =~ /4DVAR/i) {
+         printf "types: $types\n";
+         $types =~ s/4DVAR//i;
+         $Experiments{$nam}{paropt}{$par}{queue} = $types;
+         printf "New types: $types\n";
+
+         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
+         printf "Creating 4DVAR job: $nam, $par\n";
+
+
+         # Generate the LSF job script:
+         unlink "job_${nam}_4dvar_$par.csh" if -e 'job_$nam_$par.csh';
+         open FH, ">job_${nam}_4dvar_$par.csh" or die "Can not open a job_${nam}_$par.csh to write. $! \n";
+
+         print FH '#!/bin/csh'."\n";
+         print FH '#',"\n";
+         print FH '# LSF batch script'."\n";
+         print FH '#'."\n";
+         print FH "#BSUB -J $nam"."\n";
+         # If more than 16 processors requested, can't use caldera
+         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "small" : $Queue)."\n";
+         printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
+                                        $cpun: 1;
+         print FH "#BSUB -o job_${nam}_$par.output"."\n";
+         print FH "#BSUB -e job_${nam}_$par.error"."\n";
+         print FH "#BSUB -W 30"."\n";
+         print FH "#BSUB -P $Project"."\n";
+         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
+         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
+                                                    1 : (($cpun < 16 ) ? $cpun : 16);
+         print FH "\n";
+         print FH ( $par eq 'smpar' || $par eq 'dm+sm') ?
+             "setenv OMP_NUM_THREADS $cpum\n" :"\n";
+         print FH "\n";
+
+         print FH ($par eq 'serial' || $par eq 'smpar') ?
+             "$MainDir/WRFDA_4DVAR/var/build/da_wrfvar.exe.$com.$par\n" :
+             "mpirun.lsf $MainDir/WRFDA_4DVAR/var/build/da_wrfvar.exe.$com.$par\n";
+
+         print FH "\n";
+
+         close (FH);
+
+         # Submit the job
+         $feedback = ` bsub < job_${nam}_4dvar_$par.csh 2>/dev/null `;
+
+         # Return to the upper directory
+
+         chdir ".." or die "Cannot chdir to .. : $!\n";
+
+     } else {
+         die "You dun goofed!\n";
+     }
+
+
+
+     # Pick the job id
+
+     if ($feedback =~ m/.*<(\d+)>/) {;
+          # printf "Task %-30s 's jobid is %10d \n",$nam,$1;
+         return $1;
+     } else {
+         print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit task for $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+         return undef;
+     };
+
+
+}
+
+
+sub compare_output {
+   
+     my ($name, $par) = @_;
+
+     my $diffwrfpath = $diffwrfdir . "diffwrf";
+
+     return -3 unless ( -e "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler");
+     return -4 unless ( -e "$Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler");
+
+     my @output = `$diffwrfpath $name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler $Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler`;
+ 
+     return -2 if (!@output);
+     
+     my $found = 0;
+     my $sumfound = 0;
+     $missvars = 0 ;
+
+     foreach (@output) {
+         
+#         print "\nThis line is '$_'\n";
+
+         return -5 if ( $_=~/could not open/i);
+
+         if (/pntwise max/) {
+             $found = 1 ;
+             $sumfound = $sumfound + 1 ;
+             next;
+         }
+         if ( $_=~/Variable not found/i) {
+         $missvars ++ ;
+         }
+
+         next unless $found;
+
+         my @values = split /\s+/, $_;
+
+         if ($values[4]) {
+             if ($values[4] =~ /^\d\.\d{10}E[+-]\d{2}$/) {# look for RMS format
+                 #compare RMS(1) and RMS(2) , return 1 if diff found.
+                 return 1 unless ($values[4] == $values[5]) ;
+             }
+         }
+         
+     
+     }
+
+     return -1 if ($sumfound == 0); # Return error if diffwrf output does not make sense
+
+     print "\nTotal missing variables: $missvars\n";
+
+     return 0;        # All the same.
+
+}
+
+
+sub flush_status {
+
+    @Message = &refresh_status ();   # Update the Message
+    print $Clear; 
+    # print $Flush_Counter++ ,"\n";
+    print @Message;
+
+}
+
+sub submit_job {
+
+    foreach my $name (keys %Experiments) {
+
+        foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
+
+            $Experiments{$name}{paropt}{$par}{starttime} = gettimeofday();
+            $Experiments{$name}{paropt}{$par}{status} = "running";
+            &flush_status (); # refresh the status
+            my $rc = &new_job ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
+                                $Experiments{$name}{cpu_openmp} );
+            if (defined $rc) { 
+                $Experiments{$name}{paropt}{$par}{endtime} = gettimeofday(); # set the end time for this job.
+                $Experiments{$name}{paropt}{$par}{walltime} = 
+                    $Experiments{$name}{paropt}{$par}{endtime} - $Experiments{$name}{paropt}{$par}{starttime};
+                printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
+            } else {
+                $Experiments{$name}{paropt}{$par}{status} = "error";
+                $Experiments{$name}{paropt}{$par}{compare} = "error submitting job";
+                next;   # Can not submit this job.
+            }
+
+            $Experiments{$name}{paropt}{$par}{status} = "done";
+
+            # Wrap-up this job:
+
+            rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler";
+
+            # Compare the wrfvar_output with the BASELINE:
+
+            unless ($Baseline =~ /none/i) {
+                if (compare ("$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler","$Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler") == 0) {
+                    $Experiments{$name}{paropt}{$par}{compare} = "match";
+                } elsif (compare ("$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler","$name/fg") == 0) {
+                    $Experiments{$name}{paropt}{$par}{status} = "error";
+                    $Experiments{$name}{paropt}{$par}{compare} = "fg == wrfvar_output";
+                } else {
+                    my $baselinetest = &compare_output ($name,$par);
+                    my %compare_problem = (
+                        1       => "diff",
+                        -1      => "Unknown error",
+                        -2      => "diffwrf comparison failed",
+                        -3      => "Output missing",
+                        -4      => "Baseline missing",
+                        -5      => "Could not open output and/or baseline",
+                    );
+                    
+                    if ( $baselinetest ) {
+                        if ( $baselinetest < 0 ) {
+                            $Experiments{$name}{paropt}{$par}{status} = "error";
+                            $Experiments{$name}{paropt}{$par}{compare} = $compare_problem{$baselinetest};
+                        } elsif ( $baselinetest > 0 ) {
+                            $Experiments{$name}{paropt}{$par}{compare} = $compare_problem{$baselinetest};
+                        }
+                    } elsif ( $missvars ) {
+                        $Experiments{$name}{paropt}{$par}{compare} = "ok, vars missing";
+                    } else {
+                        $Experiments{$name}{paropt}{$par}{compare} = "ok";
+                    }
+                }
+            }
+        }
+
+    }
+
+    &flush_status (); # refresh the status
+}
+
+sub submit_job_ys {
+
+    while ($remain_exps > 0) {    # cycling until no more experiments remain
+
+         #This first loop submits all parallel jobs
+
+         foreach my $name (keys %Experiments) {
+
+             next if ($Experiments{$name}{status} eq "done") ;  # skip this experiment if it is done.
+
+             foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
+
+#                 die "Not okay, this is bad.\n" unless ($Experiments{$name}{paropt}{$par}{queue});
+
+#                 print $Experiments{$name}{paropt}{$par}{queue}."\n";
+
+                 next if ( $Experiments{$name}{paropt}{$par}{status} eq "done"  ||      # go to next job if it is done already..
+                           $Experiments{$name}{paropt}{$par}{status} eq "error" );
+
+                 unless ( defined $Experiments{$name}{paropt}{$par}{jobid} ) {      #  to be submitted .
+
+                     next if $Experiments{$name}{status} eq "close";      #  skip if this experiment already has a job running.
+                         my $rc = &new_job_ys ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
+                                         $Experiments{$name}{cpu_openmp},$Experiments{$name}{test_type} );
+
+                     if (defined $rc) {
+                         $Experiments{$name}{paropt}{$par}{jobid} = $rc ;    # assign the jobid.
+                         $Experiments{$name}{status} = "close";
+                         my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{jobid}`;
+                         if ($checkQ =~ /\ssmall\s/) {
+                             printf "%-10s job for %-30s was submitted to queue 'small' with jobid: %10d \n", $par, $name, $rc;
+                         } else {
+                             printf "%-10s job for %-30s was submitted to queue '$Queue' with jobid: %10d \n", $par, $name, $rc;
+                         }
+                     } else {
+                         $Experiments{$name}{paropt}{$par}{status} = "error";
+                         $Experiments{$name}{paropt}{$par}{compare} = "Job submit failed";
+                         $remain_par{$name} -- ;
+                         if ($remain_par{$name} == 0) {
+                             $Experiments{$name}{status} = "done";
+                             $remain_exps -- ;
+                         }
+                         &flush_status ();
+                         next;
+                     }
+                 }
+
+                 # Job is still in queue.
+
+                 my $feedback = `bjobs $Experiments{$name}{paropt}{$par}{jobid}`;
+                 if ( $feedback =~ m/RUN/ ) {; # Still running
+                     unless (defined $Experiments{$name}{paropt}{$par}{started}) { #set the start time when we first find it is running.
+                         $Experiments{$name}{paropt}{$par}{status} = "running";
+                         $Experiments{$name}{paropt}{$par}{started} = 1;
+                         &flush_status (); # refresh the status
+                     }
+                     next;
+                 } elsif ( $feedback =~ m/PEND/ ) { # Still Pending
+                     next;
+                 }
+
+                 # Job is finished.
+                 my $bhist = `bhist $Experiments{$name}{paropt}{$par}{jobid}`;
+                 my @jobhist = split('\s+',$bhist);
+                 $Experiments{$name}{paropt}{$par}{walltime} = $jobhist[24];
+                 
+                 printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
+
+
+                 if ($Experiments{$name}{paropt}{$par}{queue}) {
+                     print "$Experiments{$name}{paropt}{$par}{queue}\n";
+                     delete $Experiments{$name}{paropt}{$par}{jobid};       # Delete the jobid.
+                     die "Not okay, this is bad.\n" 
+                 } else {
+                     delete $Experiments{$name}{paropt}{$par}{jobid};       # Delete the jobid.
+                     $remain_par{$name} -- ;                               # Delete the count of jobs for this experiment.
+                     $Experiments{$name}{paropt}{$par}{status} = "done";    # Done this job.
+
+                     # Wrap-up this job:
+
+                     rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler";
+
+                     # Compare against the baseline
+
+                     unless ($Baseline =~ /none/i) {
+                         &check_baseline_ys ($name, $Arch, $Machine_name, $par, $Compiler, $Baseline);
+                     }
+                 }
+
+
+                 if ($remain_par{$name} == 0) {                        # if all par options are done, this experiment is finished.
+                     $Experiments{$name}{status} = "done";
+                     $remain_exps -- ;
+                 } else {
+                     $Experiments{$name}{status} = "open";              # Since this experiment is not done yet, open to submit job.
+                 }
+
+                 &flush_status ();
+             }
+
+         }
+         sleep (2.);
+
+    }
+
+}
+
+sub check_baseline_ys {
+
+    my ($cbname, $cbArch, $cbMachine_name, $cbpar, $cbCompiler, $cbBaseline) = @_;
+
+    print "\nComparing '$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler' 
+              to '$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler'" ;
+    if (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler",
+                     "$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler") == 0) {
+        $Experiments{$cbname}{paropt}{$cbpar}{compare} = "match";
+    } elsif (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler","$cbname/fg") == 0) {
+        $Experiments{$cbname}{paropt}{$cbpar}{status} = "error";
+        $Experiments{$cbname}{paropt}{$cbpar}{compare} = "fg == wrfvar_output";
+    } else {
+        my $baselinetest = &compare_output ($cbname,$cbpar);
+        my %compare_problem = (
+            1       => "diff",
+            -1      => "ERROR",
+            -2      => "Diffwrf comparison failed",
+            -3      => "Output missing",
+            -4      => "Baseline missing",
+            -5      => "Could not open output and/or baseline",
+        );
+
+
+        if ( $baselinetest ) {
+            if ( $baselinetest < 0 ) {
+                $Experiments{$cbname}{paropt}{$cbpar}{status} = "error";
+                $Experiments{$cbname}{paropt}{$cbpar}{compare} = $compare_problem{$baselinetest};
+            } elsif ( $baselinetest > 0 ) {
+                $Experiments{$cbname}{paropt}{$cbpar}{compare} = $compare_problem{$baselinetest};
+            }
+        } elsif ( $missvars ) {
+            $Experiments{$cbname}{paropt}{$cbpar}{compare} = "ok, vars missing";
+        } else {
+            $Experiments{$cbname}{paropt}{$cbpar}{compare} = "ok";
+        }
+    }
+
+}
+
+
+
+__DATA__
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      x86_64  yellowstone    /glade/p/work/kavulich/REGRESSION/SUBV/WRFDA_3.5.1_release.tar        ifort         P64000510  caldera   /glade/p/work/kavulich/REGRESSION/WRFDA-data-EM    /glade/p/work/kavulich/REGRESSION/BASELINE.NEW
+#INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
+#1        afwa_t7_ssmi                3DVAR            8    16      serial|dmpar
+#2        afwa_t7_ssmi_32             3DVAR            8    16      serial|dmpar
+#3        ASR_prepbufr                3DVAR           16    16      serial|dmpar
+#4        cv3_guo                     3DVAR           16    16      serial|dmpar
+#5        cv3_guo_32                  3DVAR           16    16      serial|dmpar
+#6        cwb_ascii                   3DVAR           16    16      serial|dmpar
+#7        cwb_ascii_outerloop_rizvi   3DVAR           16    16      serial|dmpar
+#8        iasi_dmxu                   3DVAR           32    16      dmpar
+9        lat_lon                     3DVAR           16    16      serial|dmpar
+#10       outerloop_bench_guo         3DVAR           16    16      serial|dmpar
+#11       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+#12       radar_meixu                 3DVAR            4    16      serial|dmpar
+#13       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+#14       t44_liuz                    3DVAR            1    16      serial|dmpar
+#15       t44_prepbufr                3DVAR            4    16      serial|dmpar
+#16       tutorial_4dvar              4DVAR           32    16      dmpar
+#17       tutorial_xinzhang           3DVAR           16    16      dmpar
+#18       tutorial_xinzhang_32        3DVAR           16    16      dmpar
+#19       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
+#20       tutorial_xinzhang_rttov     3DVAR           16    16      serial|dmpar
+#21       wind_sd                     3DVAR           16    16      serial|dmpar
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      x86_64  yellowstone    /glade/p/work/kavulich/REGRESSION/WORKDIR/DavesMods/wrfda_davesmods_fixed.tar        gfortran      P64000510  caldera   /glade/p/work/kavulich/REGRESSION/WRFDA-data-EM    /glade/p/work/kavulich/REGRESSION/BASELINE.NEW
+#INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
+1        afwa_t7_ssmi                3DVAR            8    16      serial|dmpar
+2        afwa_t7_ssmi_32             3DVAR            8    16      serial|dmpar
+3        ASR_prepbufr                3DVAR           16    16      serial|dmpar
+4        cv3_guo                     3DVAR           16    16      serial|dmpar
+5        cv3_guo_32                  3DVAR           16    16      serial|dmpar
+6        cwb_ascii                   3DVAR           16    16      serial|dmpar
+7        cwb_ascii_outerloop_rizvi   3DVAR           16    16      serial|dmpar
+#8        iasi_dmxu                   3DVAR           32    16      dmpar
+9        outerloop_bench_guo         3DVAR           16    16      serial|dmpar
+10       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+11       radar_meixu                 3DVAR            4    16      serial|dmpar
+12       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+13       t44_liuz                    3DVAR            1    16      serial|dmpar
+14       t44_prepbufr                3DVAR            4    16      serial|dmpar
+15       tutorial_4dvar              4DVAR           32    16      dmpar
+16       tutorial_xinzhang           3DVAR           16    16      dmpar
+17       tutorial_xinzhang_32        3DVAR           16    16      dmpar
+18       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
+19       tutorial_xinzhang_rttov     3DVAR           16    16      serial|dmpar
+20       wind_sd                     3DVAR           16    16      serial|dmpar
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      x86_64  yellowstone    /glade/p/work/kavulich/REGRESSION/WORKDIR/v351_bugfixes/wrfda.tar        pgi      P64000510  caldera   /glade/p/work/kavulich/REGRESSION/WRFDA-data-EM    /glade/p/work/kavulich/REGRESSION/BASELINE.NEW
+#INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
+1        afwa_t7_ssmi                3DVAR            8    16      serial|dmpar
+2        afwa_t7_ssmi_32             3DVAR            8    16      serial|dmpar
+3        ASR_prepbufr                3DVAR           16    16      serial|dmpar
+4        cv3_guo                     3DVAR           16    16      serial|dmpar
+5        cv3_guo_32                  3DVAR           16    16      serial|dmpar
+6        cwb_ascii                   3DVAR           16    16      serial|dmpar
+7        cwb_ascii_outerloop_rizvi   3DVAR           16    16      serial|dmpar
+#8        iasi_dmxu                   3DVAR           32    16      dmpar
+9        outerloop_bench_guo         3DVAR           16    16      serial|dmpar
+10       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+11       radar_meixu                 3DVAR            4    16      serial|dmpar
+12       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+13       t44_liuz                    3DVAR            1    16      serial|dmpar
+14       t44_prepbufr                3DVAR            4    16      serial|dmpar
+15       tutorial_4dvar              4DVAR           32    16      dmpar
+16       tutorial_xinzhang           3DVAR           16    16      serial|dmpar
+17       tutorial_xinzhang_32        3DVAR           16    16      serial|dmpar
+18       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
+19       tutorial_xinzhang_rttov     3DVAR           16    16      serial|dmpar
+20       wind_sd                     3DVAR           16    16      serial|dmpar
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      x86_64  loblolly   /loblolly/kavulich/wrfda.tar        ifort         64000510  share   /loblolly/kavulich/WRFDA-data-EM    /loblolly/kavulich/BASELINE
+#INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
+1        tutorial_xinzhang           8       8            serial|dmpar
+2        cv3_guo                     8       8            serial|dmpar
+3        t44_liuz                    8       8            serial|dmpar
+4        radar_meixu                 8       8            serial|dmpar
+5        cwb_ascii                   8       8            serial|dmpar
+6        afwa_t7_ssmi                8       8            serial|dmpar
+7        t44_prepbufr                8       8            serial|dmpar
+8        ASR_prepbufr                8       8            serial|dmpar
+9        cwb_ascii_outerloop_rizvi   8       8            serial|dmpar
+10       sfc_assi_2_outerloop_guo    8       8            serial|dmpar
+11       outerloop_bench_guo         8       8            serial|dmpar
+12       outerloop_ztd_bench_guo     8       8            serial|dmpar
+13       tutorial_xinzhang_kmatrix   8       8            serial|dmpar
+14       tutorial_xinzhang_rttov     8       8            serial|dmpar
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      x86_64  loblolly    /loblolly2/kavulich/REGRESSION/WRFDA_V3.5.tar        gfortran         64000510  share   /loblolly2/kavulich/REGRESSION/WRFDA-data-341-small    /loblolly2/kavulich/REGRESSION/BASELINE.NEW.SMALL
+#INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
+1        tutorial_xinzhang           8       8            dmpar|serial
+2        cv3_guo                     8       8            dmpar|serial
+3        t44_liuz                    8       8            dmpar|serial
+4        radar_meixu                 8       8            dmpar|serial
+5        cwb_ascii                   8       8            dmpar|serial
+6        afwa_t7_ssmi                8       8            dmpar|serial
+7        t44_prepbufr                8       8            dmpar|serial
+##8        ASR_prepbufr                8       8            dmpar|serial
+9        cwb_ascii_outerloop_rizvi   8       8            dmpar|serial
+10       sfc_assi_2_outerloop_guo    8       8            dmpar|serial
+11       outerloop_bench_guo         8       8            dmpar|serial
+12       outerloop_ztd_bench_guo     8       8            dmpar|serial
+13       tutorial_xinzhang_kmatrix   8       8            dmpar|serial
+14       tutorial_xinzhang_rttov     8       8            dmpar|serial
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      x86_64  loblolly    /loblolly2/kavulich/REGRESSION/standardized_trunk_test.tar        pgi         64000510  share   /loblolly2/kavulich/REGRESSION/WRFDA-data-341-small    /loblolly2/kavulich/REGRESSION/BASELINE.NEW.SMALL
+#INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
+1        tutorial_xinzhang           8       8            dmpar|serial
+2        cv3_guo                     8       8            dmpar|serial
+3        t44_liuz                    8       8            dmpar|serial
+4        radar_meixu                 8       8            dmpar|serial
+5        cwb_ascii                   8       8            dmpar|serial
+6        afwa_t7_ssmi                8       8            dmpar|serial
+7        t44_prepbufr                8       8            dmpar|serial
+8        ASR_prepbufr                8       8            dmpar|serial
+9        cwb_ascii_outerloop_rizvi   8       8            dmpar|serial
+10       sfc_assi_2_outerloop_guo    8       8            dmpar|serial
+11       outerloop_bench_guo         8       8            dmpar|serial
+12       outerloop_ztd_bench_guo     8       8            dmpar|serial
+13       tutorial_xinzhang_kmatrix   8       8            dmpar|serial
+#14       tutorial_xinzhang_rttov     8       8            dmpar|serial
+############################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      i686  NA    /loblolly/kavulich/wrfda.tar        ifort         64000510  share   /loblolly/kavulich/WRFDA-data-EM    /loblolly/kavulich/BASELINE
+#INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
+1        tutorial_xinzhang           8       8            serial|dmpar
+2        cv3_guo                     8       8            serial|dmpar
+3        t44_liuz                    8       8            serial|dmpar
+4        radar_meixu                 8       8            serial|dmpar
+5        cwb_ascii                   8       8            serial|dmpar
+6        afwa_t7_ssmi                8       8            serial|dmpar
+7        t44_prepbufr                8       8            serial|dmpar
+8        ASR_prepbufr                8       8            serial|dmpar
+9        cwb_ascii_outerloop_rizvi   8       8            serial|dmpar
+10       sfc_assi_2_outerloop_guo    8       8            serial|dmpar
+11       outerloop_bench_guo         8       8            serial|dmpar
+12       outerloop_ztd_bench_guo     8       8            serial|dmpar
+13       tutorial_xinzhang_kmatrix   8       8            serial|dmpar
+14       tutorial_xinzhang_rttov     8       8            serial|dmpar
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      i686  NA    /loblolly2/kavulich/REGRESSION/WRFDA_V3.5.tar        gfortran         64000510  share   /loblolly2/kavulich/REGRESSION/WRFDA-data-341-small    /loblolly2/kavulich/REGRESSION/BASELINE.NEW.SMALL
+#INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
+1        tutorial_xinzhang           8       8            dmpar|serial
+2        cv3_guo                     8       8            dmpar|serial
+3        t44_liuz                    8       8            dmpar|serial
+4        radar_meixu                 8       8            dmpar|serial
+5        cwb_ascii                   8       8            dmpar|serial
+6        afwa_t7_ssmi                8       8            dmpar|serial
+7        t44_prepbufr                8       8            dmpar|serial
+##8        ASR_prepbufr                8       8            dmpar|serial
+9        cwb_ascii_outerloop_rizvi   8       8            dmpar|serial
+10       sfc_assi_2_outerloop_guo    8       8            dmpar|serial
+11       outerloop_bench_guo         8       8            dmpar|serial
+12       outerloop_ztd_bench_guo     8       8            dmpar|serial
+13       tutorial_xinzhang_kmatrix   8       8            dmpar|serial
+14       tutorial_xinzhang_rttov     8       8            dmpar|serial
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Linux      i686  NA    /loblolly2/kavulich/REGRESSION/standardized_trunk_test.tar        pgi         64000510  share   /loblolly2/kavulich/REGRESSION/WRFDA-data-341-small    /loblolly2/kavulich/REGRESSION/BASELINE.NEW.SMALL
+#INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
+1        tutorial_xinzhang           8       8            dmpar|serial
+2        cv3_guo                     8       8            dmpar|serial
+3        t44_liuz                    8       8            dmpar|serial
+4        radar_meixu                 8       8            dmpar|serial
+5        cwb_ascii                   8       8            dmpar|serial
+6        afwa_t7_ssmi                8       8            dmpar|serial
+7        t44_prepbufr                8       8            dmpar|serial
+8        ASR_prepbufr                8       8            dmpar|serial
+9        cwb_ascii_outerloop_rizvi   8       8            dmpar|serial
+10       sfc_assi_2_outerloop_guo    8       8            dmpar|serial
+11       outerloop_bench_guo         8       8            dmpar|serial
+12       outerloop_ztd_bench_guo     8       8            dmpar|serial
+13       tutorial_xinzhang_kmatrix   8       8            dmpar|serial
+#14       tutorial_xinzhang_rttov     8       8            dmpar|serial
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Darwin     x86_64  NA    wrfda.tar        pgi         64000510  share   /data3/mp/wrfhelp/data//WRFDA-data-EM    /data3/mp/wrfhelp/data//BASELINE
+#INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
+#1        tutorial_xinzhang           4       4            serial|dmpar
+#2        cv3_guo                     4       4            serial|dmpar
+3        t44_liuz                    4       4            dmpar
+#4        radar_meixu                 4       4            serial|dmpar
+#5        cwb_ascii                   4       4            serial|dmpar
+6        afwa_t7_ssmi                4       4            dmpar
+7        t44_prepbufr                4       4            dmpar
+8        ASR_prepbufr                4       4            dmpar
+#9        cwb_ascii_outerloop_rizvi   4       4            serial|dmpar
+10       sfc_assi_2_outerloop_guo    4       4            dmpar
+#11       outerloop_bench_guo         4       4            serial|dmpar
+#12       outerloop_ztd_bench_guo     4       4            serial|dmpar
+#13       tutorial_xinzhang_kmatrix   4       4            serial|dmpar
+#14       tutorial_xinzhang_rttov     4       4            serial|dmpar
+###########################################################################################
+#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
+Darwin     x86_64  NA    wrfda.tar        g95         64000510  share   /data3/mp/wrfhelp/data//WRFDA-data-EM    /data3/mp/wrfhelp/data//BASELINE
+#INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
+#1        tutorial_xinzhang           4       4            serial
+#2        cv3_guo                     4       4            serial|dmpar
+#3        t44_liuz                    4       4            dmpar
+#4        radar_meixu                 4       4            serial|dmpar
+5        cwb_ascii                   4       4            serial|dmpar
+#6        afwa_t7_ssmi                4       4            dmpar
+#7        t44_prepbufr                4       4            dmpar
+#8        ASR_prepbufr                4       4            dmpar
+#9        cwb_ascii_outerloop_rizvi   4       4            serial|dmpar
+#10       sfc_assi_2_outerloop_guo    4       4            serial|dmpar
+#11       outerloop_bench_guo         4       4            serial|dmpar
+#12       outerloop_ztd_bench_guo     4       4            serial|dmpar
+#13       tutorial_xinzhang_kmatrix   4       4            serial
+#14       tutorial_xinzhang_rttov     4       4            serial
+###########################################################################################

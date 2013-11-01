@@ -1,0 +1,36 @@
+#!/usr/bin/perl -w
+# Created March 27, 2013, Mike Kavulich. 
+# No rights reserved, user is free to modify and distribute as they wish.
+use File::Compare;
+
+
+if ( @ARGV ) {
+    print "$ARGV[0]\n";
+} else {
+    my @files = `find . -maxdepth 2 -follow -name "wrfvar_output.*"`;
+    print "$files[0]\n";
+}
+die "THIS IS THE END!!!\n";
+
+my @files = `find . -maxdepth 2 -follow -name "wrfvar_output.*"`;
+
+my $loopnum = 0;
+
+foreach $filename (@files) {
+   $loopnum ++;
+   chomp $filename;
+   next if ($filename =~ m/BASELINE/i);
+
+   my @fileparts = split('/',$filename);
+
+   unless ( compare ("$filename","BASELINE.NEW/$fileparts[2]") ) {
+      print "\n  'BASELINE.NEW/$fileparts[2]' \nAND \n  '$filename' \nARE EQUAL, DOING NOTHING.\n";
+      next ;
+   }
+   
+   `cp BASELINE.NEW/$fileparts[2] BASELINE.NEW.BACKUP`;
+   `cp $filename BASELINE.NEW`;
+   print "'$filename' copied to BASELINE.NEW, old baseline file backed up to BASELINE.NEW.BACKUP\n";
+
+}
+
