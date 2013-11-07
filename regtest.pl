@@ -553,7 +553,7 @@ if ($Type =~ /3DVAR/i) {
        }
 
 
-       # Rename the da_wrfvar.exe:
+       # Rename executables:
 
        rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}"
            or die "Program da_wrfvar.exe not created: check your compilation log.\n";
@@ -756,7 +756,7 @@ if ($Type =~ /4DVAR/i) {
        }
 
 
-       # Rename the da_wrfvar.exe:
+       # Rename the executables:
        rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}"
            or die "Program da_wrfvar.exe not created: check your compilation log.\n";
 
@@ -1152,11 +1152,59 @@ sub new_job_ys {
      if ($types =~ /OBSPROC/i) {
          printf "types: $types\n";
          $types =~ s/OBSPROC//i;
+         $types =~ s/^\|//;
+         $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
          printf "New types: $types\n";
+
+         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
+         printf "Creating OBSPROC job: $nam, $par\n";
+
+
+         # Generate the LSF job script         
+         unlink "job_${nam}_obsproc_$par.csh" if -e 'job_$nam_$par.csh';
+         open FH, ">job_${nam}_obsproc_$par.csh" or die "Can not open job_${nam}_obsproc_$par.csh to write. $! \n";
+
+         print FH '#!/bin/csh'."\n";
+         print FH '#',"\n";
+         print FH '# LSF batch script'."\n";
+         print FH '#'."\n";
+         print FH "#BSUB -J $nam"."\n";
+         # Don't use multiple processors for obsproc
+         print FH "#BSUB -q ".$Queue."\n";
+         printf FH "#BSUB -n 1\n";
+         print FH "#BSUB -o job_${nam}_obsproc_$par.output"."\n";
+         print FH "#BSUB -e job_${nam}_obsproc_$par.error"."\n";
+         print FH "#BSUB -W 20"."\n";
+         print FH "#BSUB -P $Project"."\n";
+         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
+         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
+                                                    1 : (($cpun < 16 ) ? $cpun : 16);
+         print FH "\n";
+
+         print FH "$MainDir/WRFDA_3DVAR/var/obsproc/src/obsproc.exe\n";
+
+         print FH "\n";
+         unless (-e "ob.ascii") {print FH "cp -f obs_gts_*.3DVAR ob.ascii\n"};
+         print FH "\n";
+
+         close (FH);
+
+         # Submit the job
+
+         $feedback = ` bsub < job_${nam}_obsproc_$par.csh 2>/dev/null `;
+
+
+         # Return to the upper directory
+          chdir ".." or die "Cannot chdir to .. : $!\n";
+
+
      } elsif ($types =~ /3DVAR/i) {
          printf "types: $types\n";
          $types =~ s/3DVAR//i;
+         $types =~ s/^\|//;
+         $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
          printf "New types: $types\n";
          
@@ -1209,6 +1257,8 @@ sub new_job_ys {
      } elsif ($types =~ /4DVAR/i) {
          printf "types: $types\n";
          $types =~ s/4DVAR//i;
+         $types =~ s/^\|//;
+         $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
          printf "New types: $types\n";
 
@@ -1351,7 +1401,7 @@ sub submit_job {
             $Experiments{$name}{paropt}{$par}{status} = "running";
             &flush_status (); # refresh the status
             my $rc = &new_job ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
-                                $Experiments{$name}{cpu_openmp},$Experiments{$name}{test_type} );
+                                $Experiments{$name}{cpu_openmp},$Experiments{$name}{paropt}{$par}{queue} );
             if (defined $rc) { 
                 $Experiments{$name}{paropt}{$par}{endtime} = gettimeofday(); # set the end time for this job.
                 $Experiments{$name}{paropt}{$par}{walltime} = 
@@ -1432,7 +1482,7 @@ sub submit_job_ys {
 
                      next if $Experiments{$name}{status} eq "close";      #  skip if this experiment already has a job running.
                          my $rc = &new_job_ys ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
-                                         $Experiments{$name}{cpu_openmp},$Experiments{$name}{test_type} );
+                                         $Experiments{$name}{cpu_openmp},$Experiments{$name}{paropt}{$par}{queue} );
 
                      if (defined $rc) {
                          $Experiments{$name}{paropt}{$par}{jobid} = $rc ;    # assign the jobid.
@@ -1443,6 +1493,7 @@ sub submit_job_ys {
                          } else {
                              printf "%-10s job for %-30s was submitted to queue '$Queue' with jobid: %10d \n", $par, $name, $rc;
                          }
+
                      } else {
                          $Experiments{$name}{paropt}{$par}{status} = "error";
                          $Experiments{$name}{paropt}{$par}{compare} = "Job submit failed";
@@ -1473,19 +1524,27 @@ sub submit_job_ys {
                  # Job is finished.
                  my $bhist = `bhist $Experiments{$name}{paropt}{$par}{jobid}`;
                  my @jobhist = split('\s+',$bhist);
-                 $Experiments{$name}{paropt}{$par}{walltime} = $jobhist[24];
+                 if ($Experiments{$name}{paropt}{$par}{walltime} == 0) {
+                     $Experiments{$name}{paropt}{$par}{walltime} = $jobhist[24];
+                 } else {
+                     $Experiments{$name}{paropt}{$par}{walltime} = "$Experiments{$name}{paropt}{$par}{walltime}/$jobhist[24]";
+                 }
                  
-                 printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
-
 
                  if ($Experiments{$name}{paropt}{$par}{queue}) {
                      print "$Experiments{$name}{paropt}{$par}{queue}\n";
                      delete $Experiments{$name}{paropt}{$par}{jobid};       # Delete the jobid.
-                     die "Not okay, this is bad.\n" 
+                     $Experiments{$name}{paropt}{$par}{status} = "pending";    # Still more tasks for this job.
+
+                     printf "First task of %-10s job for %-30s took %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
+
+
                  } else {
                      delete $Experiments{$name}{paropt}{$par}{jobid};       # Delete the jobid.
                      $remain_par{$name} -- ;                               # Delete the count of jobs for this experiment.
                      $Experiments{$name}{paropt}{$par}{status} = "done";    # Done this job.
+
+                     printf "%-10s job for %-30s was completed in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
 
                      # Wrap-up this job:
 
