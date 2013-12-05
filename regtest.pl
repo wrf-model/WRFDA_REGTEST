@@ -306,7 +306,7 @@ if ($Par_4dvar =~ /serial/i) {
     $Par_4dvar =~ s/serial\|//g;
     $Par_4dvar =~ s/\|serial//g;
     $Par_4dvar =~ s/serial//g;
-    wait 1
+    sleep 1;
 }
 
 
