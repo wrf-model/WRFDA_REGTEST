@@ -33,6 +33,17 @@ my $Debug_defined;
 my $Parallel_compile;
 my $Revision = 'HEAD'; # Revision Number
 
+#This little bit makes sure the input arguments are formatted correctly
+foreach ( @ARGV ) {
+  my $arg = $_;
+  my $first_two = substr($arg, 0, 2); 
+  unless ($first_two eq "--") {
+    print "\n Unknown option: $arg \n";
+    &print_help_and_die;
+  }
+}
+
+
 GetOptions( "compiler=s" => \$Compiler_defined,
             "source:s" => \$Source_defined, 
             "revision:s" => \$Revision,
@@ -49,13 +60,13 @@ unless ( defined $Compiler_defined ) {
 
 sub print_help_and_die {
   print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
-                              --exec=[no]/yes --debug=[no]/yes --j=NUM_PROCS\n";
+                              --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS\n";
   print "        compiler: Compiler name (supported options: xlf, pgi, g95, ifort, gfortran)\n";
   print "        source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository\n";
   print "        revision: Specify code revision to retrieve (only works when '--source=SVN' specified\n";
   print "        upload:   Uploads summary to web\n";
   print "        exec:     Execute only; skips compile, utilizes existing executables\n\n";
-  print "        debug:    Compile with minimal optimization\n";
+  print "        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well\n";
   print "        j:        Number of processors to use in parallel compile (default 2)\n";
   print "Please note:\n";
   die "A compiler MUST be specified to run this script. Other options are optional.\n";
@@ -69,10 +80,14 @@ if (defined $Exec_defined && $Exec_defined ne 'no') {
    $Exec = 0;
 }
 my $Debug;
-if (defined $Debug_defined && $Debug_defined ne 'no') {
+if (defined $Debug_defined && $Debug_defined eq 'super') {
+   $Debug = 2;
+} elsif (defined $Debug_defined && $Debug_defined eq 'yes') {
    $Debug = 1;
-} else {
+} elsif ( !(defined $Debug_defined) || $Debug_defined eq 'no') {
    $Debug = 0;
+} else {
+   die "Invalid debug option specified ('$Debug_defined'); valid options are 'no', 'yes', or 'super'";
 }
 
 my $Parallel_compile_num;
@@ -287,9 +302,11 @@ while (<DATA>) {
 
 
 if ($Par_4dvar =~ /serial/i) {
-    print "Note: 4DVAR serial builds not supported. Will not compile 4DVAR for serial.\n";
+    print "\nNOTE: 4DVAR serial builds not supported. Will not compile 4DVAR for serial.\n\n";
     $Par_4dvar =~ s/serial\|//g;
     $Par_4dvar =~ s/\|serial//g;
+    $Par_4dvar =~ s/serial//g;
+    wait 1
 }
 
 
@@ -505,7 +522,9 @@ if ($Type =~ /3DVAR/i) {
        # configure wrfda
        my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
        die "clean -a exited with error $!\n" unless $status == 0;
-       if ( $Debug ) {
+       if ( $Debug == 2 ) {
+         $pid = open2($readme, $writeme, './configure','-D','wrfda');
+       } elsif ( $Debug == 1 ) {
          $pid = open2($readme, $writeme, './configure','-d','wrfda');
        } else {
          $pid = open2($readme, $writeme, './configure','wrfda');
@@ -530,7 +549,11 @@ if ($Type =~ /3DVAR/i) {
        }
 
        # compile all_wrfvar
-       printf "Compiling in debug mode, compilation optimizations turned off.\n" unless ( !$Debug );
+       if ( $Debug == 2 ) {
+         printf "Compiling in super-debug mode, compilation optimizations turned off, debugging features turned on.\n";
+       } elsif ( $Debug == 1 ) {
+         printf "Compiling in debug mode, compilation optimizations turned off.\n";
+       }
        printf "Compiling WRFDA_3DVAR with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
        my $begin_time = gettimeofday();
        open FH, ">compile.log.$Compile_options{$option}" or die "Can not open file compile.log.$Compile_options{$option}.\n";
@@ -720,7 +743,9 @@ if ($Type =~ /4DVAR/i) {
        # configure 4dvar
        my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
        die "clean -a exited with error $!\n" unless $status == 0;
-       if ( $Debug ) {
+       if ( $Debug == 2 ) {
+         $pid = open2($readme, $writeme, './configure','-D','4dvar');
+       } elsif ( $Debug == 1 ) {
          $pid = open2($readme, $writeme, './configure','-d','4dvar');
        } else {
          $pid = open2($readme, $writeme, './configure','4dvar');
@@ -732,7 +757,11 @@ if ($Type =~ /4DVAR/i) {
        close ($writeme);
 
        # compile all_wrfvar
-       printf "Compiling in debug mode, compilation optimizations turned off.\n" unless ( !$Debug );
+       if ( $Debug == 2 ) {
+         printf "Compiling in super-debug mode, compilation optimizations turned off, debugging features turned on.\n";
+       } elsif ( $Debug == 1 ) {
+         printf "Compiling in debug mode, compilation optimizations turned off.\n";
+       }
        printf "Compiling WRFDA_4DVAR with %10s for %6s ....\n", $Compiler, $Compile_options_4dvar{$option};
        my $begin_time = gettimeofday();
        open FH, ">compile.log.$Compile_options_4dvar{$option}" or die "Can not open file compile.log.$Compile_options_4dvar{$option}.\n";
@@ -975,7 +1004,7 @@ sub create_webpage {
             print WEBH '<td>'.$Experiments{$name}{cpu_mpi}.'</td>'."\n";
             print WEBH '<td>'.$Experiments{$name}{cpu_openmp}.'</td>'."\n";
             print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{status}.'</td>'."\n";
-            printf WEBH '<td>'."%7.1f".'</td>'."\n",
+            printf WEBH '<td>'."%5d".'</td>'."\n",
                          $Experiments{$name}{paropt}{$par}{walltime};
             print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{compare}.'</td>'."\n";
             print WEBH '</tr>'."\n";
@@ -1150,12 +1179,12 @@ sub new_job_ys {
 #         $Experiments{$nam}{paropt}{$par}{queue} = $types;
 #         printf "New types: $types\n";
      if ($types =~ /OBSPROC/i) {
-         printf "types: $types\n";
+#         printf "types: $types\n";
          $types =~ s/OBSPROC//i;
          $types =~ s/^\|//;
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
-         printf "New types: $types\n";
+#         printf "New types: $types\n";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
@@ -1201,12 +1230,12 @@ sub new_job_ys {
 
 
      } elsif ($types =~ /3DVAR/i) {
-         printf "types: $types\n";
+#         printf "types: $types\n";
          $types =~ s/3DVAR//i;
          $types =~ s/^\|//;
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
-         printf "New types: $types\n";
+#         printf "New types: $types\n";
          
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
@@ -1255,12 +1284,10 @@ sub new_job_ys {
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
      } elsif ($types =~ /4DVAR/i) {
-         printf "types: $types\n";
          $types =~ s/4DVAR//i;
          $types =~ s/^\|//;
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
-         printf "New types: $types\n";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
@@ -1527,7 +1554,7 @@ sub submit_job_ys {
                  if ($Experiments{$name}{paropt}{$par}{walltime} == 0) {
                      $Experiments{$name}{paropt}{$par}{walltime} = $jobhist[24];
                  } else {
-                     $Experiments{$name}{paropt}{$par}{walltime} = "$Experiments{$name}{paropt}{$par}{walltime}/$jobhist[24]";
+                     $Experiments{$name}{paropt}{$par}{walltime} = $Experiments{$name}{paropt}{$par}{walltime} + $jobhist[24];
                  }
                  
 
