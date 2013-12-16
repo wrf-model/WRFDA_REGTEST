@@ -1,0 +1,12 @@
+j=4; Version 3.5
+---------------------
+
+Job 3DVAR_serial (job number 198768) is finished!                                                                                            
+ It took 698 seconds                                                                                                                         
+Job 3DVAR_dmpar (job number 198771) is finished!                                                                                             
+ It took 728 seconds                                                                                                                         
+Job 4DVAR_dmpar (job number 198774) is finished!                                                                                             
+ It took 849 seconds                                                                                                                         
+
+
+

@@ -2,6 +2,7 @@
 # Author  : Xin Zhang, MMM/NCAR, 8/17/2009
 # Updates : March 2013, adapted for Loblolly (PC) and Yellowstone (Mike Kavulich) 
 #           August 2013, added 4DVAR test capability (Mike Kavulich)
+#           December 2013, added parallel/batch build capability (Mike Kavulich)
 #
 #
 
@@ -94,9 +95,10 @@ my $Parallel_compile_num;
 if (defined $Parallel_compile) {
    $Parallel_compile_num = $Parallel_compile;
 } else {
-   $Parallel_compile_num = 2;
+   $Parallel_compile_num = 1;
 }
 
+if ( $Parallel_compile_num > 16 ) {die "Can not parallel compile using more than 16 processors; set j<=16\n"};
 
 # Constant variables
 my $SVN_REP = 'https://svn-wrf-model.cgd.ucar.edu/trunk';
@@ -111,6 +113,8 @@ my $CCompiler;
 my $Project;
 my $Source;
 my $Queue;
+my $Compile_queue = 'caldera';
+my $compile_job_list = "";
 my $Database;
 my $Baseline;
 my $MainDir;
@@ -170,7 +174,7 @@ my %Experiments ;
 #########################################################
 my %Compile_options;
 my %Compile_options_4dvar;
-
+my %compile_job_array;
 
 # What's my name?
 
@@ -321,8 +325,21 @@ foreach my $name (keys %Experiments) {
 
 }
 
-
+# If source specified on command line, use it
 $Source = $Source_defined if defined $Source_defined;
+
+
+# If specified paths are relative then point them to the full path
+if ( !($Source =~ /^\//) ) {
+   unless ($Source eq "SVN") {$Source = $MainDir."/".$Source};
+}
+if ( !($Database =~ /^\//) ) {
+   $Database = $MainDir."/".$Database;
+}
+if ( !($Baseline =~ /^\//) ) {
+   $Baseline = $MainDir."/".$Baseline;
+}
+
 
 printf "Finished parsing the table, the experiments are : \n";
 printf "#INDEX   EXPERIMENT                   TYPE                      CPU_MPI    CPU_OPENMP   PAROPT\n";
@@ -351,91 +368,31 @@ if ($Arch eq "Linux") {
    $min += 100;     $min = sprintf("%02d", $min % 100);
    $sec += 100;     $sec = sprintf("%02d", $sec % 100);
 
-# Get the codes:
+# If exec=yes, collect version info and skip compilation
 if ($Exec) {
-     if ($Type =~ /4DVAR/i) {
-         $Revision = `svnversion WRFDA_4DVAR`;
-     } else {
-         $Revision = `svnversion WRFDA_3DVAR`;
-     }
-     chomp($Revision);
-     goto "SKIP_COMPILE";
+   if ( ($Type =~ /4DVAR/i) && ($Type =~ /3DVAR/i) ) {
+      if ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /dmpar/i) ) {
+         my $Revision3 = `svnversion WRFDA_3DVAR_dmpar`;
+         my $Revision4 = `svnversion WRFDA_4DVAR_dmpar`;
+         die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
+         $Revision = `svnversion WRFDA_3DVAR_dmpar`;
+      }
+   } elsif ($Type =~ /4DVAR/i) {
+      $Revision = `svnversion WRFDA_4DVAR_dmpar`;
+   } else {
+      if ( $Par =~ /dmpar/i ) {
+         $Revision = `svnversion WRFDA_3DVAR_dmpar`;
+      } else {
+         $Revision = `svnversion WRFDA_3DVAR_serial`;
+      }
+   }
+   chomp($Revision);
+   goto "SKIP_COMPILE";
 }
 
-unless ($Machine_name =~ /yellowstone/i) {$ENV{J}="-j $Parallel_compile_num"};
+# Set necessary environment variables for compilation
 
-
-#######################  BEGIN COMPILE 3DVAR  ########################
-if ($Type =~ /3DVAR/i) {
-  if ( -e 'WRFDA_3DVAR' && -r 'WRFDA_3DVAR' ) {
-       printf "Deleting the old WRFDA_3DVAR directory ... \n";
-       rmtree ('WRFDA_3DVAR') or die "Can not rmtree WRFDA_3DVAR :$!\n";
-  }
-
-  if ($Source eq "SVN") {
-       print "Getting the code from repository $SVN_REP to WRFDA_3DVAR...\n";
-       open (my $fh,"-|","svn","co","-r",$Revision,$SVN_REP,"WRFDA_3DVAR")
-            or die " Can't run svn export: $!\n";
-       while (<$fh>) {
-           $Revision = $1 if ( /revision \s+ (\d+)/x); 
-       }
-       close ($fh);
-       printf "Revision %5d is exported to WRFDA_3DVAR.\n",$Revision;
-  } else {
-       print "Getting the code from $Source to WRFDA_3DVAR...\n";
-       ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
-       ! system("mv", "WRFDA", "WRFDA_3DVAR") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR': $!\n";
-  }
-
-  # Check the revision number:
-
-  $Revision = `svnversion WRFDA_3DVAR`;
-  chomp($Revision);
- 
-  # Change the working directory to WRFDA:
-
-  chdir "WRFDA_3DVAR" or die "Cannot chdir to WRFDA_3DVAR: $!\n";
-
-
-  # Locate the compile options base on the $compiler:
-  my $pid = open2( my $readme, my $writeme, './configure','wrfda');
-  print $writeme "1\n";
-  my @output = <$readme>;
-  waitpid($pid,0);
-  close ($readme);
-  close ($writeme);
-
-  # Add a slash before + in $Par :
-  $Par =~ s/\+/\\+/g;
-
-
-  foreach (@output) {
-    if ( ($Machine_name eq "yellowstone") ) {
-       if ($Compiler eq "gfortran" ) {
-          if ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($Par) .*/ix) {
-             $Compile_options{$1} = $2;
-          }
-       } else {
-          if ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* YELLOWSTONE .* ($Par) .*/ix) {
-             $Compile_options{$1} = $2;
-          }
-       }
-    } else {
-       if ( ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($Par) .*/ix) &&
-            ! ($_=~/Cray/i) &&
-            ! ($_=~/PGI accelerator/i) &&
-            ! ($_=~/SGI MPT/i)  ) {
-           $Compile_options{$1} = $2;
-       }
-    }
-  }
-
-
-  printf "Found 3DVAR compilation option for %6s, option %2d.\n",$Compile_options{$_}, $_ for (sort keys %Compile_options);
-
-  die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" if ( (keys %Compile_options) == 0 );
-
-  # Set the envir. variables:
+$ENV{J}="-j $Parallel_compile_num";
 
   if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
@@ -457,7 +414,7 @@ if ($Type =~ /3DVAR/i) {
                  print "$RTTOV_dir DOES NOT EXIST\n";
                  print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
               }
-          } elsif ($Compiler=~/pgi/i) {   # PGI 
+          } elsif ($Compiler=~/pgi/i) {   # PGI
 
               my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_pgi_$Compiler_version";
               if (-d $RTTOV_dir) {
@@ -473,7 +430,6 @@ if ($Type =~ /3DVAR/i) {
               $ENV{CRTM}='1';
               $ENV{BUFR}='1';
                  print "RTTOV Libraries have not yet been compiled\nRTTOV tests will fail!\n";
-#              $ENV{RTTOV} ='/loblolly2/kavulich/REGRESSION/rttov101/pgi/';
               $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-4.1.3-pgf90-pgcc';
           }
           if ($Compiler=~/ifort/i) {   # INTEL
@@ -484,7 +440,6 @@ if ($Type =~ /3DVAR/i) {
           if ($Compiler=~/gfortran/i) {   # GFORTRAN
               $ENV{CRTM}='1';
               $ENV{BUFR}='1';
-#              $ENV{RTTOV} ='/loblolly/kavulich/libs/rttov-10.1/gnu';
                  print "RTTOV Libraries have not yet been compiled\nRTTOV tests will fail!\n";
               $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-3.6.3-gfortran-gcc';
               $ENV{GFORTRAN_CONVERT_UNIT}='little_endian:94-99';
@@ -503,6 +458,7 @@ if ($Type =~ /3DVAR/i) {
           }
       }
   }
+
   if ($Arch eq "Darwin") {   # Darwin
       if ($Compiler=~/g95/i) {   # G95
           $ENV{CRTM} ='1';
@@ -516,86 +472,227 @@ if ($Type =~ /3DVAR/i) {
   }
 
 
-  # Compile the code:
 
-  foreach my $option (sort keys %Compile_options) {
-       # configure wrfda
-       my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
-       die "clean -a exited with error $!\n" unless $status == 0;
-       if ( $Debug == 2 ) {
-         $pid = open2($readme, $writeme, './configure','-D','wrfda');
-       } elsif ( $Debug == 1 ) {
-         $pid = open2($readme, $writeme, './configure','-d','wrfda');
-       } else {
-         $pid = open2($readme, $writeme, './configure','wrfda');
+
+#######################  BEGIN COMPILE 3DVAR  ########################
+if ($Type =~ /3DVAR/i) {
+#  my @par_type = split /\|/, $Par;
+
+  foreach (split /\|/, $Par) { #foreach1
+       my $par_type = $_;
+
+       if ( -e "WRFDA_3DVAR_$par_type" && -r "WRFDA_3DVAR_$par_type" ) {
+            printf "Deleting the old WRFDA_3DVAR_$par_type directory ... \n";
+            rmtree ("WRFDA_3DVAR_$par_type") or die "Can not rmtree WRFDA_3DVAR_$par_type :$!\n";
        }
-       print $writeme "$option\n";
-       @output = <$readme>;
+
+       if ($Source eq "SVN") {
+            print "Getting the code from repository $SVN_REP to WRFDA_3DVAR_$par_type...\n";
+            open (my $fh,"-|","svn","co","-r",$Revision,$SVN_REP,"WRFDA_3DVAR_$par_type")
+                 or die " Can't run svn export: $!\n";
+            while (<$fh>) {
+                $Revision = $1 if ( /revision \s+ (\d+)/x); 
+            }
+            close ($fh);
+            printf "Revision %5d is exported to WRFDA_3DVAR_$par_type.\n",$Revision;
+       } else {
+            print "Getting the code from $Source to WRFDA_3DVAR_$par_type...\n";
+            ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
+            ! system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
+       }
+
+       # Check the revision number:
+
+       $Revision = `svnversion WRFDA_3DVAR_$par_type`;
+       chomp($Revision);
+ 
+       # Change the working directory to WRFDA:
+     
+       chdir "WRFDA_3DVAR_$par_type" or die "Cannot chdir to WRFDA_3DVAR_$par_type: $!\n";
+
+
+       # Locate the compile options base on the $compiler:
+       my $pid = open2( my $readme, my $writeme, './configure','wrfda','2>/dev/null');
+       print $writeme "1\n";
+       my @output = <$readme>;
        waitpid($pid,0);
        close ($readme);
        close ($writeme);
 
-       if (($Arch eq "Linux") && ($Compiler =~ /pgi/i) && ($Compile_options{$option} =~ /sm/i)) {
-           open FHCONF, "<configure.wrf" or die "Where is configure.wrf: $!\n"; 
-           open FH, ">configure.wrf.new" or die "Cannot open configure.wrf.new: $!\n"; 
-           while ($_ = <FHCONF>) { 
-               $_ =~ s/-mp/-mp=nonuma/;
-               print FH $_;
-           }
-           close (FHCONF);
-           close (FH);
 
-           rename "configure.wrf.new", "configure.wrf";
-       }
+#       # Add a slash before + in $Par !!! Needed if we support dm+sm in the future !!!
+#       $Par =~ s/\+/\\+/g;
 
-       # compile all_wrfvar
-       if ( $Debug == 2 ) {
-         printf "Compiling in super-debug mode, compilation optimizations turned off, debugging features turned on.\n";
-       } elsif ( $Debug == 1 ) {
-         printf "Compiling in debug mode, compilation optimizations turned off.\n";
-       }
-       printf "Compiling WRFDA_3DVAR with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
-       my $begin_time = gettimeofday();
-       open FH, ">compile.log.$Compile_options{$option}" or die "Can not open file compile.log.$Compile_options{$option}.\n";
-       $pid = open (PH, "./compile all_wrfvar 2>&1 |");
-       while (<PH>) {
-           print FH;
-       }
-       close (PH);
-       close (FH);
-       my $end_time = gettimeofday();
+       my $option;
 
-       # Check if the compilation is successful:
-
-       my @exefiles = glob ("var/build/*.exe");
-
-       die "The number of exe files is less than 42. \n" if (@exefiles < 42);
-
-       foreach ( @exefiles ) {
-           warn "The exe file $_ has problem. \n" unless -s ;
+       foreach (@output) {
+         if ( ($Machine_name eq "yellowstone") ) {
+            if ($Compiler eq "gfortran" ) {
+               if ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($par_type) .*/ix) {
+                  $Compile_options{$1} = $2;
+                  $option = $1;
+#                  print "1 = $1 \n2 = $2 \n";
+               }
+            } else {
+               if ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* YELLOWSTONE .* ($par_type) .*/ix) {
+                  $Compile_options{$1} = $2;
+                  $option = $1;
+#                  print "1 = $1 \n2 = $2 \n";
+               }
+            }
+         } else {
+            if ( ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($par_type) .*/ix) &&
+                 ! ($_=~/Cray/i) &&
+                 ! ($_=~/PGI accelerator/i) &&
+                 ! ($_=~/SGI MPT/i)  ) {
+                $Compile_options{$1} = $2;
+                $option = $1;
+            }
+         }
        }
 
 
-       # Rename executables:
+       printf "Found 3DVAR compilation option for %6s, option %2d.\n",$Compile_options{$option}, $option;
 
-       rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}"
-           or die "Program da_wrfvar.exe not created: check your compilation log.\n";
+       die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" if ( (keys %Compile_options) == 0 );
 
-       printf "Compilation of WRFDA_3DVAR with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
-           $Compiler, $Compile_options{$option}, ($end_time - $begin_time);
+       # Compile the code:
 
-       # Save the compilation log file
+        # configure wrfda
+        my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
+        die "clean -a exited with error $!\n" unless $status == 0;
+        if ( $Debug == 2 ) {
+            $pid = open2($readme, $writeme, './configure','-D','wrfda');
+        } elsif ( $Debug == 1 ) {
+            $pid = open2($readme, $writeme, './configure','-d','wrfda');
+        } else {
+            $pid = open2($readme, $writeme, './configure','wrfda','2>/dev/null');
+        }
+        print $writeme "$option\n";
+        @output = <$readme>;
+        waitpid($pid,0);
+        close ($readme);
+        close ($writeme);
 
-      if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
-          mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
-      }
-      copy( "compile.log.$Compile_options{$option}", "../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options{$option}\n../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec";
+        if (($Arch eq "Linux") && ($Compiler =~ /pgi/i) && ($Compile_options{$option} =~ /sm/i)) {
+            open FHCONF, "<configure.wrf" or die "Where is configure.wrf: $!\n"; 
+            open FH, ">configure.wrf.new" or die "Cannot open configure.wrf.new: $!\n"; 
+            while ($_ = <FHCONF>) { 
+                $_ =~ s/-mp/-mp=nonuma/;
+                print FH $_;
+            }
+            close (FHCONF);
+            close (FH);
 
-  }
+            rename "configure.wrf.new", "configure.wrf";
+        }
+
+        # compile all_wrfvar
+        if ( $Debug == 2 ) {
+            printf "Compiling in super-debug mode, compilation optimizations turned off, debugging features turned on.\n";
+        } elsif ( $Debug == 1 ) {
+            printf "Compiling in debug mode, compilation optimizations turned off.\n";
+        }
+
+        if ( ($Parallel_compile_num > 1) && ($Machine_name =~ /yellowstone/i) ) { 
+        printf "Submitting job to compile WRFDA_3DVAR_$par_type with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
+
+
+            # Generate the LSF job script
+            open FH, ">job_compile_3dvar_$Compile_options{$option}_opt${option}.csh" or die "Can not open job_compile_3dvar_${option}.csh to write. $! \n";
+            print FH '#!/bin/csh'."\n";
+            print FH '#',"\n";
+            print FH '# LSF batch script'."\n";
+            print FH '#'."\n";
+            print FH "#BSUB -J compile_3dvar_$Compile_options{$option}_opt${option}"."\n";
+            print FH "#BSUB -q ".$Compile_queue."\n";
+            print FH "#BSUB -n $Parallel_compile_num\n";
+            print FH "#BSUB -o job_compile_3dvar_$Compile_options{$option}_opt${option}.output"."\n";
+            print FH "#BSUB -e job_compile_3dvar_$Compile_options{$option}_opt${option}.error"."\n";
+            print FH "#BSUB -W 100"."\n";
+            print FH "#BSUB -P $Project"."\n";
+            printf FH "#BSUB -R span[ptile=%d]"."\n", $Parallel_compile_num;
+            print FH "\n";
+            print FH "./compile all_wrfvar >& compile.log.$Compile_options{$option}\n";
+            print FH "\n";
+            close (FH);
+
+ #           my $BSUB="bsub -K -q $Compile_queue -P $Project -n $Parallel_compile_num -a poe -W 100 -J compile_3dvar_$Compile_options{$option}_opt${option} -o job_compile_3dvar_$Compile_options{$option}_opt${option}.out -e job_compile_3dvar_$Compile_options{$option}_opt${option}.err";
+
+            # Submit the job
+ 
+            my $submit_message;
+            $submit_message = `bsub < job_compile_3dvar_$Compile_options{$option}_opt${option}.csh`;
+
+#            print "Message= $submit_message";
+
+ #           # Put num processors and "compile" command in a file, then submit as a batch job. This bit partially stolen from Brian Bonnlander's WTF
+
+ #           open FH, ">job_compile_3dvar_$Compile_options{$option}_opt${option}.csh";
+ #           print FH "#!/bin/csh\n";;
+ #           print FH 'setenv J "-j '."$Parallel_compile_num".'"'."\n";
+ #           print FH "./compile all_wrfvar > compile_$Compile_options{$option}_opt${option}.log\n";
+ #           print FH 'date > EndTime_${COMPILE_TYPE}.txt';
+ #           close (FH);
+ 
+ #           echo $BSUB > $targetDir/submitCommand
+ #           `$BSUB < job_compile_3dvar_$Compile_options{$option}_opt${option}.csh`;
+
+            if ($submit_message =~ m/.*<(\d+)>/) {;
+                print "Job ID for 3DVAR $Compiler option $Compile_options{$option} is $1 \n";
+                $compile_job_array{$1} = "3DVAR_$Compile_options{$option}";
+                $compile_job_list = join('|',$compile_job_list,$1);
+#                print "compile_job_list = $compile_job_list\n";
+            } else {
+                die "\nFailed to submit 3DVAR compile job for $Compiler option $Compile_options{$option}!\n";
+            };
+
+        } else {
+        printf "Compiling WRFDA_3DVAR_$par_type with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
+
+            my $begin_time = gettimeofday();
+            open FH, ">compile.log.$Compile_options{$option}" or die "Can not open file compile.log.$Compile_options{$option}.\n";
+            $pid = open (PH, "./compile all_wrfvar 2>&1 |");
+            while (<PH>) {
+                print FH;
+            }
+            close (PH);
+            close (FH);
+            my $end_time = gettimeofday();
+
+            # Check if the compilation is successful:
+
+            my @exefiles = glob ("var/build/*.exe");
+
+            die "The number of exe files is less than 42. \n" if (@exefiles < 42);
+     
+            foreach ( @exefiles ) {
+                warn "The exe file $_ has problem. \n" unless -s ;
+            }
+     
+
+            # Rename executables:
+
+            rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}"
+                or die "Program da_wrfvar.exe not created: check your compilation log.\n";
+
+            printf "Compilation of WRFDA_3DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
+                $Compiler, $Compile_options{$option}, ($end_time - $begin_time);
+
+            # Save the compilation log file
+
+            if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+                mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+            }
+            copy( "compile.log.$Compile_options{$option}", "../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options{$option}\n../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec";
+      
+        }
 
   # Back to the upper directory:
-
   chdir ".." or die "Cannot chdir to .. : $!\n";
+
+  } #end foreach1
+
 
 #######################  END COMPILE 3DVAR  ########################
 
@@ -608,218 +705,272 @@ if ($Type =~ /4DVAR/i) {
 
   # Set WRFPLUS_DIR Environment variable
 
-
+   foreach (split /\|/, $Par_4dvar) { #foreach1
+      my $par_type = $_;
+      
   
-  my $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
-  chomp($WRFPLUSDIR);
-  $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
+      my $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
+      chomp($WRFPLUSDIR);
+      $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
 
 
 
-  # Get WRFDA code
+      # Get WRFDA code
 
-  if ( -e 'WRFDA_4DVAR' && -r 'WRFDA_4DVAR' ) {
-       printf "Deleting the old WRFDA_4DVAR directory ... \n";
-       rmtree ('WRFDA_4DVAR') or die "Can not rmtree WRFDA_4DVAR :$!\n";
-  }
+      if ( -e "WRFDA_4DVAR_$par_type" && -r "WRFDA_4DVAR_$par_type" ) {
+         printf "Deleting the old WRFDA_4DVAR_$par_type directory ... \n";
+         rmtree ("WRFDA_4DVAR_$par_type") or die "Can not rmtree WRFDA_4DVAR_$par_type :$!\n";
+      }
 
-  if ($Source eq "SVN") {
-       print "Getting the code from repository $SVN_REP to WRFDA...\n";
-       open (my $fh,"-|","svn","co","-r",$Revision,$SVN_REP,"WRFDA_4DVAR")
+      if ($Source eq "SVN") {
+         print "Getting the code from repository $SVN_REP to WRFDA_4DVAR_$par_type...\n";
+         open (my $fh,"-|","svn","co","-r",$Revision,$SVN_REP,"WRFDA_4DVAR_$par_type")
             or die " Can't run svn export: $!\n";
-       while (<$fh>) {
-           $Revision = $1 if ( /revision \s+ (\d+)/x);
-       }
-       close ($fh);
-       printf "Revision %5d is exported to WRFDA_4DVAR.\n",$Revision;
-  } else {
-       print "Getting the code from $Source to WRFDA_4DVAR...\n";
-       ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
-       ! system("mv", "WRFDA", "WRFDA_4DVAR") or die "Can not move 'WRFDA' to 'WRFDA_4DVAR': $!\n";
-  }
-
-  # Check the revision number:
-  $Revision = `svnversion WRFDA_4DVAR`;
-  chomp($Revision);
-
-  # Change the working directory to WRFDA:
-
-  chdir "WRFDA_4DVAR" or die "Cannot chdir to WRFDA_4DVAR: $!\n";
-
-  # Locate the compile options base on the $compiler:
-  my $pid = open2( my $readme, my $writeme, './configure','4dvar');
-  print $writeme "1\n";
-  my @output = <$readme>;
-  waitpid($pid,0);
-  close ($readme);
-  close ($writeme);
-  foreach (@output) {
-    if ( ($Machine_name eq "yellowstone") ) {
-       if ($Compiler eq "gfortran" ) {
-          if ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($Par_4dvar) .*/ix) {
-             $Compile_options_4dvar{$1} = $2;
-          }
-       } else {
-          if ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* YELLOWSTONE .* ($Par_4dvar) .*/ix) {
-             $Compile_options_4dvar{$1} = $2;
-          }
-       }
-    } else {
-       if ( ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($Par_4dvar) .*/ix) &&
-            ! ($_=~/Cray/i) &&
-            ! ($_=~/PGI accelerator/i) &&
-            ! ($_=~/SGI MPT/i)  ) {
-           $Compile_options_4dvar{$1} = $2;
-       }
-    }
-  }
-
-
-  printf "Found 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$_}, $_ for (sort keys %Compile_options_4dvar);
-
-  die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" if ( (keys %Compile_options_4dvar) == 0 );
-
-  # Set the envir. variables:
-  if ($Arch eq "Linux") {
-      if ($Machine_name eq "yellowstone") { # Yellowstone
-          $ENV{CRTM}='1';
-          $ENV{BUFR}='1';
-          if ($Compiler=~/ifort/i) {   # INTEL
-              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_intel_$Compiler_version";
-              if (-d $RTTOV_dir) {
-                 $ENV{RTTOV} = $RTTOV_dir;
-              } else {
-                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
-              }
-          } elsif ($Compiler=~/gfortran/i) {   # GNU
-              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_gnu_$Compiler_version";
-              if (-d $RTTOV_dir) {
-                 $ENV{RTTOV} = $RTTOV_dir;
-              } else {
-                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
-              }
-          } elsif ($Compiler=~/pgi/i) {   # PGI
-
-              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_pgi_$Compiler_version";
-              if (-d $RTTOV_dir) {
-                 $ENV{RTTOV} = $RTTOV_dir;
-              } else {
-                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
-              }
-          }
-
-      } else { # Loblolly
-          if ($Compiler=~/pgi/i) {   # PGI
-              $ENV{CRTM}='1';
-              $ENV{BUFR}='1';
-                 print "RTTOV Libraries have not yet been compiled\nRTTOV tests will fail!\n";
-#              $ENV{RTTOV} ='/loblolly2/kavulich/REGRESSION/rttov101/pgi/';
-              $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-4.1.3-pgf90-pgcc';
-          } else {
-              print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
-              print "\n!!                   WARNING                    !!";
-              print "\n!! 4DVAR NOT YET IMPLEMENTED FOR THIS COMPILER! !!";
-              print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-          }
+         while (<$fh>) {
+            $Revision = $1 if ( /revision \s+ (\d+)/x);
+         }
+         close ($fh);
+         printf "Revision %5d is exported to WRFDA_4DVAR_$par_type.\n",$Revision;
+      } else {
+         print "Getting the code from $Source to WRFDA_4DVAR_$par_type...\n";
+         ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
+         ! system("mv", "WRFDA", "WRFDA_4DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_4DVAR_$par_type': $!\n";
       }
-  }
-  if ($Arch eq "Darwin") {   # Darwin
-      die "4DVAR not yet implemented for Mac\n";
-      if ($Compiler=~/g95/i) {   # G95
-          $ENV{CRTM} ='1';
-          $ENV{BUFR} ='1';
+
+      # Check the revision number:
+
+      $Revision = `svnversion WRFDA_4DVAR_$par_type`;
+      chomp($Revision);
+
+      # Change the working directory to WRFDA:
+
+      chdir "WRFDA_4DVAR_$par_type" or die "Cannot chdir to WRFDA_4DVAR_$par_type: $!\n";
+
+
+      # Locate the compile options base on the $compiler:
+      my $pid = open2( my $readme, my $writeme, './configure','4dvar');
+      print $writeme "1\n";
+      my @output = <$readme>;
+      waitpid($pid,0);
+      close ($readme);
+      close ($writeme);
+
+      my $option;
+
+      foreach (@output) {
+         if ( ($Machine_name eq "yellowstone") ) {
+            if ($Compiler eq "gfortran" ) {
+               if ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($Par_4dvar) .*/ix) {
+                  $Compile_options_4dvar{$1} = $2;
+                  $option = $1;
+               }
+            } else {
+               if ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* YELLOWSTONE .* ($Par_4dvar) .*/ix) {
+                  $Compile_options_4dvar{$1} = $2;
+                  $option = $1;
+               }
+            }
+         } else {
+            if ( ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($Par_4dvar) .*/ix) &&
+                ! ($_=~/Cray/i) &&
+                ! ($_=~/PGI accelerator/i) &&
+                ! ($_=~/SGI MPT/i)  ) {
+               $Compile_options_4dvar{$1} = $2;
+               $option = $1;
+            }
+         }
       }
-      if ($Compiler=~/pgi/i) {   # PGI
-          $ENV{CRTM} ='1';
-          $ENV{BUFR} ='1';
+
+
+      printf "Found 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$option}, $option;
+
+      die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" if ( (keys %Compile_options_4dvar) == 0 );
+
+      # Set the envir. variables:
+      if ($Arch eq "Linux") {
+         if ($Machine_name ne "yellowstone") { 
+            unless ($Compiler=~/pgi/i) {   # Only PGI for non-yellowstone Linux right now
+               print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+               print "\n!!                   WARNING                    !!";
+               print "\n!! 4DVAR NOT YET IMPLEMENTED FOR THIS COMPILER! !!";
+               print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            }
+         }
       }
-  }
+      if ($Arch eq "Darwin") {   # Darwin
+         die "4DVAR not yet implemented for Mac\n";
+      }
 
 
-  # Compile the code:
+      # Compile the code:
 
 
-  foreach my $option (sort keys %Compile_options_4dvar) {
-       # configure 4dvar
-       my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
-       die "clean -a exited with error $!\n" unless $status == 0;
-       if ( $Debug == 2 ) {
+      # configure 4dvar
+      my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
+      die "clean -a exited with error $!\n" unless $status == 0;
+      if ( $Debug == 2 ) {
          $pid = open2($readme, $writeme, './configure','-D','4dvar');
-       } elsif ( $Debug == 1 ) {
+      } elsif ( $Debug == 1 ) {
          $pid = open2($readme, $writeme, './configure','-d','4dvar');
-       } else {
+      } else {
          $pid = open2($readme, $writeme, './configure','4dvar');
-       }
-       print $writeme "$option\n";
-       @output = <$readme>;
-       waitpid($pid,0);
-       close ($readme);
-       close ($writeme);
+      }
+      print $writeme "$option\n";
+      @output = <$readme>;
+      waitpid($pid,0);
+      close ($readme);
+      close ($writeme);
 
-       # compile all_wrfvar
-       if ( $Debug == 2 ) {
+      # compile all_wrfvar
+      if ( $Debug == 2 ) {
          printf "Compiling in super-debug mode, compilation optimizations turned off, debugging features turned on.\n";
-       } elsif ( $Debug == 1 ) {
+      } elsif ( $Debug == 1 ) {
          printf "Compiling in debug mode, compilation optimizations turned off.\n";
-       }
-       printf "Compiling WRFDA_4DVAR with %10s for %6s ....\n", $Compiler, $Compile_options_4dvar{$option};
-       my $begin_time = gettimeofday();
-       open FH, ">compile.log.$Compile_options_4dvar{$option}" or die "Can not open file compile.log.$Compile_options_4dvar{$option}.\n";
-       $pid = open (PH, "./compile all_wrfvar 2>&1 |");
-       while (<PH>) {
-           print FH;
-       }
-       close (PH);
-       close (FH);
+      }
+
+
+      if ( ($Parallel_compile_num > 1) && ($Machine_name =~ /yellowstone/i) ) {
+         printf "Submitting job to compile WRFDA_4DVAR_$par_type with %10s for %6s ....\n", $Compiler, $Compile_options_4dvar{$option};
+
+
+         # Generate the LSF job script
+         open FH, ">job_compile_4dvar_$Compile_options_4dvar{$option}_opt${option}.csh" or die "Can not open job_compile_4dvar_${option}.csh to write. $! \n";
+         print FH '#!/bin/csh'."\n";
+         print FH '#',"\n";
+         print FH '# LSF batch script'."\n";
+         print FH '#'."\n";
+         print FH "#BSUB -J compile_4dvar_$Compile_options_4dvar{$option}_opt${option}"."\n";
+         print FH "#BSUB -q ".$Compile_queue."\n";
+         print FH "#BSUB -n $Parallel_compile_num\n";
+         print FH "#BSUB -o job_compile_4dvar_$Compile_options_4dvar{$option}_opt${option}.output"."\n";
+         print FH "#BSUB -e job_compile_4dvar_$Compile_options_4dvar{$option}_opt${option}.error"."\n";
+         print FH "#BSUB -W 100"."\n";
+         print FH "#BSUB -P $Project"."\n";
+         printf FH "#BSUB -R span[ptile=%d]"."\n", $Parallel_compile_num;
+         print FH "\n";
+         print FH "./compile all_wrfvar >& compile.log.$Compile_options_4dvar{$option}\n";
+         print FH "\n";
+         close (FH);
+
+         # Submit the job
+         my $submit_message;
+         $submit_message = `bsub < job_compile_4dvar_$Compile_options_4dvar{$option}_opt${option}.csh`;
+
+#         print "Message= $submit_message";
+         if ($submit_message =~ m/.*<(\d+)>/) {;
+            print "Job ID for 4DVAR $Compiler option $Compile_options_4dvar{$option} is $1 \n";
+            $compile_job_array{$1} = "4DVAR_$Compile_options_4dvar{$option}";
+            $compile_job_list = join('|',$compile_job_list,$1);
+#            print "compile_job_list = $compile_job_list\n";
+         } else {
+            die "\nFailed to submit 4DVAR compile job for $Compiler option $Compile_options_4dvar{$option}!\n";
+         };
+
+      } else {
+
+         printf "Compiling WRFDA_4DVAR_$par_type with %10s for %6s ....\n", $Compiler, $Compile_options_4dvar{$option};
+         my $begin_time = gettimeofday();
+         open FH, ">compile.log.$Compile_options_4dvar{$option}" or die "Can not open file compile.log.$Compile_options_4dvar{$option}.\n";
+         $pid = open (PH, "./compile all_wrfvar 2>&1 |");
+         while (<PH>) {
+            print FH;
+         }
+         close (PH);
+         close (FH);
 
 #       system("./compile all_wrfvar >> compile.log.$Compile_options_4dvar{$option}");
 
-       my $end_time = gettimeofday();
+         my $end_time = gettimeofday();
 
        # Check if the compilation is successful:
 
-       my @exefiles = glob ("var/build/*.exe");
+         my @exefiles = glob ("var/build/*.exe");
 
-       foreach ( @exefiles ) {
-           warn "The exe file $_ has problem. \n" unless -s ;
-       }
+         foreach ( @exefiles ) {
+            warn "The exe file $_ has problem. \n" unless -s ;
+         }
 
 
-       # Rename the executables:
-       rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}"
-           or die "Program da_wrfvar.exe not created: check your compilation log.\n";
+         # Rename the executables:
+         rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}"
+             or die "Program da_wrfvar.exe not created: check your compilation log.\n";
 
-       printf "Compilation of WRFDA_4DVAR with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
-           $Compiler, $Compile_options_4dvar{$option}, ($end_time - $begin_time);
+         printf "Compilation of WRFDA_4DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
+             $Compiler, $Compile_options_4dvar{$option}, ($end_time - $begin_time);
 
-       # Save the compilation log file
+         # Save the compilation log file
 
-      if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
-          mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+         if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+            mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+         }
+         copy( "compile.log.$Compile_options_4dvar{$option}", "../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options_4dvar{$option}\n../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec";
+
+         
+
       }
-      copy( "compile.log.$Compile_options_4dvar{$option}", "../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options_4dvar{$option}\n../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec";
+      # Back to the upper directory:
+      chdir ".." or die "Cannot chdir to .. : $!\n";
 
-  }
-
-  # Back to the upper directory:
-
-  chdir ".." or die "Cannot chdir to .. : $!\n";
+   } #end foreach1
 
 
 ######################  END COMPILE 4DVAR  ########################
 
 }
 
+# For batch build, keep track of ongoing compile jobs, continue when finished. For non-batch build this section is skipped
+while ( $compile_job_list ) {
+   # Remove '|' from start of "compile_job_list"
+   $compile_job_list =~ s/^\|//g;
+
+   foreach ( split /\|/, $compile_job_list ) {
+      my $jobnum = $_;
+      my $feedback = `bjobs $jobnum`;
+      if ( ($feedback =~ m/RUN/) || ( $feedback =~ m/PEND/ ) ) {; # Still pending or running
+         next;
+      }
+
+      # Job not found, so assume it's done!
+      my $bhist = `bhist $jobnum`;
+      my @jobhist = split('\s+',$bhist);
+      print "Job $compile_job_array{$jobnum} (job number $jobnum) is finished!\n It took $jobhist[24] seconds\n";
+
+      # Save the compilation log file
+      if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+         mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+      }
+      my @details = split /_/, $compile_job_array{$jobnum};
+      copy( "WRFDA_$compile_job_array{$jobnum}/compile.log.$details[1]", "regtest_compile_logs/$year$mon$mday/compile_$details[1].log.$details[0]_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\nWRFDA_$compile_job_array{$jobnum}/compile.log.$details[1]\nregtest_compile_logs/$year$mon$mday/compile_$details[1].log.$details[0]_$Compiler\_$hour:$min:$sec";
+
+#      print "mv WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]\n";
+      rename "WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe","WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]" or die "Program da_wrfvar.exe not created for $details[0], $details[1]: check your compilation log.\n";
+
+      # Delete job from list of active jobs
+      $compile_job_list =~ s/$jobnum//g;
+   }
+   sleep 5;
+#   print "compile_job_list = $compile_job_list\n";
+}
 
 
 
 SKIP_COMPILE:
 
 if ($Type =~ /3DVAR/i) {
-    die "\nSTOPPING SCRIPT\n3DVAR code must be compiled in directory tree named 'WRFDA_3DVAR' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR");
+   if ( $Par =~ /serial/i ) {
+      die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in serial in directory tree named 'WRFDA_3DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_serial");
+   }
+   if ( $Par =~ /dmpar/i ) {
+      die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in parallel in directory tree named 'WRFDA_3DVAR_dmpar' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_dmpar");
+   }
 }
 if ($Type =~ /4DVAR/i) {
-    die "\nSTOPPING SCRIPT\n4DVAR code must be compiled in directory tree named 'WRFDA_4DVAR' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_4DVAR");
+   if ( $Par_4dvar =~ /serial/i ) {
+      die "\nSTOPPING SCRIPT\n4DVAR code must be compiled to run in serial in directory tree named 'WRFDA_4DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_4DVAR_serial");
+   }
+   if ( $Par_4dvar =~ /dmpar/i ) {
+      die "\nSTOPPING SCRIPT\n4DVAR code must be compiled to run in parallel in directory tree named 'WRFDA_4DVAR_dmpar' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_4DVAR_dmpar");
+   }
 }
 
 
@@ -1212,7 +1363,7 @@ sub new_job_ys {
                                                     1 : (($cpun < 16 ) ? $cpun : 16);
          print FH "\n";
 
-         print FH "$MainDir/WRFDA_3DVAR/var/obsproc/src/obsproc.exe\n";
+         print FH "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
 
          print FH "\n";
          unless (-e "ob.ascii") {print FH "cp -f obs_gts_*.3DVAR ob.ascii\n"};
@@ -1269,8 +1420,8 @@ sub new_job_ys {
          print FH "\n";
          
          print FH ($par eq 'serial' || $par eq 'smpar') ?
-             "$MainDir/WRFDA_3DVAR/var/build/da_wrfvar.exe.$com.$par\n" :
-             "mpirun.lsf $MainDir/WRFDA_3DVAR/var/build/da_wrfvar.exe.$com.$par\n";
+             "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
+             "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
          print FH "\n";
     
@@ -1320,8 +1471,8 @@ sub new_job_ys {
          print FH "\n";
 
          print FH ($par eq 'serial' || $par eq 'smpar') ?
-             "$MainDir/WRFDA_4DVAR/var/build/da_wrfvar.exe.$com.$par\n" :
-             "mpirun.lsf $MainDir/WRFDA_4DVAR/var/build/da_wrfvar.exe.$com.$par\n";
+             "$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
+             "mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
          print FH "\n";
 
