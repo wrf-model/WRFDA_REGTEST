@@ -1,27 +1,28 @@
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
-Linux      x86_64  yellowstone    WORKDIR/2013-12-20_changes/Rizvi_obsthinning/rizvi_obs_thinning_7031.tar        ifort         P64000400  caldera   WRFDA-data-EM    BASELINE.NEW
+Linux      x86_64  yellowstone    WORKDIR/2014-01-03_changes/more_fixes/mod6.tar        ifort         P64000400  caldera   WRFDA-data-EM    BASELINE.NEW
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
-1        afwa_t7_ssmi                3DVAR            8    16      serial|dmpar
-2        afwa_t7_ssmi_32             3DVAR            8    16      serial|dmpar
-3        ASR_prepbufr                3DVAR           16    16      serial|dmpar
-4        ASR_airs                    3DVAR           16    16      serial|dmpar
-5        cv3_guo                     3DVAR           16    16      serial|dmpar
-6        cv3_guo_32                  3DVAR           16    16      serial|dmpar
-7        cwb_ascii                   3DVAR           16    16      serial|dmpar
-8        cwb_ascii_outerloop_rizvi   3DVAR           16    16      serial|dmpar
-#9        iasi_dmxu                   3DVAR           32    16      dmpar
-10       outerloop_bench_guo         3DVAR           16    16      serial|dmpar
-11       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-12       radar_meixu                 3DVAR            4    16      serial|dmpar
-13       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-14       t44_liuz                    3DVAR            2    16      serial|dmpar
-15       t44_prepbufr                3DVAR           16    16      serial|dmpar
-16       tutorial_4dvar              4DVAR           32    16      dmpar
-17       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
-18       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
-19       tutorial_xinzhang_rttov     3DVAR           16    16      serial|dmpar
-20       wind_sd                     3DVAR           16    16      serial|dmpar
+#1        afwa_t7_ssmi                3DVAR            8    16      serial|dmpar
+#2        afwa_t7_ssmi_32             3DVAR            8    16      serial|dmpar
+#3        ASR_prepbufr                3DVAR           16    16      serial|dmpar
+#4        ASR_airs                    3DVAR           16    16      serial|dmpar
+#5        cv3_guo                     3DVAR           16    16      serial|dmpar
+#6        cv3_guo_32                  3DVAR           16    16      serial|dmpar
+#7        cwb_ascii                   3DVAR           16    16      serial|dmpar
+#8        cwb_ascii_outerloop_rizvi   3DVAR           16    16      serial|dmpar
+#9        cwb_ascii_thinning          3DVAR           16    16      serial|dmpar
+#10        iasi_dmxu                   3DVAR           32    16      dmpar
+#11       outerloop_bench_guo         3DVAR           16    16      serial|dmpar
+#12       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+13       radar_meixu                 3DVAR            4    16      serial
+#14       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+#15       t44_liuz                    3DVAR            2    16      serial|dmpar
+#16       t44_prepbufr                3DVAR           16    16      serial|dmpar
+#17       tutorial_4dvar              4DVAR           32    16      dmpar
+#18       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
+#19       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
+#20       tutorial_xinzhang_rttov     3DVAR           16    16      serial|dmpar
+#21       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
 Linux      x86_64  yellowstone    WORKDIR/jianyu_bug/wrfda.tar        gfortran      P64000510  caldera   WRFDA-data-EM    BASELINE.ARCHIVE/351
@@ -34,18 +35,19 @@ Linux      x86_64  yellowstone    WORKDIR/jianyu_bug/wrfda.tar        gfortran  
 6        cv3_guo_32                  3DVAR           16    16      serial|dmpar
 7        cwb_ascii                   3DVAR           16    16      serial|dmpar
 8        cwb_ascii_outerloop_rizvi   3DVAR           16    16      serial|dmpar
-9        iasi_dmxu                   3DVAR           32    16      dmpar
-10       outerloop_bench_guo         3DVAR           16    16      serial|dmpar
-11       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-12       radar_meixu                 3DVAR            4    16      serial|dmpar
-13       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-14       t44_liuz                    3DVAR            2    16      dmpar
-15       t44_prepbufr                3DVAR            4    16      dmpar
-16       tutorial_4dvar              4DVAR           32    16      dmpar
-17       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
-18       tutorial_xinzhang_kmatrix   3DVAR            3    16      dmpar
-19       tutorial_xinzhang_rttov     3DVAR           16    16      dmpar
-20       wind_sd                     3DVAR           16    16      serial|dmpar
+9        cwb_ascii_thinning                   3DVAR           16    16      serial|dmpar
+#10        iasi_dmxu                   3DVAR           32    16      dmpar
+11       outerloop_bench_guo         3DVAR           16    16      serial|dmpar
+12       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+13       radar_meixu                 3DVAR            4    16      serial|dmpar
+14       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+15       t44_liuz                    3DVAR            2    16      dmpar
+16       t44_prepbufr                3DVAR            4    16      dmpar
+17       tutorial_4dvar              4DVAR           32    16      dmpar
+18       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
+19       tutorial_xinzhang_kmatrix   3DVAR            3    16      dmpar
+20       tutorial_xinzhang_rttov     3DVAR           16    16      dmpar
+21       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
 Linux      x86_64  yellowstone    WORKDIR/Rizvi_obsthinning/rizvi_obs_thinning_updated.tar        pgi      P64000510  caldera   WRFDA-data-EM    BASELINE.ARCHIVE/351
@@ -58,18 +60,19 @@ Linux      x86_64  yellowstone    WORKDIR/Rizvi_obsthinning/rizvi_obs_thinning_u
 6        cv3_guo_32                  3DVAR           16    16      serial|dmpar
 7        cwb_ascii                   3DVAR           16    16      serial|dmpar
 8        cwb_ascii_outerloop_rizvi   3DVAR           16    16      serial|dmpar
-9        iasi_dmxu                   3DVAR           32    16      dmpar
-10       outerloop_bench_guo         3DVAR           16    16      serial|dmpar
-11       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-12       radar_meixu                 3DVAR            4    16      serial|dmpar
-13       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-14       t44_liuz                    3DVAR            2    16      dmpar
-15       t44_prepbufr                3DVAR            4    16      dmpar
-16       tutorial_4dvar              4DVAR           32    16      dmpar
-17       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
-18       tutorial_xinzhang_kmatrix   3DVAR            3    16      dmpar
-19       tutorial_xinzhang_rttov     3DVAR           16    16      dmpar
-20       wind_sd                     3DVAR           16    16      serial|dmpar
+9        cwb_ascii                   3DVAR           16    16      serial|dmpar
+#10        iasi_dmxu                   3DVAR           32    16      dmpar
+11       outerloop_bench_guo         3DVAR           16    16      serial|dmpar
+12       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+13       radar_meixu                 3DVAR            4    16      serial|dmpar
+14       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+15       t44_liuz                    3DVAR            2    16      dmpar
+16       t44_prepbufr                3DVAR            4    16      dmpar
+17       tutorial_4dvar              4DVAR           32    16      dmpar
+18       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
+19       tutorial_xinzhang_kmatrix   3DVAR            3    16      dmpar
+20       tutorial_xinzhang_rttov     3DVAR           16    16      dmpar
+21       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
 Linux      x86_64  loblolly   /loblolly/kavulich/wrfda.tar        ifort         64000510  share   /loblolly/kavulich/WRFDA-data-EM    /loblolly/kavulich/BASELINE

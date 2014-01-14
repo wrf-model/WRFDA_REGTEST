@@ -1,0 +1,37 @@
+This is the regression testing suite for the WRF Data Assimilation system (WRFDA).
+
+
+1. Supported platforms
+
+  This regression testing suite is optimized for use on the NCAR Yellowstone supercomputer. However, with minimal effort it 
+  can run (albeit slowly) on personal computers, both Linux and Mac.
+
+  Supported Fortran compilers are ifort, gfortran, and pgf90. Other compilers which should work with minimal effort are xlf 
+  and g95.
+
+
+2. Set up
+
+  In this repository you will find the main testing script and the text files containing test information, but you must 
+  download two data sets for the regression testing to function:
+
+    - The test database, containing the necessary files for each test to run
+    - The baseline output files for comparison
+
+  These data sets can be found at the WRFDA website: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html 
+
+
+
+Usage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
+                              --exec=[no]/yes --debug=[no]/yes --j=NUM_PROCS
+        compiler: Compiler name (supported options: xlf, pgi, g95, ifort, gfortran)
+        source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository
+        revision: Specify code revision to retrieve (only works when '--source=SVN' specified
+        upload:   Uploads summary to web
+        exec:     Execute only; skips compile, utilizes existing executables
+
+        debug:    Compile with minimal optimization
+        j:        Number of processors to use in parallel compile (default 2)
+Please note:
+A compiler MUST be specified to run this script. Other options are optional.
+

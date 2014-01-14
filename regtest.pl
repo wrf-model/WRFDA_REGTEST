@@ -31,7 +31,7 @@ my $Compiler_defined;
 my $Source_defined;
 my $Exec_defined;
 my $Debug_defined;
-my $Parallel_compile;
+my $Parallel_compile_num = 4;
 my $Revision = 'HEAD'; # Revision Number
 
 #This little bit makes sure the input arguments are formatted correctly
@@ -51,7 +51,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "upload:s" => \$Upload,
             "exec:s" => \$Exec_defined,
             "debug:s" => \$Debug_defined,
-            "j:s" => \$Parallel_compile) or &print_help_and_die;
+            "j:s" => \$Parallel_compile_num) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
   print "\nCOMPILER NOT SPECIFIED, ABORTING\n\n";
@@ -89,13 +89,6 @@ if (defined $Debug_defined && $Debug_defined eq 'super') {
    $Debug = 0;
 } else {
    die "Invalid debug option specified ('$Debug_defined'); valid options are 'no', 'yes', or 'super'";
-}
-
-my $Parallel_compile_num;
-if (defined $Parallel_compile) {
-   $Parallel_compile_num = $Parallel_compile;
-} else {
-   $Parallel_compile_num = 1;
 }
 
 if ( $Parallel_compile_num > 16 ) {die "Can not parallel compile using more than 16 processors; set j<=16\n"};
@@ -185,7 +178,7 @@ chomp($ThisGuy);
 $MainDir = `pwd`;
 chomp($MainDir);
 
-# What's my hostname, system, and machine :
+# What's my hostname, system, and machine?
 
 my $Host = hostname();
 my $System = `uname -s`; chomp($System);
@@ -1168,7 +1161,11 @@ sub create_webpage {
 
     close (WEBH);
 
-# Send the summary to internet:
+# Save summary, send to internet if requested:
+
+    if ( ($Machine_name eq "yellowstone") ) {
+        copy("summary_$Compiler.html","/glade/scratch/$ThisGuy/REGTEST/$Compiler\_$year$mon$mday\_$hour:$min:$sec/summary_$Compiler.html");
+    }
 
     my $go_on='';
 
