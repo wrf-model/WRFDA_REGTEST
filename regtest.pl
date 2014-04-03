@@ -324,7 +324,7 @@ $Source = $Source_defined if defined $Source_defined;
 
 # If specified paths are relative then point them to the full path
 if ( !($Source =~ /^\//) ) {
-   unless ($Source eq "SVN") {$Source = $MainDir."/".$Source};
+   unless ( ($Source eq "SVN") or $Exec) {$Source = $MainDir."/".$Source};
 }
 if ( !($Database =~ /^\//) ) {
    $Database = $MainDir."/".$Database;
@@ -335,8 +335,8 @@ if ( !($Baseline =~ /^\//) ) {
 
 
 printf "Finished parsing the table, the experiments are : \n";
-printf "#INDEX   EXPERIMENT                   TYPE                      CPU_MPI    CPU_OPENMP   PAROPT\n";
-printf "%-4d     %-27s  %-23s   %-8d   %-13d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n", 
+printf "#INDEX   EXPERIMENT                   TYPE                    CPU_MPI  CPU_OPENMP    PAROPT\n";
+printf "%-4d     %-27s  %-23s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n", 
      $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
          keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
 
@@ -607,12 +607,10 @@ if ($Type =~ /4DVAR/i) {
          my $submit_message;
          $submit_message = `bsub < job_compile_4dvar_$Compile_options_4dvar{$option}_opt${option}.csh`;
 
-#         print "Message= $submit_message";
          if ($submit_message =~ m/.*<(\d+)>/) {;
             print "Job ID for 4DVAR $Compiler option $Compile_options_4dvar{$option} is $1 \n";
             $compile_job_array{$1} = "4DVAR_$Compile_options_4dvar{$option}";
             $compile_job_list = join('|',$compile_job_list,$1);
-#            print "compile_job_list = $compile_job_list\n";
          } else {
             die "\nFailed to submit 4DVAR compile job for $Compiler option $Compile_options_4dvar{$option}!\n";
          };
@@ -804,25 +802,11 @@ if ($Type =~ /3DVAR/i) {
             my $submit_message;
             $submit_message = `bsub < job_compile_3dvar_$Compile_options{$option}_opt${option}.csh`;
 
-#            print "Message= $submit_message";
-
- #           # Put num processors and "compile" command in a file, then submit as a batch job. This bit partially stolen from Brian Bonnlander's WTF
-
- #           open FH, ">job_compile_3dvar_$Compile_options{$option}_opt${option}.csh";
- #           print FH "#!/bin/csh\n";;
- #           print FH 'setenv J "-j '."$Parallel_compile_num".'"'."\n";
- #           print FH "./compile all_wrfvar > compile_$Compile_options{$option}_opt${option}.log\n";
- #           print FH 'date > EndTime_${COMPILE_TYPE}.txt';
- #           close (FH);
- 
- #           echo $BSUB > $targetDir/submitCommand
- #           `$BSUB < job_compile_3dvar_$Compile_options{$option}_opt${option}.csh`;
 
             if ($submit_message =~ m/.*<(\d+)>/) {;
                 print "Job ID for 3DVAR $Compiler option $Compile_options{$option} is $1 \n";
                 $compile_job_array{$1} = "3DVAR_$Compile_options{$option}";
                 $compile_job_list = join('|',$compile_job_list,$1);
-#                print "compile_job_list = $compile_job_list\n";
             } else {
                 die "\nFailed to submit 3DVAR compile job for $Compiler option $Compile_options{$option}!\n";
             };
@@ -879,6 +863,7 @@ if ($Type =~ /3DVAR/i) {
 }
 
 
+
 # For batch build, keep track of ongoing compile jobs, continue when finished. For non-batch build this section is skipped
 while ( $compile_job_list ) {
    # Remove '|' from start of "compile_job_list"
@@ -903,14 +888,14 @@ while ( $compile_job_list ) {
       my @details = split /_/, $compile_job_array{$jobnum};
       copy( "WRFDA_$compile_job_array{$jobnum}/compile.log.$details[1]", "regtest_compile_logs/$year$mon$mday/compile_$details[1].log.$details[0]_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\nWRFDA_$compile_job_array{$jobnum}/compile.log.$details[1]\nregtest_compile_logs/$year$mon$mday/compile_$details[1].log.$details[0]_$Compiler\_$hour:$min:$sec";
 
-#      print "mv WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]\n";
       rename "WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe","WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]" or die "Program da_wrfvar.exe not created for $details[0], $details[1]: check your compilation log.\n";
 
       # Delete job from list of active jobs
       $compile_job_list =~ s/$jobnum//g;
+      $compile_job_list =~ s/^\|//g;
+
    }
    sleep 5;
-#   print "compile_job_list = $compile_job_list\n";
 }
 
 
@@ -1342,18 +1327,26 @@ sub new_job_ys {
 
 
          # Return to the upper directory
-          chdir ".." or die "Cannot chdir to .. : $!\n";
+         chdir ".." or die "Cannot chdir to .. : $!\n";
 
 
      } elsif ($types =~ /3DVAR/i) {
 #         printf "types: $types\n";
+
+         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+         #If an OBSPROC job, make sure it created the observation file!
+         if ($Experiments{$nam}{test_type} =~ /OBSPROC/i) {
+             printf "Checking OBSPROC output\n";
+             unless (-e "ob.ascii") {
+                 return "OBSPROC_FAIL";
+             }
+         }
          $types =~ s/3DVAR//i;
          $types =~ s/^\|//;
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
 #         printf "New types: $types\n";
          
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          printf "Creating 3DVAR job: $nam, $par\n";
 
@@ -1383,6 +1376,8 @@ sub new_job_ys {
          print FH ( $par eq 'smpar' || $par eq 'dm+sm') ?
              "setenv OMP_NUM_THREADS $cpum\n" :"\n";
          print FH "\n";
+
+         print FH "unsetenv MP_PE_AFFINITY\n";
          
          print FH ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
@@ -1400,12 +1395,20 @@ sub new_job_ys {
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
      } elsif ($types =~ /4DVAR/i) {
+         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+         #If an OBSPROC job, make sure it created the observation file!
+         if ($Experiments{$nam}{test_type} =~ /OBSPROC/i) {
+             printf "Checking OBSPROC output\n";
+             unless (-e "ob01.ascii") {
+                 return "OBSPROC_FAIL";
+             }
+         }
+
          $types =~ s/4DVAR//i;
-         $types =~ s/^\|//;
-         $types =~ s/\|$//;
+         $types =~ s/^\|//; # these lines remove
+         $types =~ s/\|$//; # extra "|"
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
 
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          printf "Creating 4DVAR job: $nam, $par\n";
 
@@ -1628,15 +1631,26 @@ sub submit_job_ys {
                                          $Experiments{$name}{cpu_openmp},$Experiments{$name}{paropt}{$par}{queue} );
 
                      if (defined $rc) {
-                         $Experiments{$name}{paropt}{$par}{jobid} = $rc ;    # assign the jobid.
-                         $Experiments{$name}{status} = "close";
-                         my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{jobid}`;
-                         if ($checkQ =~ /\ssmall\s/) {
-                             printf "%-10s job for %-30s was submitted to queue 'small' with jobid: %10d \n", $par, $name, $rc;
+                         if ($rc =~ /OBSPROC_FAIL/) {
+                             $Experiments{$name}{paropt}{$par}{status} = "error";
+                             $Experiments{$name}{paropt}{$par}{compare} = "obsproc failed";
+                             $remain_par{$name} -- ;
+                             if ($remain_par{$name} == 0) {
+                                 $Experiments{$name}{status} = "done";
+                                 $remain_exps -- ;
+                             }
+                             &flush_status ();
+                             next;
                          } else {
-                             printf "%-10s job for %-30s was submitted to queue '$Queue' with jobid: %10d \n", $par, $name, $rc;
+                             $Experiments{$name}{paropt}{$par}{jobid} = $rc ;    # assign the jobid.
+                             $Experiments{$name}{status} = "close";
+                             my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{jobid}`;
+                             if ($checkQ =~ /\ssmall\s/) {
+                                 printf "%-10s job for %-30s was submitted to queue 'small' with jobid: %10d \n", $par, $name, $rc;
+                             } else {
+                                 printf "%-10s job for %-30s was submitted to queue '$Queue' with jobid: %10d \n", $par, $name, $rc;
+                             }
                          }
-
                      } else {
                          $Experiments{$name}{paropt}{$par}{status} = "error";
                          $Experiments{$name}{paropt}{$par}{compare} = "Job submit failed";
