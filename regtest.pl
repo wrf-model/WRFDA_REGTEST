@@ -119,6 +119,8 @@ my $Clear = `clear`;
 my $Flush_Counter = 1;
 my $diffwrfdir = "";
 my $missvars;
+my @gtsfiles;
+my @childs;
 my %Experiments ;
 #   Sample %Experiments Structure: #####################
 #   
@@ -394,24 +396,27 @@ $ENV{J}="-j $Parallel_compile_num";
           if ($Compiler=~/ifort/i) {   # INTEL
               my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_intel_$Compiler_version";
               if (-d $RTTOV_dir) {
-                 $ENV{RTTOV} = $RTTOV_dir;
+                  $ENV{RTTOV} = $RTTOV_dir;
+                  print "Using RTTOV libraries in $RTTOV_dir\n";
               } else {
-                 print "$RTTOV_dir DOES NOT EXIST\n";
-                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+                  print "$RTTOV_dir DOES NOT EXIST\n";
+                  print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
               }
           } elsif ($Compiler=~/gfortran/i) {   # GNU
               my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_gnu_$Compiler_version";
               if (-d $RTTOV_dir) {
-                 $ENV{RTTOV} = $RTTOV_dir;
+                  $ENV{RTTOV} = $RTTOV_dir;
+                  print "Using RTTOV libraries in $RTTOV_dir\n";
               } else {
-                 print "$RTTOV_dir DOES NOT EXIST\n";
-                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+                  print "$RTTOV_dir DOES NOT EXIST\n";
+                  print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
               }
           } elsif ($Compiler=~/pgi/i) {   # PGI
 
               my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_pgi_$Compiler_version";
               if (-d $RTTOV_dir) {
                  $ENV{RTTOV} = $RTTOV_dir;
+                  print "Using RTTOV libraries in $RTTOV_dir\n";
               } else {
                  print "$RTTOV_dir DOES NOT EXIST\n";
                  print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
@@ -422,21 +427,26 @@ $ENV{J}="-j $Parallel_compile_num";
           if ($Compiler=~/pgi/i) {   # PGI
               $ENV{CRTM}='1';
               $ENV{BUFR}='1';
-                 print "RTTOV Libraries have not yet been compiled\nRTTOV tests will fail!\n";
               $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-4.1.3-pgf90-pgcc';
           }
           if ($Compiler=~/ifort/i) {   # INTEL
               $ENV{CRTM}='1';
               $ENV{BUFR}='1';
-                 print "RTTOV Libraries have not yet been compiled\nRTTOV tests will fail!\n";
           }
           if ($Compiler=~/gfortran/i) {   # GFORTRAN
               $ENV{CRTM}='1';
               $ENV{BUFR}='1';
-                 print "RTTOV Libraries have not yet been compiled\nRTTOV tests will fail!\n";
               $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-3.6.3-gfortran-gcc';
-              $ENV{GFORTRAN_CONVERT_UNIT}='little_endian:94-99';
           }
+          my $RTTOV_dir = "/loblolly/kavulich/libs/rttov-11.1/$Compiler";
+          if (-d $RTTOV_dir) {
+              $ENV{RTTOV} = $RTTOV_dir;
+              print "Using RTTOV libraries in $RTTOV_dir\n";
+          } else {
+              print "$RTTOV_dir DOES NOT EXIST\n";
+              print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
+          }
+
       }
       foreach my $key (keys %Compile_options) {
           if ($Compile_options{$key} =~/sm/i) {
@@ -540,7 +550,7 @@ if ($Type =~ /4DVAR/i) {
       # Set the envir. variables:
       if ($Arch eq "Linux") {
          if ($Machine_name ne "yellowstone") {
-            unless ($Compiler=~/pgi/i) {   # Only PGI for non-yellowstone Linux right now
+            unless ($Compiler=~/pgi/i or $Compiler=~/gfortran/i) {   # Only PGI for non-yellowstone Linux right now
                print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
                print "\n!!                   WARNING                    !!";
                print "\n!! 4DVAR NOT YET IMPLEMENTED FOR THIS COMPILER! !!";
@@ -615,44 +625,56 @@ if ($Type =~ /4DVAR/i) {
             die "\nFailed to submit 4DVAR compile job for $Compiler option $Compile_options_4dvar{$option}!\n";
          };
 
-      } else {
+      } else { #Serial compile OR non-Yellowstone compile
 
          printf "Compiling WRFDA_4DVAR_$par_type with %10s for %6s ....\n", $Compiler, $Compile_options_4dvar{$option};
-         my $begin_time = gettimeofday();
-         open FH, ">compile.log.$Compile_options_4dvar{$option}" or die "Can not open file compile.log.$Compile_options_4dvar{$option}.\n";
-         $pid = open (PH, "./compile all_wrfvar 2>&1 |");
-         while (<PH>) {
-            print FH;
-         }
-         close (PH);
-         close (FH);
+
+         # Fork each compilation
+         $pid = fork();
+         if ($pid) {
+             print "pid is $pid, parent $$\n";
+             push(@childs, $pid);
+         } elsif ($pid == 0) {
+
+             my $begin_time = gettimeofday();
+             open FH, ">compile.log.$Compile_options_4dvar{$option}" or die "Can not open file compile.log.$Compile_options_4dvar{$option}.\n";
+             $pid = open (PH, "./compile all_wrfvar 2>&1 |");
+             while (<PH>) {
+                 print FH;
+             }
+             close (PH);
+             close (FH);
 
 #       system("./compile all_wrfvar >> compile.log.$Compile_options_4dvar{$option}");
 
-         my $end_time = gettimeofday();
+             my $end_time = gettimeofday();
 
-       # Check if the compilation is successful:
+             # Check if the compilation is successful:
 
-         my @exefiles = glob ("var/build/*.exe");
+             my @exefiles = glob ("var/build/*.exe");
 
-         foreach ( @exefiles ) {
-            warn "The exe file $_ has problem. \n" unless -s ;
+             foreach ( @exefiles ) {
+                 warn "The exe file $_ has problem. \n" unless -s ;
+             }
+
+
+             # Rename the executables:
+             rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}"
+                 or die "Program da_wrfvar.exe not created: check your compilation log.\n";
+
+             printf "Compilation of WRFDA_4DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
+                 $Compiler, $Compile_options_4dvar{$option}, ($end_time - $begin_time);
+
+             # Save the compilation log file
+
+             if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+                mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
          }
-
-
-         # Rename the executables:
-         rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}"
-             or die "Program da_wrfvar.exe not created: check your compilation log.\n";
-
-         printf "Compilation of WRFDA_4DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
-             $Compiler, $Compile_options_4dvar{$option}, ($end_time - $begin_time);
-
-         # Save the compilation log file
-
-         if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
-            mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+             copy( "compile.log.$Compile_options_4dvar{$option}", "../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options_4dvar{$option}\n../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec";
+            exit 0; #Exit child process! Quite important or else you get stuck forever!
+         } else {
+             die "couldn't fork: $!\n";
          }
-         copy( "compile.log.$Compile_options_4dvar{$option}", "../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options_4dvar{$option}\n../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec";
 
 
 
@@ -752,19 +774,6 @@ if ($Type =~ /3DVAR/i) {
         close ($readme);
         close ($writeme);
 
-        if (($Arch eq "Linux") && ($Compiler =~ /pgi/i) && ($Compile_options{$option} =~ /sm/i)) {
-            open FHCONF, "<configure.wrf" or die "Where is configure.wrf: $!\n"; 
-            open FH, ">configure.wrf.new" or die "Cannot open configure.wrf.new: $!\n"; 
-            while ($_ = <FHCONF>) { 
-                $_ =~ s/-mp/-mp=nonuma/;
-                print FH $_;
-            }
-            close (FHCONF);
-            close (FH);
-
-            rename "configure.wrf.new", "configure.wrf";
-        }
-
         # compile all_wrfvar
         if ( $Debug == 2 ) {
             printf "Compiling in super-debug mode, compilation optimizations turned off, debugging features turned on.\n";
@@ -811,45 +820,54 @@ if ($Type =~ /3DVAR/i) {
                 die "\nFailed to submit 3DVAR compile job for $Compiler option $Compile_options{$option}!\n";
             };
 
-        } else {
-        printf "Compiling WRFDA_3DVAR_$par_type with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
+        } else { #Serial compile OR non-Yellowstone compile
+            printf "Compiling WRFDA_3DVAR_$par_type with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
 
-            my $begin_time = gettimeofday();
-            open FH, ">compile.log.$Compile_options{$option}" or die "Can not open file compile.log.$Compile_options{$option}.\n";
-            $pid = open (PH, "./compile all_wrfvar 2>&1 |");
-            while (<PH>) {
-                print FH;
-            }
-            close (PH);
-            close (FH);
-            my $end_time = gettimeofday();
+            #Fork each compilation
+            $pid = fork();
+            if ($pid) {
+                print "pid is $pid, parent $$\n";
+                push(@childs, $pid);
+            } elsif ($pid == 0) {
+                my $begin_time = gettimeofday();
+                open FH, ">compile.log.$Compile_options{$option}" or die "Can not open file compile.log.$Compile_options{$option}.\n";
+                $pid = open (PH, "./compile all_wrfvar 2>&1 |");
+                while (<PH>) {
+                    print FH;
+                }
+                close (PH);
+                close (FH);
+                my $end_time = gettimeofday();
 
-            # Check if the compilation is successful:
+                # Check if the compilation is successful:
 
-            my @exefiles = glob ("var/build/*.exe");
+                my @exefiles = glob ("var/build/*.exe");
 
-            die "The number of exe files is less than 42. \n" if (@exefiles < 42);
+                die "The number of exe files is less than 42. \n" if (@exefiles < 42);
      
-            foreach ( @exefiles ) {
-                warn "The exe file $_ has problem. \n" unless -s ;
-            }
+                foreach ( @exefiles ) {
+                    warn "The exe file $_ has problem. \n" unless -s ;
+                }
      
 
-            # Rename executables:
+                # Rename executables:
 
-            rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}"
-                or die "Program da_wrfvar.exe not created: check your compilation log.\n";
+                rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}"
+                    or die "Program da_wrfvar.exe not created: check your compilation log.\n";
 
-            printf "Compilation of WRFDA_3DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
-                $Compiler, $Compile_options{$option}, ($end_time - $begin_time);
+                printf "Compilation of WRFDA_3DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
+                    $Compiler, $Compile_options{$option}, ($end_time - $begin_time);
 
-            # Save the compilation log file
+                # Save the compilation log file
 
-            if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
-                mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+                if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+                    mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+                }
+                copy( "compile.log.$Compile_options{$option}", "../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options{$option}\n../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec";
+                exit 0; #Exit child process! Quite important or else you get stuck forever!
+            } else {
+                die "couldn't fork: $!\n";
             }
-            copy( "compile.log.$Compile_options{$option}", "../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options{$option}\n../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec";
-      
         }
 
   # Back to the upper directory:
@@ -862,9 +880,15 @@ if ($Type =~ /3DVAR/i) {
 
 }
 
+#For forked jobs, need to wait for forked compilations to complete
+foreach (@childs) {
+    waitpid($_, 0);
+}
 
 
-# For batch build, keep track of ongoing compile jobs, continue when finished. For non-batch build this section is skipped
+
+
+# For batch build, keep track of ongoing compile jobs, continue when finished.
 while ( $compile_job_list ) {
    # Remove '|' from start of "compile_job_list"
    $compile_job_list =~ s/^\|//g;
@@ -1202,33 +1226,46 @@ sub new_job {
 
      # Enter into the experiment working directory:
 
-     if ($types =~ /OBSPROC/i) {
-         printf "types: $types\n";
-         $types =~ s/OBSPROC//i;
-         $Experiments{$nam}{paropt}{$par}{queue} = $types;
-         printf "New types: $types\n";
-     } elsif ($types =~ /3DVAR/i) {
-         printf "types: $types\n";
+     if ($types =~ /3DVAR/i) {
+#         printf "types: $types\n";
          $types =~ s/3DVAR//i;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
-         printf "New types: $types\n";
-
+#         printf "New types: $types\n";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
+         if ($types =~ /OBSPROC/i) {
+#             printf "types: $types\n";
+             $types =~ s/OBSPROC//i;
+             $Experiments{$nam}{paropt}{$par}{queue} = $types;
+#             printf "New types: $types\n";
+
+             printf "Running OBSPROC for $par job '$par'\n";
+
+             `$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe &> obsproc.out`;
+
+             @gtsfiles = glob ("obs_gts_*.3DVAR");
+             if (defined $gtsfiles[0]) {
+                 copy("$gtsfiles[0]","ob.ascii") or die "YOU HAVE COMMITTED AN OFFENSE!";
+                 printf "OBSPROC complete\n";
+             } else {
+                 chdir "..";
+                 return "OBSPROC_FAIL";
+             }
+
+         }
+
          # Submit the job :
 
-         delete $ENV{OMP_NUM_THREADS};
-         $ENV{OMP_NUM_THREADS}=$cpum if ($par=~/sm/i);
+         printf "Starting 3DVAR $par job '$nam'\n";
 
          if ($par=~/dm/i) { 
              # system ("mpdallexit>/dev/null");
              # system ("mpd&");
              # sleep (0.1);
-             `mpirun -np $cpun ../WRFDA_3DVAR/var/build/da_wrfvar.exe.$com.$par`;
-             #`mpirun -np $cpun -machinefile ../hosts ../WRFDA/var/build/da_wrfvar.exe.$com.$par`;
+             `mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par`;
          } else {
-             `../WRFDA_3DVAR/var/build/da_wrfvar.exe.$com.$par > print.out.$Arch.$nam.$par.$Compiler`; 
+             `../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par > print.out.$Arch.$nam.$par.$Compiler`; 
          }
     
          rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
@@ -1237,7 +1274,7 @@ sub new_job {
 
          chdir ".." or die "Cannot chdir to .. : $!\n";
     
-         return (-e "$nam/wrfvar_output") ? 1 : undef;
+         return 1;
 
      } elsif ($types =~ /4DVAR/i) {
          printf "types: $types\n";
@@ -1251,16 +1288,16 @@ sub new_job {
          $ENV{OMP_NUM_THREADS}=$cpum if ($par=~/sm/i);
 
          if ($par=~/dm/i) {
-             `mpirun -np $cpun ../WRFDA_4DVAR/var/build/da_wrfvar.exe.$com.$par`;
+             `mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par`;
          } else {
-             `../WRFDA_4DVAR/var/build/da_wrfvar.exe.$com.$par > print.out.$Arch.$nam.$par.$Compiler`;
+             `../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par > print.out.$Arch.$nam.$par.$Compiler`;
          }
          rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
 
          # Back to the upper directory:
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
-         return (-e "$nam/wrfvar_output") ? 1 : undef;
+         return 1;
 
      }
 }
@@ -1542,20 +1579,32 @@ sub submit_job {
     foreach my $name (keys %Experiments) {
 
         foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
-
+            #Set the start time for this job
             $Experiments{$name}{paropt}{$par}{starttime} = gettimeofday();
             $Experiments{$name}{paropt}{$par}{status} = "running";
             &flush_status (); # refresh the status
+
+            #Submit job
             my $rc = &new_job ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
                                 $Experiments{$name}{cpu_openmp},$Experiments{$name}{paropt}{$par}{queue} );
+
+            #Set the end time for this job
+            $Experiments{$name}{paropt}{$par}{endtime} = gettimeofday();
+            $Experiments{$name}{paropt}{$par}{walltime} =
+                $Experiments{$name}{paropt}{$par}{endtime} - $Experiments{$name}{paropt}{$par}{starttime};
             if (defined $rc) { 
-                $Experiments{$name}{paropt}{$par}{endtime} = gettimeofday(); # set the end time for this job.
-                $Experiments{$name}{paropt}{$par}{walltime} = 
-                    $Experiments{$name}{paropt}{$par}{endtime} - $Experiments{$name}{paropt}{$par}{starttime};
-                printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
+                if ($rc =~ /OBSPROC_FAIL/) {
+                    $Experiments{$name}{paropt}{$par}{status} = "error";
+                    $Experiments{$name}{paropt}{$par}{compare} = "obsproc failed";
+                    &flush_status ();
+                    next;
+                } else {
+                    printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
+                }
             } else {
                 $Experiments{$name}{paropt}{$par}{status} = "error";
-                $Experiments{$name}{paropt}{$par}{compare} = "error";
+                $Experiments{$name}{paropt}{$par}{compare} = "Mysterious error!";
+                &flush_status ();
                 next;   # Can not submit this job.
             }
 
