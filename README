@@ -35,3 +35,30 @@ Usage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN 
 Please note:
 A compiler MUST be specified to run this script. Other options are optional.
 
+
+#. Output
+
+  Most of the messages found in the regression test summary are self-explanatory. Here's a full list of possible outcomes:
+
+  If the test completed successfully:
+  --------------------------------------------------------------------------------------------------------------------------
+  match  The output of the test is a bit-for-bit match with the baseline. Excellent news!
+  ok     The output of the test is not a bit-for-bit match with the baseline, but the fields are exactly the same. This can 
+         result from a change in the variables stored in output, for instance. This is a perfectly acceptable result, but 
+         you should update the baseline using the quickcopy.pl script.
+  diff   This means that the output of the test is different than the baseline. This often means there is a problem, though 
+         if you expect your updates to change the output this may be an acceptable result. Check the output thoroughly!
+
+  If the test failed:
+  --------------------------------------------------------------------------------------------------------------------------
+  obsproc failed        For obsproc tests, this status message means that obsproc did not create an observation file.
+  Output missing        wrfvar_output was not created. Check the rsl.* files in the test directory.
+  Baseline missing      The test could not find a baseline file to compare to your test results.
+  Unknown error         Something strange went wrong in the baseline comparison subroutine.
+  Mysterious error!     Something strange went wrong (the subroutine for starting the test returned "undef"). 
+  diffwrf               diffwrf (used for comparing your output to the baseline) failed for some reason (ensure that it is
+     comparison failed  installed on your system and in your $PATH)
+  Could not open output Your output or baseline file is malformed (or possibly missing).
+     and/or baseline
+  fg == wrfvar_output   The test produced output, but the output is equal to the first guess, indicating a problem.
+
