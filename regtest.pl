@@ -474,8 +474,31 @@ $ENV{J}="-j $Parallel_compile_num";
       }
   }
 
-
 #######################  BEGIN COMPILE 4DVAR  ########################
+
+if ($Type =~ /4DVAR/i) {
+  # Set WRFPLUS_DIR Environment variable
+    my $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
+    chomp($WRFPLUSDIR);
+
+    if (-d $WRFPLUSDIR) {
+        $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
+    } else {
+        print "\n$WRFPLUSDIR DOES NOT EXIST\n";
+        print "\nNOT COMPILING FOR 4DVAR!\n";
+        $Type =~ s/4DVAR//gi;
+
+        foreach my $name (keys %Experiments) {
+            foreach my $type ($Experiments{$name}{test_type}) {
+                delete $Experiments{$name} if ($type =~ /4DVAR/i) ;
+                next ;
+            }
+        }
+
+
+    }
+}
+
 
 if ($Type =~ /4DVAR/i) {
 
@@ -483,11 +506,6 @@ if ($Type =~ /4DVAR/i) {
 
    foreach (split /\|/, $Par_4dvar) { #foreach1
       my $par_type = $_;
-
-
-      my $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
-      chomp($WRFPLUSDIR);
-      $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
 
 
 
@@ -521,6 +539,19 @@ if ($Type =~ /4DVAR/i) {
       # Change the working directory to WRFDA:
       chdir "WRFDA_4DVAR_$par_type" or die "Cannot chdir to WRFDA_4DVAR_$par_type: $!\n";
 
+      # Delete unnecessary directories to test code in release style
+      if ( -e "chem" && -r "chem" ) {
+         printf "Deleting chem directory ... \n";
+         rmtree ("chem") or die "Can not rmtree chem :$!\n";
+      }
+      if ( -e "dyn_nmm" && -r "dyn_nmm" ) {
+         printf "Deleting dyn_nmm directory ... \n";
+         rmtree ("dyn_nmm") or die "Can not rmtree dyn_nmm :$!\n";
+      }
+      if ( -e "hydro" && -r "hydro" ) {
+         printf "Deleting hydro directory ... \n";
+         rmtree ("hydro") or die "Can not rmtree hydro :$!\n";
+      }
 
       # Locate the compile options base on the $compiler:
       my $pid = open2( my $readme, my $writeme, './configure','4dvar');
@@ -726,6 +757,19 @@ if ($Type =~ /3DVAR/i) {
      
        chdir "WRFDA_3DVAR_$par_type" or die "Cannot chdir to WRFDA_3DVAR_$par_type: $!\n";
 
+       # Delete unnecessary directories to test code in release style
+       if ( -e "chem" && -r "chem" ) {
+          printf "Deleting chem directory ... \n";
+          rmtree ("chem") or die "Can not rmtree chem :$!\n";
+       }
+       if ( -e "dyn_nmm" && -r "dyn_nmm" ) {
+          printf "Deleting dyn_nmm directory ... \n";
+          rmtree ("dyn_nmm") or die "Can not rmtree dyn_nmm :$!\n";
+       }
+       if ( -e "hydro" && -r "hydro" ) {
+          printf "Deleting hydro directory ... \n";
+          rmtree ("hydro") or die "Can not rmtree hydro :$!\n";
+       }
 
        # Locate the compile options base on the $compiler:
        my $pid = open2( my $readme, my $writeme, './configure','wrfda','2>/dev/null');
@@ -919,7 +963,7 @@ while ( $compile_job_list ) {
       $compile_job_list =~ s/^\|//g;
 
    }
-   sleep 5;
+   sleep 2;
 }
 
 
