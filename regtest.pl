@@ -1235,7 +1235,7 @@ sub create_webpage {
        }
 
 
-       my @uploadit = ("scp", "summary_$Compiler.html", "wrfhelp\@tea.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
+       my @uploadit = ("scp", "summary_$Compiler.html", "kavulich\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
        system(@uploadit) == 0
           or die "Uploading 'summary_$Compiler.html' to web failed: $?\n";
        print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_$Compiler.html\n";
@@ -1419,6 +1419,7 @@ sub new_job_ys {
          if ($Experiments{$nam}{test_type} =~ /OBSPROC/i) {
              printf "Checking OBSPROC output\n";
              unless (-e "ob.ascii") {
+                 chdir "..";
                  return "OBSPROC_FAIL";
              }
          }
