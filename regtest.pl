@@ -26,7 +26,7 @@ my $tm = localtime;
 $Start_time=sprintf "Begin : %02d:%02d:%02d-%04d/%02d/%02d\n",
         $tm->hour, $tm->min, $tm->sec, $tm->year+1900, $tm->mon+1, $tm->mday;
 
-my $Upload="no";
+my $Upload_defined;
 my $Compiler_defined;
 my $Source_defined;
 my $Exec_defined;
@@ -48,7 +48,7 @@ foreach ( @ARGV ) {
 GetOptions( "compiler=s" => \$Compiler_defined,
             "source:s" => \$Source_defined, 
             "revision:s" => \$Revision,
-            "upload:s" => \$Upload,
+            "upload:s" => \$Upload_defined,
             "exec:s" => \$Exec_defined,
             "debug:s" => \$Debug_defined,
             "j:s" => \$Parallel_compile_num) or &print_help_and_die;
@@ -65,13 +65,14 @@ sub print_help_and_die {
   print "        compiler: Compiler name (supported options: xlf, pgi, g95, ifort, gfortran)\n";
   print "        source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository\n";
   print "        revision: Specify code revision to retrieve (only works when '--source=SVN' specified\n";
-  print "        upload:   Uploads summary to web\n";
+  print "        upload:   Uploads summary to web (default is 'yes' iff source=SVN and revision=HEAD)\n";
   print "        exec:     Execute only; skips compile, utilizes existing executables\n\n";
   print "        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well\n";
   print "        j:        Number of processors to use in parallel compile (default 2)\n";
   print "Please note:\n";
   die "A compiler MUST be specified to run this script. Other options are optional.\n";
 }
+
 
 my $Exec;
 if (defined $Exec_defined && $Exec_defined ne 'no') {
@@ -323,6 +324,15 @@ foreach my $name (keys %Experiments) {
 # If source specified on command line, use it
 $Source = $Source_defined if defined $Source_defined;
 
+# Upload summary to web by default if source is head of repository; 
+# otherwise do not upload unless upload option is explicitly selected
+my $Upload
+if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "SVN") && ($Revision eq "HEAD") && !(defined $Upload_defined) ) {
+   $Upload="yes";
+    print "\nSource is head of repository: will upload summary to web when test is complete.\n";
+} elsif ( !(defined $Upload_defined) ) {
+   $Upload="no";
+}
 
 # If specified paths are relative then point them to the full path
 if ( !($Source =~ /^\//) ) {
@@ -1206,9 +1216,9 @@ sub create_webpage {
 
        my $numexp= scalar keys %Experiments;
 
-       if ( $numexp < 20 ) {
+       if ( $numexp < 22 ) {
           $go_on='';
-          print "This run only includes $numexp of 20 tests, are you sure you want to upload?\a\n";
+          print "This run only includes $numexp of 22 tests, are you sure you want to upload?\a\n";
           while (!$go_on) {
              $go_on = <>;
              if ($go_on =~ /no/i) {
