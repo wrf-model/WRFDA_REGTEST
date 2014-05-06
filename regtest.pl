@@ -326,23 +326,25 @@ $Source = $Source_defined if defined $Source_defined;
 
 # Upload summary to web by default if source is head of repository; 
 # otherwise do not upload unless upload option is explicitly selected
-my $Upload
+my $Upload;
 if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "SVN") && ($Revision eq "HEAD") && !(defined $Upload_defined) ) {
-   $Upload="yes";
+    $Upload="yes";
     print "\nSource is head of repository: will upload summary to web when test is complete.\n";
 } elsif ( !(defined $Upload_defined) ) {
-   $Upload="no";
+    $Upload="no";
+} else {
+    $Upload=$Upload_defined;
 }
 
 # If specified paths are relative then point them to the full path
 if ( !($Source =~ /^\//) ) {
-   unless ( ($Source eq "SVN") or $Exec) {$Source = $MainDir."/".$Source};
+    unless ( ($Source eq "SVN") or $Exec) {$Source = $MainDir."/".$Source};
 }
 if ( !($Database =~ /^\//) ) {
-   $Database = $MainDir."/".$Database;
+    $Database = $MainDir."/".$Database;
 }
 if ( !($Baseline =~ /^\//) ) {
-   $Baseline = $MainDir."/".$Baseline;
+    $Baseline = $MainDir."/".$Baseline;
 }
 
 
@@ -574,9 +576,10 @@ if ($Type =~ /4DVAR/i) {
       my $option;
 
       foreach (@output) {
-         if ( ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($Par_4dvar) .*/ix) &&
+         if ( ($_=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($Par_4dvar) .*/ix) &&
              ! ($_=~/Cray/i) &&
              ! ($_=~/PGI accelerator/i) &&
+             ! ($_=~/-f90/i) &&
              ! ($_=~/SGI MPT/i)  ) {
             $Compile_options_4dvar{$1} = $2;
             $option = $1;
@@ -796,9 +799,10 @@ if ($Type =~ /3DVAR/i) {
        my $option;
 
        foreach (@output) {
-          if ( ($_=~ m/(\d+)\. .*$Compiler .* $CCompiler .* ($par_type) .*/ix) &&
+          if ( ($_=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
               ! ($_=~/Cray/i) &&
               ! ($_=~/PGI accelerator/i) &&
+              ! ($_=~/-f90/i) &&
               ! ($_=~/SGI MPT/i)  ) {
              $Compile_options{$1} = $2;
              $option = $1;
@@ -1119,6 +1123,13 @@ print SENDMAIL "Machine name: ",$Host."\n";
 print SENDMAIL "Operating system: ",$System,", ",$Machine."\n";
 print SENDMAIL "Compiler: ",$Compiler."\n";
 print SENDMAIL "Baseline: ",$Baseline."\n";
+print SENDMAIL "\n";
+if ( ($Machine_name eq "yellowstone") ) {
+    print SENDMAIL "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/"
+                    .$Compiler."_".$year.$mon.$mday."_".$hour.":".$min.":".$sec."'\n";
+    print SENDMAIL "\n";
+}
+
 print SENDMAIL @Message;
 print SENDMAIL $End_time."\n";
 
@@ -1198,10 +1209,16 @@ sub create_webpage {
         copy("summary_$Compiler.html","/glade/scratch/$ThisGuy/REGTEST/$Compiler\_$year$mon$mday\_$hour:$min:$sec/summary_$Compiler.html");
     }
 
+
+# This variable is just so that you have to respond to a prompt before issuing the scp command; this avoids timeout errors
+    my $scp_warn=0;
+
+
     my $go_on='';
 
     if ( $Upload =~ /yes/i ) {
        if ( (!$Exec) && ($Revision =~ /\d+M$/) ) {
+          $scp_warn ++;
           print "This revision appears to be modified, are you sure you want to upload the summary?\a\n";
           while (!$go_on) {
              $go_on = <>;
@@ -1210,14 +1227,16 @@ sub create_webpage {
              } elsif ($go_on =~ /yes/i) {
              } else {
                 print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
+                $go_on='';
              }
           }
        }
 
        my $numexp= scalar keys %Experiments;
+       $go_on='';
 
        if ( $numexp < 22 ) {
-          $go_on='';
+          $scp_warn ++;
           print "This run only includes $numexp of 22 tests, are you sure you want to upload?\a\n";
           while (!$go_on) {
              $go_on = <>;
@@ -1226,12 +1245,14 @@ sub create_webpage {
              } elsif ($go_on =~ /yes/i) {
              } else {
                 print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
+                $go_on='';
              }
           }
        }
 
+       $go_on='';
        unless ( $Source eq "SVN" ) {
-          $go_on='';
+          $scp_warn ++;
           print "This revision, '$Source', may not be the trunk version,\nare you sure you want to upload?\a\n";
           while (!$go_on) {
              $go_on = <>;
@@ -1240,12 +1261,17 @@ sub create_webpage {
              } elsif ($go_on =~ /yes/i) {
              } else {
                 print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
+                $go_on='';
              }
           }
        }
 
+       unless ($scp_warn > 0) {
+          print "Press Enter to upload summary to web\n";
+          <>;
+       }
 
-       my @uploadit = ("scp", "summary_$Compiler.html", "kavulich\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
+       my @uploadit = ("scp", "summary_$Compiler.html", "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
        system(@uploadit) == 0
           or die "Uploading 'summary_$Compiler.html' to web failed: $?\n";
        print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_$Compiler.html\n";
