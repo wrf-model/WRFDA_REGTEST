@@ -18,7 +18,6 @@ use File::Compare;
 use IPC::Open2;
 use Net::FTP;
 use Getopt::Long;
-use Term::ReadKey;
 
 # Start time:
 
@@ -1232,41 +1231,38 @@ sub create_webpage {
           $scp_warn ++;
           print "This revision appears to be modified, are you sure you want to upload the summary?\a\n";
 
-          while($go_on !~ /(Y|N)/i) {
-              1 while defined ReadKey -1; # discard any previous input
-              print "Type Y/N: ";
-              $go_on = ReadKey 0; # read a single character
-              print "$go_on\n";
-          }
-
-          if ($go_on =~ /N/i) {
-             print "Summary not uploaded to web.\n";
-             return;
-          } elsif ($go_on =~ /Y/i) {
-          } else {
-             die "Invalid input: ".$go_on;
+          while ($go_on eq "") {
+             $go_on = <STDIN>;
+             chop($go_on);
+             if ($go_on =~ /N/i) {
+                print "Summary not uploaded to web.\n";
+                return;
+             } elsif ($go_on =~ /Y/i) {
+             } else {
+                print "Invalid input: ".$go_on;
+                $go_on='';
+             }
           }
        }
 
        my $numexp= scalar keys %Experiments;
        $go_on='';
 
-       if ( $numexp < 22 ) {
+       if ( $numexp < 23 ) {
           $scp_warn ++;
-          print "This run only includes $numexp of 22 tests, are you sure you want to upload?\a\n";
-          while($go_on !~ /(Y|N)/i) {
-              1 while defined ReadKey -1; # discard any previous input
-              print "Type Y/N: ";
-              $go_on = ReadKey 0; # read a single character
-              print "$go_on\n";
-          }
+          print "This run only includes $numexp of 23 tests, are you sure you want to upload?\a\n";
 
-          if ($go_on =~ /N/i) {
-             print "Summary not uploaded to web.\n";
-             return;
-          } elsif ($go_on =~ /Y/i) {
-          } else {
-             die "Invalid input: ".$go_on;
+          while ($go_on eq "") {
+             $go_on = <STDIN>;
+             chop($go_on);
+             if ($go_on =~ /N/i) {
+                print "Summary not uploaded to web.\n";
+                return;
+             } elsif ($go_on =~ /Y/i) {
+             } else {
+                print "Invalid input: ".$go_on;
+                $go_on='';
+             }
           }
        }
 
@@ -1274,37 +1270,33 @@ sub create_webpage {
        unless ( $Source eq "SVN" ) {
           $scp_warn ++;
           print "This revision, '$Source', may not be the trunk version,\nare you sure you want to upload?\a\n";
-          while($go_on !~ /(Y|N)/i) {
-              1 while defined ReadKey -1; # discard any previous input
-              print "Type Y/N: ";
-              $go_on = ReadKey 0; # read a single character
-              print "$go_on\n";
-          }
-
-          if ($go_on =~ /N/i) {
-             print "Summary not uploaded to web.\n";
-             return;
-          } elsif ($go_on =~ /Y/i) {
-          } else {
-             die "Invalid input: ".$go_on;
+          while ($go_on eq "") {
+             $go_on = <STDIN>;
+             chop($go_on);
+             if ($go_on =~ /N/i) {
+                print "Summary not uploaded to web.\n";
+                return;
+             } elsif ($go_on =~ /Y/i) {
+             } else {
+                print "Invalid input: ".$go_on;
+                $go_on='';
+             }
           }
        }
 
        unless ($scp_warn > 0) {
           print "Are you sure you want to upload a web summary?\a\n";
-          while($go_on !~ /(Y|N)/i) {
-              1 while defined ReadKey -1; # discard any previous input
-              print "Type Y/N: ";
-              $go_on = ReadKey 0; # read a single character
-              print "$go_on\n";
-          }
-
-          if ($go_on =~ /N/i) {
-             print "Summary not uploaded to web.\n";
-             return;
-          } elsif ($go_on =~ /Y/i) {
-          } else {
-             die "Invalid input: ".$go_on;
+          while ($go_on eq "") {
+             $go_on = <STDIN>;
+             chop($go_on);
+             if ($go_on =~ /N/i) {
+                print "Summary not uploaded to web.\n";
+                return;
+             } elsif ($go_on =~ /Y/i) {
+             } else {
+                print "Invalid input: ".$go_on;
+                $go_on='';
+             }
           }
        }
 
@@ -1484,6 +1476,67 @@ sub new_job_ys {
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
 
+     } elsif ($types =~ /VARBC/i) {
+
+         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+         $types =~ s/VARBC//i;
+         $types =~ s/^\|//;
+         $types =~ s/\|$//;
+         $Experiments{$nam}{paropt}{$par}{queue} = $types;
+
+
+         printf "Creating 3DVAR VARBC job: $nam, $par\n";
+
+         # Generate the LSF job script:
+
+         unlink "job_${nam}_varbc_$par.csh" if -e 'job_$nam_varbc_$par.csh';
+         open FH, ">job_${nam}_varbc_$par.csh" or die "Can not open a job_${nam}_varbc_$par.csh to write. $! \n";
+
+         print FH '#!/bin/csh'."\n";
+         print FH '#',"\n";
+         print FH '# LSF batch script'."\n";
+         print FH '#'."\n";
+         print FH "#BSUB -J $nam"."\n";
+         # If more than 16 processors requested, can't use caldera
+         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "small" : $Queue)."\n";
+         printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
+                                        $cpun: 1;
+         print FH "#BSUB -o job_${nam}_$par.output"."\n";
+         print FH "#BSUB -e job_${nam}_$par.error"."\n";
+         print FH "#BSUB -W 30"."\n";
+         print FH "#BSUB -P $Project"."\n";
+         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
+         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
+                                                    1 : (($cpun < 16 ) ? $cpun : 16);
+         print FH "\n";
+         print FH ( $par eq 'smpar' || $par eq 'dm+sm') ?
+             "setenv OMP_NUM_THREADS $cpum\n" :"\n";
+         print FH "\n";
+
+         print FH "unsetenv MP_PE_AFFINITY\n";
+
+         print FH ($par eq 'serial' || $par eq 'smpar') ?
+             "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
+             "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
+
+         print FH "\n";
+         print FH "mkdir varbc_run_1\n";
+         print FH "mv rsl* varbc_run_1\n";
+         print FH "rm -f VARBC.in\n";
+         print FH "mv VARBC.out VARBC.in\n";
+         print FH "\n";
+
+         close (FH);
+
+         # Submit the job
+
+         $feedback = ` bsub < job_${nam}_varbc_$par.csh 2>/dev/null `;
+
+         # Return to the upper directory
+
+         chdir ".." or die "Cannot chdir to .. : $!\n";
+
+
      } elsif ($types =~ /3DVAR/i) {
 #         printf "types: $types\n";
 
@@ -1508,8 +1561,8 @@ sub new_job_ys {
 
          # Generate the LSF job script:
 
-         unlink "job_${nam}_3dvar_$par.csh" if -e 'job_$nam_$par.csh';
-         open FH, ">job_${nam}_3dvar_$par.csh" or die "Can not open a job_${nam}_$par.csh to write. $! \n";
+         unlink "job_${nam}_3dvar_$par.csh" if -e 'job_$nam_3dvar_$par.csh';
+         open FH, ">job_${nam}_3dvar_$par.csh" or die "Can not open a job_${nam}_3dvar_$par.csh to write. $! \n";
     
          print FH '#!/bin/csh'."\n";
          print FH '#',"\n";
@@ -1569,8 +1622,8 @@ sub new_job_ys {
 
 
          # Generate the LSF job script:
-         unlink "job_${nam}_4dvar_$par.csh" if -e 'job_$nam_$par.csh';
-         open FH, ">job_${nam}_4dvar_$par.csh" or die "Can not open a job_${nam}_$par.csh to write. $! \n";
+         unlink "job_${nam}_4dvar_$par.csh" if -e 'job_$nam_4dvar_$par.csh';
+         open FH, ">job_${nam}_4dvar_$par.csh" or die "Can not open a job_${nam}_4dvar_$par.csh to write. $! \n";
 
          print FH '#!/bin/csh'."\n";
          print FH '#',"\n";
