@@ -18,6 +18,7 @@ use File::Compare;
 use IPC::Open2;
 use Net::FTP;
 use Getopt::Long;
+use Term::ReadKey;
 
 # Start time:
 
@@ -472,9 +473,19 @@ $ENV{J}="-j $Parallel_compile_num";
               delete $Compile_options{$key};
           }
       }
-  }
-
-  if ($Arch eq "Darwin") {   # Darwin
+  } elsif ($Arch eq "Darwin") {   # Darwin
+      if ($Compiler=~/gfortran/i) {   # GFORTRAN
+          $ENV{CRTM} ='1';
+          $ENV{BUFR} ='1';
+          my $RTTOV_dir = "/sysdisk1/$ThisGuy/libs/rttov_$Compiler";
+          if (-d $RTTOV_dir) {
+              $ENV{RTTOV} = $RTTOV_dir;
+              print "Using RTTOV libraries in $RTTOV_dir\n";
+          } else {
+              print "$RTTOV_dir DOES NOT EXIST\n";
+              print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
+          }
+      }
       if ($Compiler=~/g95/i) {   # G95
           $ENV{CRTM} ='1';
           $ENV{BUFR} ='1';
@@ -1220,15 +1231,20 @@ sub create_webpage {
        if ( (!$Exec) && ($Revision =~ /\d+M$/) ) {
           $scp_warn ++;
           print "This revision appears to be modified, are you sure you want to upload the summary?\a\n";
-          while (!$go_on) {
-             $go_on = <>;
-             if ($go_on =~ /no/i) {
-                die "Summary not uploaded to web.\n";
-             } elsif ($go_on =~ /yes/i) {
-             } else {
-                print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
-                $go_on='';
-             }
+
+          while($go_on !~ /(Y|N)/i) {
+              1 while defined ReadKey -1; # discard any previous input
+              print "Type Y/N: ";
+              $go_on = ReadKey 0; # read a single character
+              print "$go_on\n";
+          }
+
+          if ($go_on =~ /N/i) {
+             print "Summary not uploaded to web.\n";
+             return;
+          } elsif ($go_on =~ /Y/i) {
+          } else {
+             die "Invalid input: ".$go_on;
           }
        }
 
@@ -1238,15 +1254,19 @@ sub create_webpage {
        if ( $numexp < 22 ) {
           $scp_warn ++;
           print "This run only includes $numexp of 22 tests, are you sure you want to upload?\a\n";
-          while (!$go_on) {
-             $go_on = <>;
-             if ($go_on =~ /no/i) {
-                die "Summary not uploaded to web.\n";
-             } elsif ($go_on =~ /yes/i) {
-             } else {
-                print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
-                $go_on='';
-             }
+          while($go_on !~ /(Y|N)/i) {
+              1 while defined ReadKey -1; # discard any previous input
+              print "Type Y/N: ";
+              $go_on = ReadKey 0; # read a single character
+              print "$go_on\n";
+          }
+
+          if ($go_on =~ /N/i) {
+             print "Summary not uploaded to web.\n";
+             return;
+          } elsif ($go_on =~ /Y/i) {
+          } else {
+             die "Invalid input: ".$go_on;
           }
        }
 
@@ -1254,27 +1274,44 @@ sub create_webpage {
        unless ( $Source eq "SVN" ) {
           $scp_warn ++;
           print "This revision, '$Source', may not be the trunk version,\nare you sure you want to upload?\a\n";
-          while (!$go_on) {
-             $go_on = <>;
-             if ($go_on =~ /no/i) {
-                die "Summary not uploaded to web.\n";
-             } elsif ($go_on =~ /yes/i) {
-             } else {
-                print "Invalid input: ".$go_on."\nPlease type 'yes' or 'no':";
-                $go_on='';
-             }
+          while($go_on !~ /(Y|N)/i) {
+              1 while defined ReadKey -1; # discard any previous input
+              print "Type Y/N: ";
+              $go_on = ReadKey 0; # read a single character
+              print "$go_on\n";
+          }
+
+          if ($go_on =~ /N/i) {
+             print "Summary not uploaded to web.\n";
+             return;
+          } elsif ($go_on =~ /Y/i) {
+          } else {
+             die "Invalid input: ".$go_on;
           }
        }
 
        unless ($scp_warn > 0) {
-          print "Press Enter to upload summary to web\n";
-          <>;
+          print "Are you sure you want to upload a web summary?\a\n";
+          while($go_on !~ /(Y|N)/i) {
+              1 while defined ReadKey -1; # discard any previous input
+              print "Type Y/N: ";
+              $go_on = ReadKey 0; # read a single character
+              print "$go_on\n";
+          }
+
+          if ($go_on =~ /N/i) {
+             print "Summary not uploaded to web.\n";
+             return;
+          } elsif ($go_on =~ /Y/i) {
+          } else {
+             die "Invalid input: ".$go_on;
+          }
        }
 
-       my @uploadit = ("scp", "summary_$Compiler.html", "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
+       my @uploadit = ("scp", "summary_${Compiler}.html", "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/summary_${Compiler}_${Machine_name}.html");
        system(@uploadit) == 0
-          or die "Uploading 'summary_$Compiler.html' to web failed: $?\n";
-       print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_$Compiler.html\n";
+          or die "Uploading 'summary_${Compiler}.html' to web failed: $?\n";
+       print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_${Compiler}_${Machine_name}.html\n";
     }
 }
 
@@ -1652,7 +1689,7 @@ sub flush_status {
     print $Clear; 
     # print $Flush_Counter++ ,"\n";
     print @Message;
-
+    sleep (0.5);
 }
 
 sub submit_job {
@@ -1690,6 +1727,7 @@ sub submit_job {
             }
 
             $Experiments{$name}{paropt}{$par}{status} = "done";
+            &flush_status ();
 
             # Wrap-up this job:
 
