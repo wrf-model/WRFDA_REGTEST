@@ -205,8 +205,8 @@ Darwin     x86_64  visit-a05    wrfda.tar        gfortran         64000510  shar
 #INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
 1        afwa_t7_ssmi                3DVAR            3    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            3    16      serial|dmpar
-#3        ASR_airs                    3DVAR            3    16      serial|dmpar
-4        ASR_prepbufr                3DVAR            3    16      serial|dmpar
+3        ASR_airs                    3DVAR            3    16      dmpar
+4        ASR_prepbufr                3DVAR            3    16      dmpar
 5        cv3_guo                     3DVAR            3    16      serial|dmpar
 6        cv3_guo_32                  3DVAR            3    16      serial|dmpar
 7        cwb_ascii                   3DVAR            3    16      serial|dmpar
@@ -216,15 +216,16 @@ Darwin     x86_64  visit-a05    wrfda.tar        gfortran         64000510  shar
 11       outerloop_bench_guo         3DVAR            3    16      serial|dmpar
 12       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
 13       radar_meixu                 3DVAR            3    16      serial|dmpar
-13       radar_meixu_thinning        3DVAR            3    16      serial|dmpar
-14       sfc_assi_2_outerloop_guo    3DVAR            3    16      serial|dmpar
-15       t44_liuz                    3DVAR            2    16      serial|dmpar
-16       t44_prepbufr                3DVAR            3    16      serial|dmpar
-17       tutorial_4dvar              4DVAR            3    16      dmpar
-18       tutorial_xinzhang           3DVAR|OBSPROC    3    16      serial|dmpar
-19       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
-20       tutorial_xinzhang_rttov     3DVAR            3    16      serial|dmpar
-21       wind_sd                     3DVAR            3    16      serial|dmpar
+14       radar_meixu_thinning        3DVAR            3    16      serial|dmpar
+#15       seviri_varbc                VARBC|3DVAR      3    16      dmpar
+16       sfc_assi_2_outerloop_guo    3DVAR            3    16      serial|dmpar
+17       t44_liuz                    3DVAR            2    16      serial|dmpar
+18       t44_prepbufr                3DVAR            3    16      serial|dmpar
+19       tutorial_4dvar              4DVAR            3    16      dmpar
+20       tutorial_xinzhang           3DVAR|OBSPROC    3    16      serial|dmpar
+21       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
+22       tutorial_xinzhang_rttov     3DVAR            3    16      serial|dmpar
+23       wind_sd                     3DVAR            3    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
 Darwin     x86_64  NA    wrfda.tar        pgi         64000510  share   WRFDA-data-EM    BASELINE.NEW

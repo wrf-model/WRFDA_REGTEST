@@ -117,12 +117,12 @@ my $Par="";
 my $Par_4dvar="";
 my $Type="";
 my $Clear = `clear`;
-my $Flush_Counter = 1;
 my $diffwrfdir = "";
 my $missvars;
 my @gtsfiles;
 my @childs;
 my %Experiments ;
+my $cmd='';
 #   Sample %Experiments Structure: #####################
 #   
 #   %Experiments (
@@ -189,7 +189,9 @@ my $Local_machine = `uname -m`; chomp($Local_machine);
 my $Machine_name = `uname -n`; chomp($Machine_name); 
 
 if ($Machine_name =~ /yslogin\d/) {$Machine_name = 'yellowstone'};
+my @splitted = split(/\./,$Machine_name);
 
+$Machine_name = $splitted[0];
 
 #Sort out the compiler name and version differences
 
@@ -253,7 +255,6 @@ while (<DATA>) {
        if ( ($Local_machine =~ /$Machine/i) ) {
 #         printf "SUCCESS1 \n Compiler=$Compiler Compiler_defined=$Compiler_defined \n";
          if ( ($Compiler =~ /$Compiler_defined/i) ) {
-            if ( ($Arch =~ /Linux/i) ) {
 #              printf "SUCCESS2 \n Machine_name=$Machine_name Name=$Name \n";
               if ( ($Name =~ /$Machine_name/i) ) {
                 $_=~ m/(\d+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+)/x;
@@ -279,22 +280,6 @@ while (<DATA>) {
                     }
                 }
               };
-            } else {
-              $_=~ m/(\d+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+)/x;
-              my @tasks = split /\|/, $6;
-              my %task_records;
-              $task_records{$_} = {} for @tasks;
-              my %record = (
-                   index => $1,
-                   test_type => $3,
-                   cpu_mpi => $4,
-                   cpu_openmp => $5,
-                   status => "open",
-                   paropt => \%task_records
-              );
-              $Experiments{$2} = \%record;
-              $Par = $6 unless ($Par =~ /$6/);
-            };
          }; 
        };
      }; 
@@ -516,15 +501,11 @@ if ($Type =~ /4DVAR/i) {
                 next ;
             }
         }
-
-
     }
 }
 
 
 if ($Type =~ /4DVAR/i) {
-
-  # Set WRFPLUS_DIR Environment variable
 
    foreach (split /\|/, $Par_4dvar) { #foreach1
       my $par_type = $_;
@@ -599,23 +580,7 @@ if ($Type =~ /4DVAR/i) {
 
       printf "Found 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$option}, $option;
 
-      die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" if ( (keys %Compile_options_4dvar) == 0 );
-
-      # Set the envir. variables:
-      if ($Arch eq "Linux") {
-         if ($Machine_name ne "yellowstone") {
-            unless ($Compiler=~/pgi/i or $Compiler=~/gfortran/i) {   # Only PGI for non-yellowstone Linux right now
-               print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
-               print "\n!!                   WARNING                    !!";
-               print "\n!! 4DVAR NOT YET IMPLEMENTED FOR THIS COMPILER! !!";
-               print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            }
-         }
-      }
-      if ($Arch eq "Darwin") {   # Darwin
-         die "4DVAR not yet implemented for Mac\n";
-      }
-
+      die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n" if ( (keys %Compile_options_4dvar) == 0 );
 
       # Compile the code:
 
@@ -767,8 +732,8 @@ if ($Type =~ /3DVAR/i) {
             printf "Revision %5d is exported to WRFDA_3DVAR_$par_type.\n",$Revision;
        } else {
             print "Getting the code from $Source to WRFDA_3DVAR_$par_type...\n";
-            ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
-            ! system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
+            system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
+            system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
        }
 
        # Check the revision number:
@@ -1335,46 +1300,64 @@ sub new_job {
 
      # Enter into the experiment working directory:
 
-     if ($types =~ /3DVAR/i) {
-#         printf "types: $types\n";
-         $types =~ s/3DVAR//i;
+     chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
+     if ($types =~ /OBSPROC/i) {
+         $types =~ s/OBSPROC//i;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
-#         printf "New types: $types\n";
 
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+         print "Running OBSPROC for $par job '$par'\n";
 
-         if ($types =~ /OBSPROC/i) {
-#             printf "types: $types\n";
-             $types =~ s/OBSPROC//i;
+         $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
+         system($cmd);
+
+         @gtsfiles = glob ("obs_gts_*.3DVAR");
+         if (defined $gtsfiles[0]) {
+             copy("$gtsfiles[0]","ob.ascii") or die "YOU HAVE COMMITTED AN OFFENSE!";
+             printf "OBSPROC complete\n";
+         } else {
+             chdir "..";
+             return "OBSPROC_FAIL";
+         }
+     }
+
+
+     if ($types =~ /3DVAR/i) {
+         if ($types =~ /VARBC/i) {
+             $types =~ s/VARBC//i;
              $Experiments{$nam}{paropt}{$par}{queue} = $types;
-#             printf "New types: $types\n";
 
-             printf "Running OBSPROC for $par job '$par'\n";
+             # Submit the first job for VARBC:
 
-             `$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe &> obsproc.out`;
+             print "Starting VARBC 3DVAR $par job '$nam'\n";
 
-             @gtsfiles = glob ("obs_gts_*.3DVAR");
-             if (defined $gtsfiles[0]) {
-                 copy("$gtsfiles[0]","ob.ascii") or die "YOU HAVE COMMITTED AN OFFENSE!";
-                 printf "OBSPROC complete\n";
+             if ($par=~/dm/i) {
+                 $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+                 system($cmd);
              } else {
-                 chdir "..";
-                 return "OBSPROC_FAIL";
+                 $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+                 system($cmd);
              }
 
+             mkpath('varbc_run_1') or die "Mkdir failed: $!";
+             system('mv statistics rsl* wrfvar_output varbc_run_1/');
+             unlink 'VARBC.in';
+             move('VARBC.out','VARBC.in') or die "Move failed: $!";
          }
 
-         # Submit the job :
+         $types =~ s/3DVAR//i;
+         $Experiments{$nam}{paropt}{$par}{queue} = $types;
 
-         printf "Starting 3DVAR $par job '$nam'\n";
+         # Submit the 3DVAR job:
+
+         print "Starting 3DVAR $par job '$nam'\n";
 
          if ($par=~/dm/i) { 
-             # system ("mpdallexit>/dev/null");
-             # system ("mpd&");
-             # sleep (0.1);
-             `mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par`;
+             $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+             system($cmd);
          } else {
-             `../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par > print.out.$Arch.$nam.$par.$Compiler`; 
+             $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler"; 
+             system($cmd);
          }
     
          rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
@@ -1387,19 +1370,15 @@ sub new_job {
 
      } elsif ($types =~ /4DVAR/i) {
          printf "types: $types\n";
-         $types =~ s/4DVAR//i;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
-         printf "New types: $types\n";
 
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
-
-         delete $ENV{OMP_NUM_THREADS};
-         $ENV{OMP_NUM_THREADS}=$cpum if ($par=~/sm/i);
 
          if ($par=~/dm/i) {
-             `mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par`;
+             $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+             system($cmd);
          } else {
-             `../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par > print.out.$Arch.$nam.$par.$Compiler`;
+             $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+             system($cmd);
          }
          rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
 
@@ -1739,10 +1718,10 @@ sub compare_output {
 sub flush_status {
 
     @Message = &refresh_status ();   # Update the Message
+    
     print $Clear; 
-    # print $Flush_Counter++ ,"\n";
-    print @Message;
-    sleep (0.5);
+    print join('', @Message);
+
 }
 
 sub submit_job {
@@ -1754,6 +1733,7 @@ sub submit_job {
             $Experiments{$name}{paropt}{$par}{starttime} = gettimeofday();
             $Experiments{$name}{paropt}{$par}{status} = "running";
             &flush_status (); # refresh the status
+
 
             #Submit job
             my $rc = &new_job ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
@@ -1780,7 +1760,6 @@ sub submit_job {
             }
 
             $Experiments{$name}{paropt}{$par}{status} = "done";
-            &flush_status ();
 
             # Wrap-up this job:
 
@@ -1789,41 +1768,14 @@ sub submit_job {
             # Compare the wrfvar_output with the BASELINE:
 
             unless ($Baseline =~ /none/i) {
-                if (compare ("$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler","$Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler") == 0) {
-                    $Experiments{$name}{paropt}{$par}{compare} = "match";
-                } elsif (compare ("$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler","$name/fg") == 0) {
-                    $Experiments{$name}{paropt}{$par}{status} = "error";
-                    $Experiments{$name}{paropt}{$par}{compare} = "fg == wrfvar_output";
-                } else {
-                    my $baselinetest = &compare_output ($name,$par);
-                    my %compare_problem = (
-                        1       => "diff",
-                        -1      => "Unknown error",
-                        -2      => "diffwrf comparison failed",
-                        -3      => "Output missing",
-                        -4      => "Baseline missing",
-                        -5      => "Could not open output and/or baseline",
-                    );
-                    
-                    if ( $baselinetest ) {
-                        if ( $baselinetest < 0 ) {
-                            $Experiments{$name}{paropt}{$par}{status} = "error";
-                            $Experiments{$name}{paropt}{$par}{compare} = $compare_problem{$baselinetest};
-                        } elsif ( $baselinetest > 0 ) {
-                            $Experiments{$name}{paropt}{$par}{compare} = $compare_problem{$baselinetest};
-                        }
-                    } elsif ( $missvars ) {
-                        $Experiments{$name}{paropt}{$par}{compare} = "ok, vars missing";
-                    } else {
-                        $Experiments{$name}{paropt}{$par}{compare} = "ok";
-                    }
-                }
+                         &check_baseline ($name, $Arch, $Machine_name, $par, $Compiler, $Baseline);
             }
         }
 
     }
 
     &flush_status (); # refresh the status
+    sleep 1;
 }
 
 sub submit_job_ys {
@@ -1931,7 +1883,7 @@ sub submit_job_ys {
                      # Compare against the baseline
 
                      unless ($Baseline =~ /none/i) {
-                         &check_baseline_ys ($name, $Arch, $Machine_name, $par, $Compiler, $Baseline);
+                         &check_baseline ($name, $Arch, $Machine_name, $par, $Compiler, $Baseline);
                      }
                  }
 
@@ -1953,7 +1905,7 @@ sub submit_job_ys {
 
 }
 
-sub check_baseline_ys {
+sub check_baseline {
 
     my ($cbname, $cbArch, $cbMachine_name, $cbpar, $cbCompiler, $cbBaseline) = @_;
 
