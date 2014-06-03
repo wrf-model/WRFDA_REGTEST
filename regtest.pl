@@ -1213,7 +1213,7 @@ sub create_webpage {
        my $numexp= scalar keys %Experiments;
        $go_on='';
 
-       if ( $numexp < 23 ) {
+       if ( $numexp < 24 ) {
           $scp_warn ++;
           print "This run only includes $numexp of 23 tests, are you sure you want to upload?\a\n";
 
@@ -1841,7 +1841,7 @@ sub submit_job_ys {
 
                  my $feedback = `bjobs $Experiments{$name}{paropt}{$par}{jobid}`;
                  if ( $feedback =~ m/RUN/ ) {; # Still running
-                     unless (defined $Experiments{$name}{paropt}{$par}{started}) { #set the start time when we first find it is running.
+                     unless ($Experiments{$name}{paropt}{$par}{started} == 1) { #set the start time when we first find it is running.
                          $Experiments{$name}{paropt}{$par}{status} = "running";
                          $Experiments{$name}{paropt}{$par}{started} = 1;
                          &flush_status (); # refresh the status
@@ -1865,6 +1865,7 @@ sub submit_job_ys {
                      print "$Experiments{$name}{paropt}{$par}{queue}\n";
                      delete $Experiments{$name}{paropt}{$par}{jobid};       # Delete the jobid.
                      $Experiments{$name}{paropt}{$par}{status} = "pending";    # Still more tasks for this job.
+                     $Experiments{$name}{paropt}{$par}{started} = 0;
 
                      printf "First task of %-10s job for %-30s took %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
 

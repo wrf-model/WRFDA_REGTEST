@@ -1,7 +1,23 @@
-This is the regression testing suite for the WRF Data Assimilation system (WRFDA).
+This is the regression testing suite (RTS) for the WRF Data Assimilation system (WRFDA).
 
+1. Contents 
 
-1. Supported platforms
+  The contents of the WRFDA regression testing suite are as follows. Some files and directories are required for proper 
+  functioning, while others are optional but helpful additions.
+
+Required files and directories:
+
+regtest.pl      The Perl script which runs the regression test suite
+testdata.txt    The text file which holds the test information for each platform
+WRFDA-data-EM/  The directory containing data used to run each test. Can be a different name as specified in 'testdata.txt'
+BASELINE.NEW/   The directory containing baseline comparisons for each test. Can be a different name as specified in 
+                'testdata.txt'
+
+Optional files and directories:
+
+scripts/        Contains helpful scripts, such as 'quickcopy.pl' which copies test results to be used as the new baseline.
+
+2. Supported platforms
 
   This regression testing suite is optimized for use on the NCAR Yellowstone supercomputer. However, with minimal effort it 
   can run (albeit slowly) on personal computers, both Linux and Mac.
@@ -10,7 +26,7 @@ This is the regression testing suite for the WRF Data Assimilation system (WRFDA
   and g95.
 
 
-2. Set up
+3. Set up
 
   In this repository you will find the main testing script and the text files containing test information, but you must 
   download two data sets for the regression testing to function:
@@ -36,7 +52,7 @@ Please note:
 A compiler MUST be specified to run this script. Other options are optional.
 
 
-#. Output
+4. Output
 
   Most of the messages found in the regression test summary are self-explanatory. Here's a full list of possible outcomes:
 
