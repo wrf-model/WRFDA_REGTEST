@@ -1331,6 +1331,10 @@ sub new_job {
              }
 
              mkpath('varbc_run_1') or die "Mkdir failed: $!";
+             unless ( -e "wrfvar_output") {
+                 chdir "..";
+                 return "VARBC_FAIL";
+             }
              system('mv statistics rsl* wrfvar_output varbc_run_1/');
              unlink 'VARBC.in';
              move('VARBC.out','VARBC.in') or die "Move failed: $!";
@@ -1738,6 +1742,11 @@ sub submit_job {
                 if ($rc =~ /OBSPROC_FAIL/) {
                     $Experiments{$name}{paropt}{$par}{status} = "error";
                     $Experiments{$name}{paropt}{$par}{compare} = "obsproc failed";
+                    &flush_status ();
+                    next;
+                } elsif ($rc =~ /VARBC_FAIL/) {
+                    $Experiments{$name}{paropt}{$par}{status} = "error";
+                    $Experiments{$name}{paropt}{$par}{compare} = "Output missing";
                     &flush_status ();
                     next;
                 } else {
