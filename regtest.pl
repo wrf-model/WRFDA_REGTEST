@@ -62,7 +62,7 @@ unless ( defined $Compiler_defined ) {
 sub print_help_and_die {
   print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
                               --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS\n";
-  print "        compiler: Compiler name (supported options: xlf, pgi, g95, ifort, gfortran)\n";
+  print "        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)\n";
   print "        source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository\n";
   print "        revision: Specify code revision to retrieve (only works when '--source=SVN' specified\n";
   print "        upload:   Uploads summary to web (default is 'yes' iff source=SVN and revision=HEAD)\n";
@@ -224,16 +224,7 @@ if ($Compiler_defined eq "gfortran") {
 }
 
 
-#if ($Machine_name eq 'yellowstone') {
-#   my %yellowstone_compiler = (
-#      gfortran    => "gnu",
-#      pgi         => "pgi",
-#      ifort       => "intel",
-#);
-#my $ys_compiler .= $yellowstone_compiler{$Compiler_defined};
-#}
-
-my $Compiler_version;
+my $Compiler_version = " ";
 if ($Machine_name eq 'yellowstone') {
    $Compiler_version = $ENV{COMPILER_VERSION}
 }
@@ -732,8 +723,8 @@ if ($Type =~ /3DVAR/i) {
             printf "Revision %5d is exported to WRFDA_3DVAR_$par_type.\n",$Revision;
        } else {
             print "Getting the code from $Source to WRFDA_3DVAR_$par_type...\n";
-            system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
-            system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
+            ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
+            ! system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
        }
 
        # Check the revision number:
@@ -1096,7 +1087,7 @@ print SENDMAIL "Revision: ",$Revision."\n";
 print SENDMAIL "Tester: ",$Tester."\n";
 print SENDMAIL "Machine name: ",$Host."\n";
 print SENDMAIL "Operating system: ",$System,", ",$Machine."\n";
-print SENDMAIL "Compiler: ",$Compiler."\n";
+print SENDMAIL "Compiler: ",$Compiler." ".$Compiler_version."\n";
 print SENDMAIL "Baseline: ",$Baseline."\n";
 print SENDMAIL "\n";
 if ( ($Machine_name eq "yellowstone") ) {
@@ -1130,7 +1121,7 @@ sub create_webpage {
     print WEBH '<li>'."Tester : $Tester".'</li>'."\n";
     print WEBH '<li>'."Machine name : $Host".'</li>'."\n";
     print WEBH '<li>'."Operating system : $System".'</li>'."\n";
-    print WEBH '<li>'."Compiler : $Compiler".'</li>'."\n";
+    print WEBH '<li>'."Compiler : $Compiler $Compiler_version".'</li>'."\n";
     print WEBH '<li>'."Baseline : $Baseline".'</li>'."\n";
     print WEBH '<li>'.$End_time.'</li>'."\n";
     print WEBH '</ul>'."\n";
@@ -1309,11 +1300,11 @@ sub new_job {
          print "Running OBSPROC for $par job '$par'\n";
 
          $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
-         system($cmd);
+         ! system($cmd) or die "Execution of obsproc failed: $!";
 
          @gtsfiles = glob ("obs_gts_*.3DVAR");
          if (defined $gtsfiles[0]) {
-             copy("$gtsfiles[0]","ob.ascii") or die "YOU HAVE COMMITTED AN OFFENSE!";
+             copy("$gtsfiles[0]","ob.ascii") or die "YOU HAVE COMMITTED AN OFFENSE! $!";
              printf "OBSPROC complete\n";
          } else {
              chdir "..";
