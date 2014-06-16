@@ -1078,26 +1078,31 @@ open (SENDMAIL, "|/usr/sbin/sendmail -oi -t -odq")
 print SENDMAIL  "From: $Tester\n";
 print SENDMAIL  "To: $Tester\@ucar.edu"."\n";
 print SENDMAIL  "Subject: Regression test summary\n";
+print SENDMAIL "Content-Type: text/html; charset=ISO-8859-1\n\n";
 
-#print $Clear;
-#print @Message;
-print SENDMAIL $Start_time."\n";
-print SENDMAIL "Source: ",$Source."\n";
-print SENDMAIL "Revision: ",$Revision."\n";
-print SENDMAIL "Tester: ",$Tester."\n";
-print SENDMAIL "Machine name: ",$Host."\n";
-print SENDMAIL "Operating system: ",$System,", ",$Machine."\n";
-print SENDMAIL "Compiler: ",$Compiler." ".$Compiler_version."\n";
-print SENDMAIL "Baseline: ",$Baseline."\n";
-print SENDMAIL "\n";
-if ( ($Machine_name eq "yellowstone") ) {
+print SENDMAIL "<html>";
+print SENDMAIL "<body>";
+print SENDMAIL "<p>";
+print SENDMAIL $Start_time."<br>";
+print SENDMAIL "Source: ",$Source."<br>";
+print SENDMAIL "Revision: ",$Revision."<br>";
+print SENDMAIL "Tester: ",$Tester."<br>";
+print SENDMAIL "Machine name: ",$Host."<br>";
+print SENDMAIL "Operating system: ",$System,", ",$Machine."<br>";
+print SENDMAIL "Compiler: ",$Compiler." ".$Compiler_version."<br>";
+print SENDMAIL "Baseline: ",$Baseline."<br>";
+print SENDMAIL "<br>";
+if ( $Machine_name eq "yellowstone" ) {
     print SENDMAIL "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/"
-                    .$Compiler."_".$year.$mon.$mday."_".$hour.":".$min.":".$sec."'\n";
-    print SENDMAIL "\n";
+                    .$Compiler."_".$year.$mon.$mday."_".$hour.":".$min.":".$sec."'<br>";
+    print SENDMAIL "<br>";
 }
-
+print SENDMAIL "<pre>";
 print SENDMAIL @Message;
-print SENDMAIL $End_time."\n";
+print SENDMAIL "</pre>";
+print SENDMAIL $End_time."<br>";
+print SENDMAIL "</body>";
+print SENDMAIL "</html>";
 
 close(SENDMAIL);
 
