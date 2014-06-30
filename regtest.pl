@@ -1302,7 +1302,7 @@ sub new_job {
          $types =~ s/OBSPROC//i;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
 
-         print "Running OBSPROC for $par job '$par'\n";
+         print "Running OBSPROC for $par job '$nam'\n";
 
          $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
          ! system($cmd) or die "Execution of obsproc failed: $!";
@@ -1369,8 +1369,9 @@ sub new_job {
          return 1;
 
      } elsif ($types =~ /4DVAR/i) {
-         printf "types: $types\n";
+         $types =~ s/4DVAR//i;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
+         print "Starting 4DVAR $par job '$nam'\n";
 
 
          if ($par=~/dm/i) {
