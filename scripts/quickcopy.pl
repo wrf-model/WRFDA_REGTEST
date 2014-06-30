@@ -60,7 +60,7 @@ foreach $filename (@files) {
 }
 
 if ($copied_num > 0){
-    print "\nThe following $copied_num files were copied to BASELINE.NEW, old baseline file were backed up to BASELINE.NEW.BACKUP:\n\n";
+    print "\nThe following $copied_num files were copied to BASELINE.NEW, old baseline files were backed up to BASELINE.NEW.BACKUP:\n\n";
     foreach $changed_name (@changed) {
         print "$changed_name\n";
     }

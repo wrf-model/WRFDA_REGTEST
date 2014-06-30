@@ -1,6 +1,6 @@
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
-Linux      x86_64  yellowstone    WORKDIR/tbd_changes/typo_fixes/typo_fixes.tar       ifort         P64000400  caldera   WRFDA-data-EM    BASELINE.NEW
+Linux      x86_64  yellowstone    WORKDIR/tbd_changes/madis_rm+typo_fixes+hybrid_fix/madis_rm+typo_fixes+hybrid_fix.tar       ifort         P64000400  caldera   WRFDA-data-EM    BASELINE.NEW
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            4    16      serial|dmpar
@@ -22,13 +22,14 @@ Linux      x86_64  yellowstone    WORKDIR/tbd_changes/typo_fixes/typo_fixes.tar 
 18       t44_liuz                    3DVAR            2    16      serial|dmpar
 19       t44_prepbufr                3DVAR            8    16      serial|dmpar
 20       tutorial_4dvar              4DVAR           32    16      dmpar
-21       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
-22       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
-23       tutorial_xinzhang_rttov     3DVAR           10    16      serial|dmpar
-24       wind_sd                     3DVAR           16    16      serial|dmpar
+21       tutorial_fgat               FGAT            16    16      dmpar
+22       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
+23       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
+24       tutorial_xinzhang_rttov     3DVAR           10    16      serial|dmpar
+25       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
-Linux      x86_64  yellowstone    WORKDIR/2014-05-30_changes/seviri_fixes/seviri_fixes.tar        gfortran      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
+Linux      x86_64  yellowstone    WORKDIR/tbd_changes/madis_rm+typo_fixes+hybrid_fix/madis_rm+typo_fixes+hybrid_fix.tar        gfortran      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            4    16      serial|dmpar
@@ -50,13 +51,14 @@ Linux      x86_64  yellowstone    WORKDIR/2014-05-30_changes/seviri_fixes/seviri
 18       t44_liuz                    3DVAR            2    16      serial|dmpar
 19       t44_prepbufr                3DVAR            8    16      serial|dmpar
 20       tutorial_4dvar              4DVAR           32    16      dmpar
-21       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
-22       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
-23       tutorial_xinzhang_rttov     3DVAR           10    16      serial|dmpar
-24       wind_sd                     3DVAR           16    16      serial|dmpar
+21       tutorial_fgat               FGAT            16    16      dmpar
+22       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
+23       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
+24       tutorial_xinzhang_rttov     3DVAR           10    16      serial|dmpar
+25       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
-Linux      x86_64  yellowstone    WORKDIR/tbd_changes/seviri_fixes/seviri_fixes.tar        pgi      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
+Linux      x86_64  yellowstone    WORKDIR/tbd_changes/radar_changes/wrfda_orig.tar        pgi      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            4    16      serial|dmpar
@@ -78,10 +80,11 @@ Linux      x86_64  yellowstone    WORKDIR/tbd_changes/seviri_fixes/seviri_fixes.
 18       t44_liuz                    3DVAR            2    16      serial|dmpar
 19       t44_prepbufr                3DVAR            8    16      serial|dmpar
 20       tutorial_4dvar              4DVAR           32    16      dmpar
-21       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
-22       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
-23       tutorial_xinzhang_rttov     3DVAR           10    16      serial|dmpar
-24       wind_sd                     3DVAR           16    16      serial|dmpar
+21       tutorial_fgat               FGAT            16    16      dmpar
+22       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
+23       tutorial_xinzhang_kmatrix   3DVAR            3    16      serial|dmpar
+24       tutorial_xinzhang_rttov     3DVAR           10    16      serial|dmpar
+25       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
 Linux      x86_64  loblolly   /loblolly/kavulich/wrfda.tar        ifort         64000510  share   /loblolly/kavulich/WRFDA-data-EM    /loblolly/kavulich/BASELINE
