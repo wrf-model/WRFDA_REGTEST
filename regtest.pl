@@ -33,6 +33,7 @@ my $Exec_defined;
 my $Debug_defined;
 my $Parallel_compile_num = 4;
 my $Revision = 'HEAD'; # Revision Number
+my @valid_options = ("compiler","source","revision","upload","exec","debug","j");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach ( @ARGV ) {
@@ -42,6 +43,20 @@ foreach ( @ARGV ) {
     print "\n Unknown option: $arg \n";
     &print_help_and_die;
   }
+
+#Make sure option is valid
+  my $valid = 0;
+  foreach (@valid_options) {
+    if ($arg =~ "$_") {$valid = 1};
+  }
+  if ($valid == 0) {
+    $arg =~ s/=.*//;
+    print "\n unknown option: $arg \n";
+    &print_help_and_die;
+  }
+
+  &print_help_and_die unless ($arg =~ "="); #All options need an equals sign
+
 }
 
 
@@ -54,7 +69,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "j:s" => \$Parallel_compile_num) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
-  print "\nCOMPILER NOT SPECIFIED, ABORTING\n\n";
+  print "\nA compiler must be specified!\n\nAbortin!\n\n";
   &print_help_and_die;
 }
 
@@ -69,8 +84,7 @@ sub print_help_and_die {
   print "        exec:     Execute only; skips compile, utilizes existing executables\n\n";
   print "        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well\n";
   print "        j:        Number of processors to use in parallel compile (default 2)\n";
-  print "Please note:\n";
-  die "A compiler MUST be specified to run this script. Other options are optional.\n";
+  die "\n";
 }
 
 
@@ -108,7 +122,7 @@ my $Project;
 my $Source;
 my $Queue;
 my $Compile_queue = 'caldera';
-my $compile_job_list = "";
+my @compile_job_list;
 my $Database;
 my $Baseline;
 my $MainDir;
@@ -305,7 +319,7 @@ $Source = $Source_defined if defined $Source_defined;
 my $Upload;
 if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "SVN") && ($Revision eq "HEAD") && !(defined $Upload_defined) ) {
     $Upload="yes";
-    print "\nSource is head of repository: will upload summary to web when test is complete.\n";
+    print "\nSource is head of repository: will upload summary to web when test is complete.\n\n";
 } elsif ( !(defined $Upload_defined) ) {
     $Upload="no";
 } else {
@@ -630,7 +644,7 @@ if ($Type =~ /4DVAR/i) {
          if ($submit_message =~ m/.*<(\d+)>/) {;
             print "Job ID for 4DVAR $Compiler option $Compile_options_4dvar{$option} is $1 \n";
             $compile_job_array{$1} = "4DVAR_$Compile_options_4dvar{$option}";
-            $compile_job_list = join('|',$compile_job_list,$1);
+            push (@compile_job_list,$1);
          } else {
             die "\nFailed to submit 4DVAR compile job for $Compiler option $Compile_options_4dvar{$option}!\n";
          };
@@ -839,7 +853,7 @@ if ($Type =~ /3DVAR/i) {
             if ($submit_message =~ m/.*<(\d+)>/) {;
                 print "Job ID for 3DVAR $Compiler option $Compile_options{$option} is $1 \n";
                 $compile_job_array{$1} = "3DVAR_$Compile_options{$option}";
-                $compile_job_list = join('|',$compile_job_list,$1);
+                push (@compile_job_list,$1);
             } else {
                 die "\nFailed to submit 3DVAR compile job for $Compiler option $Compile_options{$option}!\n";
             };
@@ -909,16 +923,17 @@ foreach (@childs) {
     waitpid($_, 0);
 }
 
-
+#Because Perl is Perl, must create a temporary array to modify while in "for" loop
+my @temparray = @compile_job_list;
 
 
 # For batch build, keep track of ongoing compile jobs, continue when finished.
-while ( $compile_job_list ) {
+while ( @compile_job_list ) {
    # Remove '|' from start of "compile_job_list"
-   $compile_job_list =~ s/^\|//g;
 
-   foreach ( split /\|/, $compile_job_list ) {
-      my $jobnum = $_;
+print "Begin compile_job_list = @compile_job_list\n";
+   for my $i ( 0 .. $#compile_job_list ) {
+      my $jobnum = $compile_job_list[$i];
       my $feedback = `bjobs $jobnum`;
       if ( ($feedback =~ m/RUN/) || ( $feedback =~ m/PEND/ ) ) {; # Still pending or running
          next;
@@ -938,13 +953,17 @@ while ( $compile_job_list ) {
 
       rename "WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe","WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]" or die "Program da_wrfvar.exe not created for $details[0], $details[1]: check your compilation log.\n";
 
+print "Temporary array before splice: @temparray\n";
       # Delete job from list of active jobs
-      $compile_job_list =~ s/$jobnum//g;
-      $compile_job_list =~ s/^\|//g;
-      $compile_job_list =~ s/\|$//g;
+      splice (@temparray,$i,1);
+print "Temporary array after splice: @temparray\n";
 
    }
-   sleep 2;
+
+   @compile_job_list = @temparray;
+
+print "End compile_job_list = @compile_job_list\n";
+   sleep 10;
 }
 
 
