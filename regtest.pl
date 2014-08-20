@@ -339,8 +339,8 @@ if ( !($Baseline =~ /^\//) ) {
 
 
 printf "Finished parsing the table, the experiments are : \n";
-printf "#INDEX   EXPERIMENT                   TYPE                    CPU_MPI  CPU_OPENMP    PAROPT\n";
-printf "%-4d     %-27s  %-23s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n", 
+printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
+printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n", 
      $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
          keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
 
@@ -369,18 +369,18 @@ if ($Arch eq "Linux") {
 if ($Exec) {
    if ( ($Type =~ /4DVAR/i) && ($Type =~ /3DVAR/i) ) {
       if ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /dmpar/i) ) {
-         my $Revision3 = `svnversion WRFDA_3DVAR_dmpar`;
-         my $Revision4 = `svnversion WRFDA_4DVAR_dmpar`;
+         my $Revision3 = &svn_version("WRFDA_3DVAR_dmpar");
+         my $Revision4 = &svn_version("WRFDA_4DVAR_dmpar");
          die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
-         $Revision = `svnversion WRFDA_3DVAR_dmpar`;
+         $Revision = &svn_version("WRFDA_3DVAR_dmpar");
       }
    } elsif ($Type =~ /4DVAR/i) {
-      $Revision = `svnversion WRFDA_4DVAR_dmpar`;
+      $Revision = &svn_version("WRFDA_4DVAR_dmpar");
    } else {
       if ( $Par =~ /dmpar/i ) {
-         $Revision = `svnversion WRFDA_3DVAR_dmpar`;
+         $Revision = &svn_version("WRFDA_3DVAR_dmpar");
       } else {
-         $Revision = `svnversion WRFDA_3DVAR_serial`;
+         $Revision = &svn_version("WRFDA_3DVAR_serial");
       }
    }
    chomp($Revision);
@@ -526,13 +526,7 @@ if ($Type =~ /4DVAR/i) {
 
       if ($Source eq "SVN") {
          print "Getting the code from repository $SVN_REP to WRFDA_4DVAR_$par_type...\n";
-         open (my $fh,"-|","svn","co","-r",$Revision,$SVN_REP,"WRFDA_4DVAR_$par_type")
-            or die " Can't run svn export: $!\n";
-         while (<$fh>) {
-            $Revision = $1 if ( /revision \s+ (\d+)/x);
-         }
-         close ($fh);
-         printf "Revision %5d is exported to WRFDA_4DVAR_$par_type.\n",$Revision;
+         ! system ("svn","co","-q","-r",$Revision,$SVN_REP,"WRFDA_4DVAR_$par_type") or die " Can't run svn checkout: $!\n";
       } else {
          print "Getting the code from $Source to WRFDA_4DVAR_$par_type...\n";
          ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
@@ -541,8 +535,11 @@ if ($Type =~ /4DVAR/i) {
 
       # Check the revision number:
 
-      $Revision = `svnversion WRFDA_4DVAR_$par_type`;
-      chomp($Revision);
+      $Revision = &svn_version("WRFDA_4DVAR_$par_type");
+
+      if ($Source eq "SVN") {
+         printf "Revision %5d is exported to WRFDA_4DVAR_$par_type.\n",$Revision;
+      }
 
       # Change the working directory to WRFDA:
       chdir "WRFDA_4DVAR_$par_type" or die "Cannot chdir to WRFDA_4DVAR_$par_type: $!\n";
@@ -727,14 +724,8 @@ if ($Type =~ /3DVAR/i) {
        }
 
        if ($Source eq "SVN") {
-            print "Getting the code from repository $SVN_REP to WRFDA_3DVAR_$par_type...\n";
-            open (my $fh,"-|","svn","co","-r",$Revision,$SVN_REP,"WRFDA_3DVAR_$par_type")
-                 or die " Can't run svn export: $!\n";
-            while (<$fh>) {
-                $Revision = $1 if ( /revision \s+ (\d+)/x); 
-            }
-            close ($fh);
-            printf "Revision %5d is exported to WRFDA_3DVAR_$par_type.\n",$Revision;
+          print "Getting the code from repository $SVN_REP to WRFDA_3DVAR_$par_type...\n";
+          ! system ("svn","co","-q","-r",$Revision,$SVN_REP,"WRFDA_3DVAR_$par_type") or die " Can't run svn checkout: $!\n";
        } else {
             print "Getting the code from $Source to WRFDA_3DVAR_$par_type...\n";
             ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
@@ -743,8 +734,11 @@ if ($Type =~ /3DVAR/i) {
 
        # Check the revision number:
 
-       $Revision = `svnversion WRFDA_3DVAR_$par_type`;
-       chomp($Revision);
+      $Revision = &svn_version("WRFDA_3DVAR_$par_type");
+
+      if ($Source eq "SVN") {
+         printf "Revision %5d is exported to WRFDA_3DVAR_$par_type.\n",$Revision;
+      }
  
        # Change the working directory to WRFDA:
      
@@ -931,7 +925,6 @@ my @temparray = @compile_job_list;
 while ( @compile_job_list ) {
    # Remove '|' from start of "compile_job_list"
 
-print "Begin compile_job_list = @compile_job_list\n";
    for my $i ( 0 .. $#compile_job_list ) {
       my $jobnum = $compile_job_list[$i];
       my $feedback = `bjobs $jobnum`;
@@ -953,16 +946,13 @@ print "Begin compile_job_list = @compile_job_list\n";
 
       rename "WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe","WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]" or die "Program da_wrfvar.exe not created for $details[0], $details[1]: check your compilation log.\n";
 
-print "Temporary array before splice: @temparray\n";
       # Delete job from list of active jobs
       splice (@temparray,$i,1);
-print "Temporary array after splice: @temparray\n";
-
+      last;
    }
 
    @compile_job_list = @temparray;
 
-print "End compile_job_list = @compile_job_list\n";
    sleep 10;
 }
 
@@ -1292,21 +1282,21 @@ sub refresh_status {
 
     my @mes; 
 
-    push @mes, "Experiment                  Paropt      CPU_MPI  CPU_OMP  Status    Walltime(s)    Compare\n";
-    push @mes, "==========================================================================================\n";
+    push @mes, "Experiment                  Paropt      Job type        CPU_MPI  Status    Walltime(s)    Compare\n";
+    push @mes, "=================================================================================================\n";
 
     foreach my $name (sort keys %Experiments) {
         foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
-            push @mes, sprintf "%-28s%-12s%-9d%-9d%-10s%-15d%-7s\n", 
-                    $name, $par, $Experiments{$name}{cpu_mpi}, 
-                    $Experiments{$name}{cpu_openmp}, 
+            push @mes, sprintf "%-28s%-12s%-16s%-9d%-10s%-15d%-7s\n", 
+                    $name, $par, $Experiments{$name}{test_type},
+                    $Experiments{$name}{cpu_mpi},
                     $Experiments{$name}{paropt}{$par}{status},
                     $Experiments{$name}{paropt}{$par}{walltime},
                     $Experiments{$name}{paropt}{$par}{compare};
         }
     }
 
-    push @mes, "==========================================================================================\n";
+    push @mes, "=================================================================================================\n";
     return @mes;
 }
 
@@ -2047,5 +2037,23 @@ sub check_baseline {
 
 }
 
+
+sub svn_version {
+
+#This function is necessary since a Yellowstone upgrade bungled up the 'svnversion' function.
+#Should have the same functionality
+
+my ($dir_name) = @_;
+my $revnum;
+   open (my $fh,"-|","svn","info","$dir_name")
+      or die " Can't run svn info: $!\n";
+   while (<$fh>) {
+      $revnum = $1 if ( /Revision: \s+ (\d+)/x);
+   }
+   close ($fh);
+
+   return $revnum;
+
+}
 
 
