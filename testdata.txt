@@ -17,15 +17,16 @@ Linux      x86_64  yellowstone    WORKDIR/2014-08-13_changes/multi-level_and_gps
 13       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
 14       radar_meixu                 3DVAR            8    16      serial|dmpar
 15       radar_meixu_thinning        3DVAR            4    16      serial|dmpar
-16       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
-17       seviri_varbc                VARBC|3DVAR     16    16      dmpar
-18       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-19       t44_liuz                    3DVAR            2    16      serial|dmpar
-20       t44_prepbufr                3DVAR            8    16      serial|dmpar
-21       tutorial_4dvar              4DVAR           32    16      dmpar
-22       tutorial_fgat               FGAT            16    16      dmpar
-23       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
-25       tutorial_xinzhang_rttov     3DVAR           10    16      serial|dmpar
+16       rainfall_outerloops         4DVAR           16    16      dmpar
+17       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
+18       seviri_varbc                VARBC|3DVAR     16    16      dmpar
+19       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+20       t44_liuz                    3DVAR            2    16      serial|dmpar
+21       t44_prepbufr                3DVAR            8    16      serial|dmpar
+22       tutorial_4dvar              4DVAR           32    16      dmpar
+23       tutorial_fgat               FGAT            16    16      dmpar
+24       tut_xinzhang                OBSPROC|3DVAR   16    16      dmpar
+25       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 26       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
@@ -46,15 +47,16 @@ Linux      x86_64  yellowstone    WORKDIR/2014-08-13_changes/multi-level_and_gps
 13       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
 14       radar_meixu                 3DVAR            8    16      serial|dmpar
 15       radar_meixu_thinning        3DVAR            4    16      serial|dmpar
-16       rttov_4dvar_madagascar      4DVAR           64    16      dmpar
-17       seviri_varbc                VARBC|3DVAR     16    16      dmpar
-18       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-19       t44_liuz                    3DVAR            2    16      serial|dmpar
-20       t44_prepbufr                3DVAR            8    16      serial|dmpar
-21       tutorial_4dvar              4DVAR           32    16      dmpar
-22       tutorial_fgat               FGAT            16    16      dmpar
-23       tutorial_xinzhang           OBSPROC|3DVAR   16    16      dmpar
-25       tutorial_xinzhang_rttov     3DVAR           10    16      serial|dmpar
+16       rainfall_outerloops         4DVAR           16    16      dmpar
+17       rttov_4dvar_madagascar      4DVAR           64    16      dmpar
+18       seviri_varbc                VARBC|3DVAR     16    16      dmpar
+19       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+20       t44_liuz                    3DVAR            2    16      serial|dmpar
+21       t44_prepbufr                3DVAR            8    16      serial|dmpar
+22       tutorial_4dvar              4DVAR           32    16      dmpar
+23       tutorial_fgat               FGAT            16    16      dmpar
+24       tut_xinzhang                OBSPROC|3DVAR   16    16      dmpar
+25       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 26       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE

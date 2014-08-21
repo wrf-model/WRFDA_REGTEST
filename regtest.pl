@@ -1429,61 +1429,111 @@ sub new_job_ys {
      
 
 
-#     if ($types =~ /GENBE/i) {
-#         printf "types: $types\n";
-#         $types =~ s/GENBE//i;
-#         $Experiments{$nam}{paropt}{$par}{queue} = $types;
-#         printf "New types: $types\n";
-     if ($types =~ /OBSPROC/i) {
-#         printf "types: $types\n";
-         $types =~ s/OBSPROC//i;
+     if ($types =~ /GENBE/i) {
+
+         $types =~ s/GENBE//i;
          $types =~ s/^\|//;
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{queue} = $types;
-#         printf "New types: $types\n";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
-         printf "Creating OBSPROC job: $nam, $par\n";
+         if (-e "be.dat") {
+            print "'be.dat' already exists, skipping GEN_BE step\n";
+            chdir "..";
+            return "SKIPPED";
+         } else {
 
+            printf "Creating GEN_BE job: $nam, $par\n";
 
-         # Generate the LSF job script         
-         unlink "job_${nam}_obsproc_$par.csh" if -e 'job_$nam_$par.csh';
-         open FH, ">job_${nam}_obsproc_$par.csh" or die "Can not open job_${nam}_obsproc_$par.csh to write. $! \n";
+            # Generate the LSF job script
+            unlink "job_${nam}_genbe_$par.csh" if -e 'job_$nam_$par.csh';
+            open FH, ">job_${nam}_genbe_$par.csh" or die "Can not open job_${nam}_genbe_$par.csh to write. $! \n";
 
-         print FH '#!/bin/csh'."\n";
-         print FH '#',"\n";
-         print FH '# LSF batch script'."\n";
-         print FH '#'."\n";
-         print FH "#BSUB -J $nam"."\n";
-         # Don't use multiple processors for obsproc
-         print FH "#BSUB -q ".$Queue."\n";
-         printf FH "#BSUB -n 1\n";
-         print FH "#BSUB -o job_${nam}_obsproc_$par.output"."\n";
-         print FH "#BSUB -e job_${nam}_obsproc_$par.error"."\n";
-         print FH "#BSUB -W 20"."\n";
-         print FH "#BSUB -P $Project"."\n";
-         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
-         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
-                                                    1 : (($cpun < 16 ) ? $cpun : 16);
-         print FH "\n";
+            print FH '#!/bin/csh'."\n";
+            print FH '#',"\n";
+            print FH '# LSF batch script'."\n";
+            print FH '#'."\n";
+            print FH "#BSUB -J $nam"."\n";
+            # Don't use multiple processors for gen_be
+            print FH "#BSUB -q caldera\n";
+            print FH "#BSUB -n 1\n";
+            print FH "#BSUB -o job_${nam}_genbe_$par.output"."\n";
+            print FH "#BSUB -e job_${nam}_genbe_$par.error"."\n";
+            print FH "#BSUB -W 20"."\n";
+            print FH "#BSUB -P $Project"."\n";
+            print FH "#BSUB -R span[ptile=1]\n";
+            print FH "\n";
 
-         print FH "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
+            # Unpack forecasts tar file.
+            print FH "tar -xf forecasts.tar\n";
+            print FH "\n";
 
-         print FH "\n";
-         unless (-e "ob.ascii") {print FH "cp -f obs_gts_*.3DVAR ob.ascii\n"};
-         print FH "\n";
+            # We need the script to see where the WRFDA directory is. See gen_be_wrapper.ksh in test directory
+            print FH "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_3DVAR_".$par."\n";
+            print FH "\n";
+            print FH "./gen_be_wrapper.ksh\n";
+            print FH "\n";
+            print FH "if( -e gen_be5/SUCCESS ) then\n";
+            print FH "   cp gen_be5/be.dat ./be.dat\n";
+            print FH "endif\n";
+            print FH "\n";
 
-         close (FH);
+            close (FH);
 
-         # Submit the job
-
-         $feedback = ` bsub < job_${nam}_obsproc_$par.csh 2>/dev/null `;
-
+            # Submit the job
+            $feedback = ` bsub < job_${nam}_genbe_$par.csh 2>/dev/null `;
+         }
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
+     } elsif ($types =~ /OBSPROC/i) {
+         $types =~ s/OBSPROC//i;
+         $types =~ s/^\|//;
+         $types =~ s/\|$//;
+         $Experiments{$nam}{paropt}{$par}{queue} = $types;
+
+         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
+         if (-e "ob.ascii") {
+            print "'ob.ascii' already exists, skipping OBSPROC step\n";
+            chdir "..";
+            return "SKIPPED";
+         } else {
+            printf "Creating OBSPROC job: $nam, $par\n";
+
+            # Generate the LSF job script         
+            unlink "job_${nam}_obsproc_$par.csh" if -e 'job_$nam_$par.csh';
+            open FH, ">job_${nam}_obsproc_$par.csh" or die "Can not open job_${nam}_obsproc_$par.csh to write. $! \n";
+
+            print FH '#!/bin/csh'."\n";
+            print FH '#',"\n";
+            print FH '# LSF batch script'."\n";
+            print FH '#'."\n";
+            print FH "#BSUB -J $nam"."\n";
+            # Don't use multiple processors for obsproc
+            print FH "#BSUB -q caldera\n";
+            print FH "#BSUB -n 1\n";
+            print FH "#BSUB -o job_${nam}_obsproc_$par.output"."\n";
+            print FH "#BSUB -e job_${nam}_obsproc_$par.error"."\n";
+            print FH "#BSUB -W 20"."\n";
+            print FH "#BSUB -P $Project"."\n";
+            print FH "#BSUB -R span[ptile=1]\n";
+            print FH "\n";
+            print FH "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
+            print FH "cp -f obs_gts_*.3DVAR ob.ascii\n";
+            print FH "\n";
+
+            close (FH);
+
+            # Submit the job
+
+            $feedback = ` bsub < job_${nam}_obsproc_$par.csh 2>/dev/null `;
+         }
+
+         # Return to the upper directory
+         chdir ".." or die "Cannot chdir to .. : $!\n";
 
      } elsif ($types =~ /VARBC/i) {
 
@@ -1600,12 +1650,11 @@ sub new_job_ys {
 
 
 
-
-
      } elsif ($types =~ /3DVAR/i) {
 #         printf "types: $types\n";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
          #If an OBSPROC job, make sure it created the observation file!
          if ($Experiments{$nam}{test_type} =~ /OBSPROC/i) {
              printf "Checking OBSPROC output\n";
@@ -1614,6 +1663,16 @@ sub new_job_ys {
                  return "OBSPROC_FAIL";
              }
          }
+
+         #If a GENBE job, make sure GEN_BE completed successfully
+         if ($Experiments{$nam}{test_type} =~ /GENBE/i) {
+             printf "Checking GENBE output\n";
+             unless (-e "be.dat") {
+                 chdir "..";
+                 return "GENBE_FAIL";
+             }
+         }
+
          $types =~ s/3DVAR//i;
          $types =~ s/^\|//;
          $types =~ s/\|$//;
@@ -1905,6 +1964,21 @@ sub submit_job_ys {
                              }
                              &flush_status ();
                              next;
+                         } elsif ($rc =~ /GENBE_FAIL/) {
+                             $Experiments{$name}{paropt}{$par}{status} = "error";
+                             $Experiments{$name}{paropt}{$par}{compare} = "gen_be failed";
+                             $remain_par{$name} -- ;
+                             if ($remain_par{$name} == 0) {
+                                 $Experiments{$name}{status} = "done";
+                                 $remain_exps -- ;
+                             }
+                             &flush_status ();
+                             next;
+                         } elsif ($rc =~ /SKIPPED/) {
+
+                             $Experiments{$name}{paropt}{$par}{status} = "pending";    # Still more tasks for this job.
+                             $Experiments{$name}{paropt}{$par}{started} = 0;
+                             next;
                          } else {
                              $Experiments{$name}{paropt}{$par}{jobid} = $rc ;    # assign the jobid.
                              $Experiments{$name}{status} = "close";
@@ -2043,16 +2117,27 @@ sub svn_version {
 #This function is necessary since a Yellowstone upgrade bungled up the 'svnversion' function.
 #Should have the same functionality
 
-my ($dir_name) = @_;
-my $revnum;
-   open (my $fh,"-|","svn","info","$dir_name")
-      or die " Can't run svn info: $!\n";
-   while (<$fh>) {
-      $revnum = $1 if ( /Revision: \s+ (\d+)/x);
-   }
-   close ($fh);
 
-   return $revnum;
+   my ($dir_name) = @_;
+   my $revnum;
+
+
+   if ( -d "$dir_name/.svn" ) {
+
+      open (my $fh,"-|","svn","info","$dir_name")
+         or die " Can't run svn info: $!\n";
+      while (<$fh>) {
+         $revnum = $1 if ( /Revision: \s+ (\d+)/x);
+      }
+      close ($fh);
+
+      return $revnum;
+
+   } else {
+
+      return "exported";
+
+   }
 
 }
 
