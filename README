@@ -1,21 +1,34 @@
-This is the regression testing suite (RTS) for the WRF Data Assimilation system (WRFDA).
+This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system (WRFDA).
+
+0. Purpose
+
+  The purpose of this testing system is to prevent regressions, or the introduction of software bugs, to the WRFDA system. 
+  The WRFDA RTS achieves this by running different tests on components of the WRFDA system, the comparing the output to a 
+  known baseline. The tests are designed to be customizable, compartmentalized, and easy to create.
+
+                         IT IS IMPORTANT TO NOTE THAT THIS SYSTEM CAN NOT DETECT INCORRECT RESULTS
+
+  This testing suite can only ensure that all files that should have been created are created, and that the output of the 
+  test has not changed since the version which was used to generate the baseline.
 
 1. Contents 
 
   The contents of the WRFDA regression testing suite are as follows. Some files and directories are required for proper 
   functioning, while others are optional but helpful additions.
 
-Required files and directories:
+  Required files and directories:
 
-regtest.pl      The Perl script which runs the regression test suite
-testdata.txt    The text file which holds the test information for each platform
-WRFDA-data-EM/  The directory containing data used to run each test. Can be a different name as specified in 'testdata.txt'
-BASELINE.NEW/   The directory containing baseline comparisons for each test. Can be a different name as specified in 
-                'testdata.txt'
+  regtest.pl      The Perl script which runs the regression test suite
+  testdata.txt    The text file which holds the test information for each platform
+  WRFDA-data-EM/  The directory containing data used to run each test. Can specify different name in 'testdata.txt'
+  BASELINE.NEW/   The directory containing baseline comparisons for each test. Can specify different name in 'testdata.txt'
+  wrfda.tar       The WRFDA source code you wish to use. The name can be specified in 'textdata.txt' or the code can be
+                  retrieved from a Subversion repository.
 
-Optional files and directories:
+  Optional files and directories:
 
-scripts/        Contains helpful scripts, such as 'quickcopy.pl' which copies test results to be used as the new baseline.
+  scripts/        Contains helpful scripts, such as 'quickcopy.pl' which copies test results to be used as the new baseline.
+  README          This README file
 
 2. Supported platforms
 
@@ -28,31 +41,49 @@ scripts/        Contains helpful scripts, such as 'quickcopy.pl' which copies te
 
 3. Set up
 
-  In this repository you will find the main testing script and the text files containing test information, but you must 
-  download two data sets for the regression testing to function:
+  The WRFDA Regression Testing Suite is kept in the following Subversion code repository:
 
-    - The test database, containing the necessary files for each test to run
-    - The baseline output files for comparison
+    https://svn-user-kavulich.cgd.ucar.edu/trunk/REGTEST/
 
-  These data sets can be found at the WRFDA website: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html 
+  In this repository you will find the main testing script and the text files containing test information, 
+
+  In addition to the files found in the above repository, you must download two data sets for the regression testing to 
+  function:
+
+    - The test database (WRFDA-data-EM), containing the necessary files for each test to run
+    - The baseline output files for comparison (BASELINE.NEW)
+
+  These data sets can be found at the WRFDA website: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html
+
+4. Running WRFDA RTS
+
+  The RTS can be run by executing the main script: 'regtest.pl'
+
+    > ./regtest.pl
+
+  However, without any input arguments, the script will fail with the following helpful message:
+
+    Usage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
+                                  --exec=[no]/yes --debug=[no]/yes --j=NUM_PROCS
+            compiler: Compiler name (supported options: xlf, pgi, g95, ifort, gfortran)
+            source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository
+            revision: Specify code revision to retrieve (only works when '--source=SVN' specified
+            upload:   Uploads summary to web
+            exec:     Execute only; skips compile, utilizes existing executables
+            debug:    Compile with minimal optimization
+            j:        Number of processors to use in parallel compile (default 2)
+    Please note:
+    A compiler MUST be specified to run this script. Other options are optional.
+
+  As should be obvious from the above message, there are a number of command-line options you can provide to the script to run the RTS in different ways. Let's examine these options in detail:
+
+  compiler:
+    This is the name of the Fortran compiler you will be using to compile WRFDA. Active testing takes place with gfortran, ifort, and pgf90, but you should be able to easily adapt this test to use any valid Fortran compiler
+  source:
+    The 
 
 
-
-Usage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
-                              --exec=[no]/yes --debug=[no]/yes --j=NUM_PROCS
-        compiler: Compiler name (supported options: xlf, pgi, g95, ifort, gfortran)
-        source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository
-        revision: Specify code revision to retrieve (only works when '--source=SVN' specified
-        upload:   Uploads summary to web
-        exec:     Execute only; skips compile, utilizes existing executables
-
-        debug:    Compile with minimal optimization
-        j:        Number of processors to use in parallel compile (default 2)
-Please note:
-A compiler MUST be specified to run this script. Other options are optional.
-
-
-4. Output
+5. Output
 
   Most of the messages found in the regression test summary are self-explanatory. Here's a full list of possible outcomes:
 
@@ -67,14 +98,15 @@ A compiler MUST be specified to run this script. Other options are optional.
 
   If the test failed:
   --------------------------------------------------------------------------------------------------------------------------
-  obsproc failed        For obsproc tests, this status message means that obsproc did not create an observation file.
-  Output missing        wrfvar_output was not created. Check the rsl.* files in the test directory.
-  Baseline missing      The test could not find a baseline file to compare to your test results.
-  Unknown error         Something strange went wrong in the baseline comparison subroutine.
-  Mysterious error!     Something strange went wrong (the subroutine for starting the test returned "undef"). 
-  diffwrf               diffwrf (used for comparing your output to the baseline) failed for some reason (ensure that it is
-     comparison failed  installed on your system and in your $PATH)
-  Could not open output Your output or baseline file is malformed (or possibly missing).
-     and/or baseline
+  obsproc failed              For obsproc tests, this status message means that obsproc did not create an observation file.
+  genbe failed                For gen_be tests, this status message means that gen_be reported failure.
+  Output missing              wrfvar_output was not created. Check the rsl.* files in the test directory.
+  Baseline missing            The test could not find a baseline file to compare to your test results.
+  Unknown error               Something strange went wrong in the baseline comparison subroutine.
+  Mysterious error!           Something strange went wrong (the subroutine for starting the test returned "undef"). 
+  diffwrf comparison failed   diffwrf (used for comparing your output to the baseline) failed for some reason (ensure that
+                              it is installed on your system and in your $PATH)
+  Could not open output       Your output or baseline file is malformed (or possibly missing).
+            and/or baseline
   fg == wrfvar_output   The test produced output, but the output is equal to the first guess, indicating a problem.
 

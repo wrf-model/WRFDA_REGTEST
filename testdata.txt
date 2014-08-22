@@ -23,9 +23,9 @@ Linux      x86_64  yellowstone    WORKDIR/2014-08-13_changes/multi-level_and_gps
 19       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
 20       t44_liuz                    3DVAR            2    16      serial|dmpar
 21       t44_prepbufr                3DVAR            8    16      serial|dmpar
-22       tutorial_4dvar              4DVAR           32    16      dmpar
-23       tutorial_fgat               FGAT            16    16      dmpar
-24       tut_xinzhang                OBSPROC|3DVAR   16    16      dmpar
+22       tut_xinzhang_4dvar          4DVAR           32    16      dmpar
+23       tut_xinzhang_fgat           FGAT            16    16      dmpar
+24       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
 25       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 26       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
@@ -53,9 +53,9 @@ Linux      x86_64  yellowstone    WORKDIR/2014-08-13_changes/multi-level_and_gps
 19       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
 20       t44_liuz                    3DVAR            2    16      serial|dmpar
 21       t44_prepbufr                3DVAR            8    16      serial|dmpar
-22       tutorial_4dvar              4DVAR           32    16      dmpar
-23       tutorial_fgat               FGAT            16    16      dmpar
-24       tut_xinzhang                OBSPROC|3DVAR   16    16      dmpar
+22       tut_xinzhang_4dvar          4DVAR           32    16      dmpar
+23       tut_xinzhang_fgat           FGAT            16    16      dmpar
+24       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
 25       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 26       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################

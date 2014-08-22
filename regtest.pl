@@ -83,7 +83,7 @@ sub print_help_and_die {
   print "        upload:   Uploads summary to web (default is 'yes' iff source=SVN and revision=HEAD)\n";
   print "        exec:     Execute only; skips compile, utilizes existing executables\n\n";
   print "        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well\n";
-  print "        j:        Number of processors to use in parallel compile (default 2)\n";
+  print "        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)\n";
   die "\n";
 }
 
@@ -1140,6 +1140,11 @@ sub create_webpage {
     print WEBH '<li>'."Baseline : $Baseline".'</li>'."\n";
     print WEBH '<li>'.$End_time.'</li>'."\n";
     print WEBH '</ul>'."\n";
+if ( $Machine_name eq "yellowstone" ) {
+    print WEBH "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/"
+                    .$Compiler."_".$year.$mon.$mday."_".$hour.":".$min.":".$sec."'<br>";
+    print WEBH "<br>";
+}
 
     print WEBH '<table border="1">'."\n";
 #   print WEBH '<caption>Regression Test Summary</caption>'."\n";
