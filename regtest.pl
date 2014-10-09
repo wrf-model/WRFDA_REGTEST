@@ -33,7 +33,8 @@ my $Exec_defined;
 my $Debug_defined;
 my $Parallel_compile_num = 4;
 my $Revision = 'HEAD'; # Revision Number
-my @valid_options = ("compiler","source","revision","upload","exec","debug","j");
+my $Testfile = 'testdata.txt';
+my @valid_options = ("compiler","source","revision","upload","exec","debug","j","testfile");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach ( @ARGV ) {
@@ -66,7 +67,8 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "upload:s" => \$Upload_defined,
             "exec:s" => \$Exec_defined,
             "debug:s" => \$Debug_defined,
-            "j:s" => \$Parallel_compile_num) or &print_help_and_die;
+            "j:s" => \$Parallel_compile_num,
+            "testfile:s" => \$Testfile) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
   print "\nA compiler must be specified!\n\nAbortin!\n\n";
@@ -76,14 +78,15 @@ unless ( defined $Compiler_defined ) {
 
 sub print_help_and_die {
   print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
-                              --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS\n";
+                              --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS --testfile=testdata.txt\n\n";
   print "        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)\n";
   print "        source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository\n";
   print "        revision: Specify code revision to retrieve (only works when '--source=SVN' specified\n";
   print "        upload:   Uploads summary to web (default is 'yes' iff source=SVN and revision=HEAD)\n";
-  print "        exec:     Execute only; skips compile, utilizes existing executables\n\n";
+  print "        exec:     Execute only; skips compile, utilizes existing executables\n";
   print "        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well\n";
   print "        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)\n";
+  print "        testfile: Name of test data file (default: testdata.txt)\n";
   die "\n";
 }
 
@@ -184,6 +187,7 @@ my $cmd='';
 #########################################################
 my %Compile_options;
 my %Compile_options_4dvar;
+my $count; #For counting the number of compile options found
 my %compile_job_array;
 
 # What's my name?
@@ -245,7 +249,7 @@ if ($Machine_name eq 'yellowstone') {
 
 # Parse the task table:
 
-open(DATA, "<testdata.txt") or die "Couldn't open testdata.txt, see README for more info $!";
+open(DATA, "<$Testfile") or die "Couldn't open test file $Testfile, see README for more info $!";
 
 while (<DATA>) {
      last if ( /^###/ && (keys %Experiments) > 0 );
@@ -521,7 +525,9 @@ if ($Type =~ /4DVAR/i) {
 
       if ( -e "WRFDA_4DVAR_$par_type" && -r "WRFDA_4DVAR_$par_type" ) {
          printf "Deleting the old WRFDA_4DVAR_$par_type directory ... \n";
-         rmtree ("WRFDA_4DVAR_$par_type") or die "Can not rmtree WRFDA_4DVAR_$par_type :$!\n";
+         #Delete in background to save time rather than using "rmtree"
+         ! system("mv", "WRFDA_4DVAR_$par_type", ".WRFDA_4DVAR_$par_type") or die "Can not move 'WRFDA_4DVAR_$par_type' to '.WRFDA_4DVAR_$par_type': $!\n";
+         ! system("rm -rf .WRFDA_4DVAR_$par_type &") or die "Can not remove WRFDA_4DVAR_$par_type: $!\n";
       }
 
       if ($Source eq "SVN") {
@@ -568,21 +574,33 @@ if ($Type =~ /4DVAR/i) {
 
       my $option;
 
+      $count = 0;
       foreach (@output) {
          if ( ($_=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($Par_4dvar) .*/ix) &&
              ! ($_=~/Cray/i) &&
              ! ($_=~/PGI accelerator/i) &&
              ! ($_=~/-f90/i) &&
+             ! ($_=~/POE/) &&
+             ! ($_=~/Xeon/) &&
              ! ($_=~/SGI MPT/i)  ) {
             $Compile_options_4dvar{$1} = $2;
             $option = $1;
+            $count++;
          }
       }
 
+      if ($count > 1) {
+         print "Number of options found: $count\n";
+         print "Options: ";
+         while ( my ($key, $value) = each(%Compile_options_4dvar) ) {
+            print "$key,";
+         }
+         print "\nSelecting the final matching option. THIS MAY NOT BE IDEAL.\n";
+      } elsif ($count < 1 ) {
+         die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n";
+      }
 
       printf "Found 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$option}, $option;
-
-      die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n" if ( (keys %Compile_options_4dvar) == 0 );
 
       # Compile the code:
 
@@ -720,7 +738,9 @@ if ($Type =~ /3DVAR/i) {
 
        if ( -e "WRFDA_3DVAR_$par_type" && -r "WRFDA_3DVAR_$par_type" ) {
             printf "Deleting the old WRFDA_3DVAR_$par_type directory ... \n";
-            rmtree ("WRFDA_3DVAR_$par_type") or die "Can not rmtree WRFDA_3DVAR_$par_type :$!\n";
+            #Delete in background to save time rather than using "rmtree"
+            ! system("mv", "WRFDA_3DVAR_$par_type", ".WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA_3DVAR_$par_type' to '.WRFDA_3DVAR_$par_type': $!\n";
+            ! system("rm -rf .WRFDA_3DVAR_$par_type &") or die "Can not remove WRFDA_3DVAR_$par_type: $!\n";
        }
 
        if ($Source eq "SVN") {
@@ -772,21 +792,34 @@ if ($Type =~ /3DVAR/i) {
 
        my $option;
 
-       foreach (@output) {
-          if ( ($_=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
-              ! ($_=~/Cray/i) &&
-              ! ($_=~/PGI accelerator/i) &&
-              ! ($_=~/-f90/i) &&
-              ! ($_=~/SGI MPT/i)  ) {
-             $Compile_options{$1} = $2;
-             $option = $1;
-          }
-       }
+      $count = 0;
+      foreach (@output) {
+         if ( ($_=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
+             ! ($_=~/Cray/i) &&
+             ! ($_=~/PGI accelerator/i) &&
+             ! ($_=~/-f90/i) &&
+             ! ($_=~/POE/) &&
+             ! ($_=~/Xeon/) &&
+             ! ($_=~/SGI MPT/i)  ) {
+            $Compile_options{$1} = $2;
+            $option = $1;
+            $count++;
+         }
+      }
 
+      if ($count > 1) {
+         print "Number of options found: $count\n";
+         print "Options: ";
+         while ( my ($key, $value) = each(%Compile_options) ) {
+            print "$key,";
+         }
+         print "\nSelecting the final matching option. THIS MAY NOT BE IDEAL.\n";
+      } elsif ($count < 1 ) {
+         die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n";
+      }
 
-       printf "Found 3DVAR compilation option for %6s, option %2d.\n",$Compile_options{$option}, $option;
+      printf "Found 3DVAR compilation option for %6s, option %2d.\n",$Compile_options{$option}, $option;
 
-       die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" if ( (keys %Compile_options) == 0 );
 
        # Compile the code:
 
@@ -1052,6 +1085,7 @@ foreach my $name (keys %Experiments) {
         $Experiments{$name}{paropt}{$par}{compare} = "--";
         $Experiments{$name}{paropt}{$par}{walltime} = 0;
         $Experiments{$name}{paropt}{$par}{queue} = $Experiments{$name}{test_type};
+        $Experiments{$name}{paropt}{$par}{started} = 0;
     } 
 } 
 
@@ -1287,7 +1321,7 @@ sub refresh_status {
 
     my @mes; 
 
-    push @mes, "Experiment                  Paropt      Job type        CPU_MPI  Status    Walltime(s)    Compare\n";
+    push @mes, "Experiment                  Paropt      Job type        CPU_MPI  Status    Walltime (s)   Compare\n";
     push @mes, "=================================================================================================\n";
 
     foreach my $name (sort keys %Experiments) {
@@ -1852,6 +1886,10 @@ sub compare_output {
                  return 1 unless ($values[4] == $values[5]) ;
              }
          }
+
+         if ($values[5] =~ /NaN/) {
+             return -6;
+         }
          
      
      }
@@ -2097,6 +2135,7 @@ sub check_baseline {
             -3      => "Output missing",
             -4      => "Baseline missing",
             -5      => "Could not open output and/or baseline",
+            -6      => "NaN in output",
         );
 
 
