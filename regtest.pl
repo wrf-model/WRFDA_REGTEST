@@ -34,7 +34,8 @@ my $Debug_defined;
 my $Parallel_compile_num = 4;
 my $Revision = 'HEAD'; # Revision Number
 my $Testfile = 'testdata.txt';
-my @valid_options = ("compiler","source","revision","upload","exec","debug","j","testfile");
+my $CLOUDCV_defined;
+my @valid_options = ("compiler","source","revision","upload","exec","debug","j","testfile","cloudcv");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach ( @ARGV ) {
@@ -68,7 +69,8 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "exec:s" => \$Exec_defined,
             "debug:s" => \$Debug_defined,
             "j:s" => \$Parallel_compile_num,
-            "testfile:s" => \$Testfile) or &print_help_and_die;
+            "testfile:s" => \$Testfile,
+            "cloudcv:s" => \$CLOUDCV_defined ) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
   print "\nA compiler must be specified!\n\nAbortin!\n\n";
@@ -395,6 +397,12 @@ if ($Exec) {
 
 $ENV{J}="-j $Parallel_compile_num";
 
+if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
+#   $ENV{CLOUD_CV}='1';
+#   print "\nWill compile for CLOUD_CV option\n\n";
+   die "CLOUD_CV option is not fully implemented yet. Exiting...";
+}
+
   if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
           $ENV{CRTM}='1';
@@ -576,14 +584,36 @@ if ($Type =~ /4DVAR/i) {
 
       $count = 0;
       foreach (@output) {
-         if ( ($_=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($Par_4dvar) .*/ix) &&
-             ! ($_=~/Cray/i) &&
-             ! ($_=~/PGI accelerator/i) &&
-             ! ($_=~/-f90/i) &&
-             ! ($_=~/POE/) &&
-             ! ($_=~/Xeon/) &&
-             ! ($_=~/SGI MPT/i)  ) {
-            $Compile_options_4dvar{$1} = $2;
+         my $config_line = $_ ;
+
+         if (($config_line=~ m/(\d+)\.\s\($par_type\) .* $CCompiler\/$Compiler .*/ix) &&
+             ! ($config_line=~/Cray/i) &&
+             ! ($config_line=~/PGI accelerator/i) &&
+             ! ($config_line=~/-f90/i) &&
+             ! ($config_line=~/POE/) &&
+             ! ($config_line=~/Xeon/) &&
+             ! ($config_line=~/SGI MPT/i) ) {
+            $Compile_options_4dvar{$1} = $par_type;
+            $option = $1;
+            $count++;
+         } elsif (($config_line=~ m/(\d+)\.\s\($par_type\) .* $Compiler .* $CCompiler .*/ix) &&
+             ! ($config_line=~/Cray/i) &&
+             ! ($config_line=~/PGI accelerator/i) &&
+             ! ($config_line=~/-f90/i) &&
+             ! ($config_line=~/POE/) &&
+             ! ($config_line=~/Xeon/) &&
+             ! ($config_line=~/SGI MPT/i) ) {
+            $Compile_options_4dvar{$1} = $par_type;
+            $option = $1;
+            $count++;
+         } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
+             ! ($config_line=~/Cray/i) &&
+             ! ($config_line=~/PGI accelerator/i) &&
+             ! ($config_line=~/-f90/i) &&
+             ! ($config_line=~/POE/) &&
+             ! ($config_line=~/Xeon/) &&
+             ! ($config_line=~/SGI MPT/i)  ) {
+            $Compile_options_4dvar{$1} = $par_type;
             $option = $1;
             $count++;
          }
@@ -595,12 +625,13 @@ if ($Type =~ /4DVAR/i) {
          while ( my ($key, $value) = each(%Compile_options_4dvar) ) {
             print "$key,";
          }
-         print "\nSelecting the final matching option. THIS MAY NOT BE IDEAL.\n";
+         print "\nSelecting option '$option'. THIS MAY NOT BE IDEAL.\n";
       } elsif ($count < 1 ) {
          die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n";
       }
 
       printf "Found 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$option}, $option;
+
 
       # Compile the code:
 
@@ -794,14 +825,35 @@ if ($Type =~ /3DVAR/i) {
 
       $count = 0;
       foreach (@output) {
-         if ( ($_=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
-             ! ($_=~/Cray/i) &&
-             ! ($_=~/PGI accelerator/i) &&
-             ! ($_=~/-f90/i) &&
-             ! ($_=~/POE/) &&
-             ! ($_=~/Xeon/) &&
-             ! ($_=~/SGI MPT/i)  ) {
-            $Compile_options{$1} = $2;
+         my $config_line = $_ ;
+         if (($config_line=~ m/(\d+)\.\s\($par_type\) .* $CCompiler\/$Compiler .*/ix) &&
+             ! ($config_line=~/Cray/i) &&
+             ! ($config_line=~/PGI accelerator/i) &&
+             ! ($config_line=~/-f90/i) &&
+             ! ($config_line=~/POE/) &&
+             ! ($config_line=~/Xeon/) &&
+             ! ($config_line=~/SGI MPT/i) ) {
+            $Compile_options{$1} = $par_type;
+            $option = $1;
+            $count++;
+         } elsif ( ($config_line=~ m/(\d+)\.\s\($par_type\) .* $Compiler .* $CCompiler .*/ix) &&
+             ! ($config_line=~/Cray/i) &&
+             ! ($config_line=~/PGI accelerator/i) &&
+             ! ($config_line=~/-f90/i) &&
+             ! ($config_line=~/POE/) &&
+             ! ($config_line=~/Xeon/) &&
+             ! ($config_line=~/SGI MPT/i)  ) {
+            $Compile_options{$1} = $par_type;
+            $option = $1;
+            $count++;
+         } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
+             ! ($config_line=~/Cray/i) &&
+             ! ($config_line=~/PGI accelerator/i) &&
+             ! ($config_line=~/-f90/i) &&
+             ! ($config_line=~/POE/) &&
+             ! ($config_line=~/Xeon/) &&
+             ! ($config_line=~/SGI MPT/i)  ) {
+            $Compile_options{$1} = $par_type;
             $option = $1;
             $count++;
          }
@@ -813,7 +865,7 @@ if ($Type =~ /3DVAR/i) {
          while ( my ($key, $value) = each(%Compile_options) ) {
             print "$key,";
          }
-         print "\nSelecting the final matching option. THIS MAY NOT BE IDEAL.\n";
+         print "\nSelecting option '$option'. THIS MAY NOT BE IDEAL.\n";
       } elsif ($count < 1 ) {
          die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n";
       }
@@ -1049,10 +1101,9 @@ foreach my $name (keys %Experiments) {
              or warn "Cannot symlink $_ to local directory: $!\n";
      }
      
+     mkdir "trace"; #Make trace directory for "trace_use" option
 
      printf "The directory for %-30s is ready.\n",$name;
-
-     my @files = glob("*.bufr");
 
      # Back to the upper directory:
 
@@ -1156,8 +1207,8 @@ close(SENDMAIL);
 
 sub create_webpage {
 
-    open WEBH, ">summary_$Compiler.html" or
-        die "Can not open summary_$Compiler.html for write: $!\n";
+    open WEBH, ">summary_$Machine_name\_$Compiler\_$Compiler_version.html" or
+        die "Can not open summary_$Machine_name\_$Compiler\_$Compiler_version.html for write: $!\n";
 
     print WEBH '<html>'."\n";
     print WEBH '<body>'."\n";
@@ -1226,7 +1277,7 @@ if ( $Machine_name eq "yellowstone" ) {
 # Save summary, send to internet if requested:
 
     if ( ($Machine_name eq "yellowstone") ) {
-        copy("summary_$Compiler.html","/glade/scratch/$ThisGuy/REGTEST/$Compiler\_$year$mon$mday\_$hour:$min:$sec/summary_$Compiler.html");
+        copy("summary_$Compiler\_$Compiler_version.html","/glade/scratch/$ThisGuy/REGTEST/$Compiler\_$year$mon$mday\_$hour:$min:$sec/summary_$Compiler\_$Compiler_version.html");
     }
 
 
@@ -1310,10 +1361,22 @@ if ( $Machine_name eq "yellowstone" ) {
           }
        }
 
-       my @uploadit = ("scp", "summary_${Compiler}.html", "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/summary_${Compiler}_${Machine_name}.html");
+       #Create .js file which will display the test date on the webpage
+       open WEBJS, ">${Machine_name}_${Compiler}_date.js" or
+           die "Can not open ${Machine_name}_${Compiler}_date.js for write: $!\n";
+
+       print WEBJS "function ${Machine_name}_${Compiler}_date()\n";
+       print WEBJS '{'."\n";
+       print WEBJS "        document.getElementById(\"${Machine_name}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, $hour:$min:$sec, revision $Revision\";\n";
+       print WEBJS '}'."\n";
+       close (WEBJS);
+
+
+       my @uploadit = ("scp", "summary_${Machine_name}_${Compiler}_${Compiler_version}.html","${Machine_name}_${Compiler}_date.js" , "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
        system(@uploadit) == 0
-          or die "Uploading 'summary_${Compiler}.html' to web failed: $?\n";
-       print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_${Compiler}_${Machine_name}.html\n";
+          or die "Uploading 'summary_${Machine_name}_${Compiler}_${Compiler_version}.html' and '${Machine_name}_${Compiler}_date.js' to web failed: $?\n";
+       print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_${Machine_name}_${Compiler}_${Compiler_version}.html\n";
+       unlink $Machine_name_$Compiler_date.js;
     }
 }
 
