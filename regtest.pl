@@ -1376,7 +1376,7 @@ if ( $Machine_name eq "yellowstone" ) {
        system(@uploadit) == 0
           or die "Uploading 'summary_${Machine_name}_${Compiler}_${Compiler_version}.html' and '${Machine_name}_${Compiler}_date.js' to web failed: $?\n";
        print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_${Machine_name}_${Compiler}_${Compiler_version}.html\n";
-       unlink $Machine_name_$Compiler_date.js;
+       unlink "$Machine_name\_$Compiler\_date.js";
     }
 }
 
