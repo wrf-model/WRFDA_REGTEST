@@ -244,8 +244,8 @@ if ($Compiler_defined eq "gfortran") {
 }
 
 
-my $Compiler_version = " ";
-if ($Machine_name eq 'yellowstone') {
+my $Compiler_version = "";
+if (defined $ENV{'COMPILER_VERSION'} ) {
    $Compiler_version = $ENV{COMPILER_VERSION}
 }
 
@@ -254,7 +254,7 @@ if ($Machine_name eq 'yellowstone') {
 open(DATA, "<$Testfile") or die "Couldn't open test file $Testfile, see README for more info $!";
 
 while (<DATA>) {
-     last if ( /^###/ && (keys %Experiments) > 0 );
+     last if ( /^####/ && (keys %Experiments) > 0 );
      next if /^#/;
      if ( /^(\D)/ ) {
          ($Arch, $Machine, $Name, $Source, $Compiler, $Project, $Queue, $Database, $Baseline) = 
@@ -441,7 +441,6 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
           if ($Compiler=~/pgi/i) {   # PGI
               $ENV{CRTM}='1';
               $ENV{BUFR}='1';
-              $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-4.1.3-pgf90-pgcc';
           }
           if ($Compiler=~/ifort/i) {   # INTEL
               $ENV{CRTM}='1';
@@ -450,9 +449,8 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
           if ($Compiler=~/gfortran/i) {   # GFORTRAN
               $ENV{CRTM}='1';
               $ENV{BUFR}='1';
-              $ENV{NETCDF} ='/loblolly/kavulich/libs/netcdf-3.6.3-gfortran-gcc';
           }
-          my $RTTOV_dir = "/loblolly/kavulich/libs/rttov-11.1/$Compiler";
+          my $RTTOV_dir = "/loblolly/kavulich/libs/rttov/$Compiler";
           if (-d $RTTOV_dir) {
               $ENV{RTTOV} = $RTTOV_dir;
               print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -679,6 +677,7 @@ if ($Type =~ /4DVAR/i) {
          print FH "#BSUB -P $Project"."\n";
          printf FH "#BSUB -R span[ptile=%d]"."\n", $Parallel_compile_num;
          print FH "\n";
+         print FH "setenv J '-j $Parallel_compile_num'\n";
          print FH "./compile all_wrfvar >& compile.log.$Compile_options_4dvar{$option}\n";
          print FH "\n";
          close (FH);
@@ -702,48 +701,60 @@ if ($Type =~ /4DVAR/i) {
          # Fork each compilation
          $pid = fork();
          if ($pid) {
-             print "pid is $pid, parent $$\n";
-             push(@childs, $pid);
+            print "pid is $pid, parent $$\n";
+            push(@childs, $pid);
          } elsif ($pid == 0) {
+            my $begin_time = gettimeofday();
+            if (! open FH, ">compile.log.$Compile_options_4dvar{$option}") {
+               print "Can not open file compile.log.$Compile_options_4dvar{$option}.\n";
+               exit 1;
+            }
+            $pid = open (PH, "./compile all_wrfvar 2>&1 |");
+            while (<PH>) {
+               print FH;
+            }
+            close (PH);
+            close (FH);
+            my $end_time = gettimeofday();
 
-             my $begin_time = gettimeofday();
-             open FH, ">compile.log.$Compile_options_4dvar{$option}" or die "Can not open file compile.log.$Compile_options_4dvar{$option}.\n";
-             $pid = open (PH, "./compile all_wrfvar 2>&1 |");
-             while (<PH>) {
-                 print FH;
-             }
-             close (PH);
-             close (FH);
+            # Check if the compilation is successful:
 
-#       system("./compile all_wrfvar >> compile.log.$Compile_options_4dvar{$option}");
+            my @exefiles = glob ("var/build/*.exe");
 
-             my $end_time = gettimeofday();
+            if (@exefiles < 42) {
+               print "The number of exe files is less than 42. \n";
+               exit 2;
+            }
 
-             # Check if the compilation is successful:
+            foreach ( @exefiles ) {
+               warn "The exe file $_ has problem. \n" unless -s ;
+            }
 
-             my @exefiles = glob ("var/build/*.exe");
+            # Rename the executables:
+            if (! rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}") {
+               print "Program da_wrfvar.exe not created: check your compilation log.\n";
+               exit 3;
+            }
 
-             foreach ( @exefiles ) {
-                 warn "The exe file $_ has problem. \n" unless -s ;
-             }
-
-
-             # Rename the executables:
-             rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}"
-                 or die "Program da_wrfvar.exe not created: check your compilation log.\n";
-
-             printf "Compilation of WRFDA_4DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
+            printf "\nCompilation of WRFDA_4DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
                  $Compiler, $Compile_options_4dvar{$option}, ($end_time - $begin_time);
 
-             # Save the compilation log file
+            # Save the compilation log file
 
-             if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
-                mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
-         }
-             copy( "compile.log.$Compile_options_4dvar{$option}", "../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options_4dvar{$option}\n../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec";
+            if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+               if (! mkpath("$MainDir/regtest_compile_logs/$year$mon$mday")) {
+                  print "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+                  exit 4;
+               }
+            }
+            if (! copy( "compile.log.$Compile_options_4dvar{$option}", "../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec" )) {
+               print "Copy failed: $!\ncompile.log.$Compile_options_4dvar{$option}\n../regtest_compile_logs/$year$mon$mday/compile_4dvar.log.$Compile_options_4dvar{$option}_$Compiler\_$hour:$min:$sec";
+               exit 5;
+            }
+
             exit 0; #Exit child process! Quite important or else you get stuck forever!
          } else {
-             die "couldn't fork: $!\n";
+            die "couldn't fork: $!\n";
          }
 
 
@@ -943,47 +954,60 @@ if ($Type =~ /3DVAR/i) {
             #Fork each compilation
             $pid = fork();
             if ($pid) {
-                print "pid is $pid, parent $$\n";
-                push(@childs, $pid);
+               print "pid is $pid, parent $$\n";
+               push(@childs, $pid);
             } elsif ($pid == 0) {
-                my $begin_time = gettimeofday();
-                open FH, ">compile.log.$Compile_options{$option}" or die "Can not open file compile.log.$Compile_options{$option}.\n";
-                $pid = open (PH, "./compile all_wrfvar 2>&1 |");
-                while (<PH>) {
-                    print FH;
-                }
-                close (PH);
-                close (FH);
-                my $end_time = gettimeofday();
+               my $begin_time = gettimeofday();
+               if (! open FH, ">compile.log.$Compile_options{$option}") {
+                  print "Can not open file compile.log.$Compile_options{$option}.\n";
+                  exit 1;
+               }
+               $pid = open (PH, "./compile all_wrfvar 2>&1 |");
+               while (<PH>) {
+                  print FH;
+               }
+               close (PH);
+               close (FH);
+               my $end_time = gettimeofday();
 
-                # Check if the compilation is successful:
+               # Check if the compilation is successful:
 
-                my @exefiles = glob ("var/build/*.exe");
+               my @exefiles = glob ("var/build/*.exe");
 
-                die "The number of exe files is less than 42. \n" if (@exefiles < 42);
+               if (@exefiles < 42) {
+                  print "The number of exe files is less than 42. \n";
+                  exit 2;
+               }
+
+               foreach ( @exefiles ) {
+                  warn "The exe file $_ has problem. \n" unless -s ;
+               }
      
-                foreach ( @exefiles ) {
-                    warn "The exe file $_ has problem. \n" unless -s ;
-                }
-     
+               # Rename the executables:
+               if (! rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}") {
+                  print "Program da_wrfvar.exe not created: check your compilation log.\n";
+                  exit 3;
+               }
 
-                # Rename executables:
-
-                rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}"
-                    or die "Program da_wrfvar.exe not created: check your compilation log.\n";
-
-                printf "Compilation of WRFDA_3DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
+               printf "\nCompilation of WRFDA_3DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
                     $Compiler, $Compile_options{$option}, ($end_time - $begin_time);
 
-                # Save the compilation log file
+               # Save the compilation log file
 
-                if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
-                    mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
-                }
-                copy( "compile.log.$Compile_options{$option}", "../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\ncompile.log.$Compile_options{$option}\n../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec";
-                exit 0; #Exit child process! Quite important or else you get stuck forever!
+               if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+                  if (! mkpath("$MainDir/regtest_compile_logs/$year$mon$mday")) {
+                     print "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+                     exit 4;
+                  }
+               }
+               if (! copy( "compile.log.$Compile_options{$option}", "../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec" )) {
+                  print "Copy failed: $!\ncompile.log.$Compile_options{$option}\n../regtest_compile_logs/$year$mon$mday/compile.log.$Compile_options{$option}_$Compiler\_$hour:$min:$sec";
+                  exit 5;
+               }
+
+               exit 0; #Exit child process (0 indicates success). Quite important or else you get stuck forever!
             } else {
-                die "couldn't fork: $!\n";
+               die "couldn't fork: $!\n";
             }
         }
 
@@ -999,7 +1023,10 @@ if ($Type =~ /3DVAR/i) {
 
 #For forked jobs, need to wait for forked compilations to complete
 foreach (@childs) {
-    waitpid($_, 0);
+   my $res = waitpid($_, 0);
+   unless ($? == 0) {
+      die "Child process exited with error: ", $_;
+   }
 }
 
 #Because Perl is Perl, must create a temporary array to modify while in "for" loop
@@ -1038,7 +1065,7 @@ while ( @compile_job_list ) {
 
    @compile_job_list = @temparray;
 
-   sleep 10;
+   sleep 5;
 }
 
 
@@ -1309,9 +1336,9 @@ if ( $Machine_name eq "yellowstone" ) {
        my $numexp= scalar keys %Experiments;
        $go_on='';
 
-       if ( $numexp < 24 ) {
+       if ( $numexp < 25 ) {
           $scp_warn ++;
-          print "This run only includes $numexp of 23 tests, are you sure you want to upload?\a\n";
+          print "This run only includes $numexp of 25 tests, are you sure you want to upload?\a\n";
 
           while ($go_on eq "") {
              $go_on = <STDIN>;
@@ -1361,13 +1388,35 @@ if ( $Machine_name eq "yellowstone" ) {
           }
        }
 
+       #If there is a diff or error, we will note that on the webpage
+       my $status = 0;
+       foreach my $exp (sort keys %Experiments) {
+          foreach my $parl (sort keys %{$Experiments{$exp}{paropt}}) {
+             if ($Experiments{$exp}{paropt}{$parl}{status} eq "error") {
+                print "ERROR DETECTED";
+                $status = -1;
+                last;
+             } elsif ($Experiments{$exp}{paropt}{$parl}{compare} eq "diff") {
+                print "DIFF DETECTED";
+                $status = 1;
+             }
+          }
+       }
+
        #Create .js file which will display the test date on the webpage
        open WEBJS, ">${Machine_name}_${Compiler}_date.js" or
            die "Can not open ${Machine_name}_${Compiler}_date.js for write: $!\n";
 
        print WEBJS "function ${Machine_name}_${Compiler}_date()\n";
        print WEBJS '{'."\n";
-       print WEBJS "        document.getElementById(\"${Machine_name}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, $hour:$min:$sec, revision $Revision\";\n";
+
+       if ($status == -1) {
+          print WEBJS "        document.getElementById(\"${Machine_name}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
+       } elsif ($status == 1) {
+          print WEBJS "        document.getElementById(\"${Machine_name}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
+       } else {
+          print WEBJS "        document.getElementById(\"${Machine_name}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b>ALL PASS</b>\";\n";
+       }
        print WEBJS '}'."\n";
        close (WEBJS);
 
@@ -1429,6 +1478,35 @@ sub new_job {
          }
      }
 
+
+     if ($types =~ /GENBE/i) {
+         $types =~ s/GENBE//i;
+         $Experiments{$nam}{paropt}{$par}{queue} = $types;
+
+         if (-e "be.dat") {
+            print "'be.dat' already exists, skipping GEN_BE step\n";
+         } else {
+
+            print "Running GEN_BE for $par job '$nam'\n";
+
+            # Unpack forecasts tar file.
+            ! system("tar -xf forecasts.tar")or die "Can't untar forecasts file: $!\n";
+
+            # We need the script to see where the WRFDA directory is. See gen_be_wrapper.ksh in test directory
+            $ENV{REGTEST_WRFDA_DIR}="$MainDir/WRFDA_3DVAR_$par";
+
+            $cmd="./gen_be_wrapper.ksh 1>gen_be.out  2>gen_be.out";
+            system($cmd);
+
+            if (-e "gen_be5/SUCCESS") {
+               copy("gen_be5/be.dat","be.dat") or die "Cannot copy be.dat: $!";
+            } else {
+               chdir "..";
+               return "GENBE_FAIL";
+            }
+
+         }
+     }
 
      if ($types =~ /3DVAR/i) {
          if ($types =~ /VARBC/i) {
