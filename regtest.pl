@@ -1390,14 +1390,12 @@ if ( $Machine_name eq "yellowstone" ) {
 
        #If there is a diff or error, we will note that on the webpage
        my $status = 0;
-       foreach my $exp (sort keys %Experiments) {
+CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
           foreach my $parl (sort keys %{$Experiments{$exp}{paropt}}) {
              if ($Experiments{$exp}{paropt}{$parl}{status} eq "error") {
-                print "ERROR DETECTED";
                 $status = -1;
-                last;
+                last CHECKRESULTS;
              } elsif ($Experiments{$exp}{paropt}{$parl}{compare} eq "diff") {
-                print "DIFF DETECTED";
                 $status = 1;
              }
           }
