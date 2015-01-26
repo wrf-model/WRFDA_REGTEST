@@ -35,10 +35,11 @@ my $Parallel_compile_num = 4;
 my $Revision = 'HEAD'; # Revision Number
 my $Testfile = 'testdata.txt';
 my $CLOUDCV_defined;
+my $RTTOV_dir;
 my @valid_options = ("compiler","source","revision","upload","exec","debug","j","testfile","cloudcv");
 
 #This little bit makes sure the input arguments are formatted correctly
-foreach $arg ( @ARGV ) {
+foreach my $arg ( @ARGV ) {
   my $first_two = substr($arg, 0, 2); 
   unless ($first_two eq "--") {
     print "\n Unknown option: $arg \n";
@@ -407,7 +408,7 @@ $ENV{BUFR}='1';
 
   if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
-          my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_$Compiler\_$Compiler_version";
+          $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_$Compiler\_$Compiler_version";
           if (-d $RTTOV_dir) {
               $ENV{RTTOV} = $RTTOV_dir;
               print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -417,7 +418,7 @@ $ENV{BUFR}='1';
           }
 
       } else { # Loblolly
-          my $RTTOV_dir = "/loblolly/kavulich/libs/rttov/$Compiler";
+          $RTTOV_dir = "/loblolly/kavulich/libs/rttov/$Compiler";
           if (-d $RTTOV_dir) {
               $ENV{RTTOV} = $RTTOV_dir;
               print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -440,7 +441,7 @@ $ENV{BUFR}='1';
           }
       }
   } elsif ($Arch eq "Darwin") {   # Darwin
-      my $RTTOV_dir = "/sysdisk1/$ThisGuy/libs/rttov_$Compiler";
+      $RTTOV_dir = "/sysdisk1/$ThisGuy/libs/rttov_$Compiler";
       if (-d $RTTOV_dir) {
           $ENV{RTTOV} = $RTTOV_dir;
           print "Using RTTOV libraries in $RTTOV_dir\n";
