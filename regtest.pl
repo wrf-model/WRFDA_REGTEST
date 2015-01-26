@@ -38,8 +38,7 @@ my $CLOUDCV_defined;
 my @valid_options = ("compiler","source","revision","upload","exec","debug","j","testfile","cloudcv");
 
 #This little bit makes sure the input arguments are formatted correctly
-foreach ( @ARGV ) {
-  my $arg = $_;
+foreach $arg ( @ARGV ) {
   my $first_two = substr($arg, 0, 2); 
   unless ($first_two eq "--") {
     print "\n Unknown option: $arg \n";
@@ -403,53 +402,21 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
    die "CLOUD_CV option is not fully implemented yet. Exiting...";
 }
 
+$ENV{CRTM}='1'; #These are not necessary since V3.6, but will not hurt
+$ENV{BUFR}='1';
+
   if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
-          $ENV{CRTM}='1';
-          $ENV{BUFR}='1';
-          if ($Compiler=~/ifort/i) {   # INTEL
-              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_intel_$Compiler_version";
-              if (-d $RTTOV_dir) {
-                  $ENV{RTTOV} = $RTTOV_dir;
-                  print "Using RTTOV libraries in $RTTOV_dir\n";
-              } else {
-                  print "$RTTOV_dir DOES NOT EXIST\n";
-                  print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
-              }
-          } elsif ($Compiler=~/gfortran/i) {   # GNU
-              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_gnu_$Compiler_version";
-              if (-d $RTTOV_dir) {
-                  $ENV{RTTOV} = $RTTOV_dir;
-                  print "Using RTTOV libraries in $RTTOV_dir\n";
-              } else {
-                  print "$RTTOV_dir DOES NOT EXIST\n";
-                  print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
-              }
-          } elsif ($Compiler=~/pgi/i) {   # PGI
-
-              my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_pgi_$Compiler_version";
-              if (-d $RTTOV_dir) {
-                 $ENV{RTTOV} = $RTTOV_dir;
-                  print "Using RTTOV libraries in $RTTOV_dir\n";
-              } else {
-                 print "$RTTOV_dir DOES NOT EXIST\n";
-                 print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
-              }
+          my $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_$Compiler\_$Compiler_version";
+          if (-d $RTTOV_dir) {
+              $ENV{RTTOV} = $RTTOV_dir;
+              print "Using RTTOV libraries in $RTTOV_dir\n";
+          } else {
+              print "$RTTOV_dir DOES NOT EXIST\n";
+              print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
           }
 
       } else { # Loblolly
-          if ($Compiler=~/pgi/i) {   # PGI
-              $ENV{CRTM}='1';
-              $ENV{BUFR}='1';
-          }
-          if ($Compiler=~/ifort/i) {   # INTEL
-              $ENV{CRTM}='1';
-              $ENV{BUFR}='1';
-          }
-          if ($Compiler=~/gfortran/i) {   # GFORTRAN
-              $ENV{CRTM}='1';
-              $ENV{BUFR}='1';
-          }
           my $RTTOV_dir = "/loblolly/kavulich/libs/rttov/$Compiler";
           if (-d $RTTOV_dir) {
               $ENV{RTTOV} = $RTTOV_dir;
@@ -473,26 +440,13 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
           }
       }
   } elsif ($Arch eq "Darwin") {   # Darwin
-      if ($Compiler=~/gfortran/i) {   # GFORTRAN
-          $ENV{CRTM} ='1';
-          $ENV{BUFR} ='1';
-          my $RTTOV_dir = "/sysdisk1/$ThisGuy/libs/rttov_$Compiler";
-          if (-d $RTTOV_dir) {
-              $ENV{RTTOV} = $RTTOV_dir;
-              print "Using RTTOV libraries in $RTTOV_dir\n";
-          } else {
-              print "$RTTOV_dir DOES NOT EXIST\n";
-              print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
-          }
-      }
-      if ($Compiler=~/g95/i) {   # G95
-          $ENV{CRTM} ='1';
-          $ENV{BUFR} ='1';
-      }
-      if ($Compiler=~/pgi/i) {   # PGI
-          $ENV{CRTM} ='1';
-          $ENV{BUFR} ='1';
-          $ENV{NETCDF} ='/gum2/kavulich/libs/netcdf-3.6.3-pgf90-gcc/';
+      my $RTTOV_dir = "/sysdisk1/$ThisGuy/libs/rttov_$Compiler";
+      if (-d $RTTOV_dir) {
+          $ENV{RTTOV} = $RTTOV_dir;
+          print "Using RTTOV libraries in $RTTOV_dir\n";
+      } else {
+          print "$RTTOV_dir DOES NOT EXIST\n";
+          print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
       }
   }
 
@@ -678,6 +632,7 @@ if ($Type =~ /4DVAR/i) {
          printf FH "#BSUB -R span[ptile=%d]"."\n", $Parallel_compile_num;
          print FH "\n";
          print FH "setenv J '-j $Parallel_compile_num'\n";
+         if (defined $RTTOV_dir) {print FH "setenv RTTOV $RTTOV_dir\n"};
          print FH "./compile all_wrfvar >& compile.log.$Compile_options_4dvar{$option}\n";
          print FH "\n";
          close (FH);
@@ -732,7 +687,7 @@ if ($Type =~ /4DVAR/i) {
 
             # Rename the executables:
             if (! rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}") {
-               print "Program da_wrfvar.exe not created: check your compilation log.\n";
+               print "Program da_wrfvar.exe not created for 4DVAR, $par_type: check your compilation log.\n";
                exit 3;
             }
 
@@ -928,6 +883,8 @@ if ($Type =~ /3DVAR/i) {
             print FH "#BSUB -P $Project"."\n";
             printf FH "#BSUB -R span[ptile=%d]"."\n", $Parallel_compile_num;
             print FH "\n";
+            if (defined $RTTOV_dir) {print FH "setenv RTTOV $RTTOV_dir\n"};
+            print FH "setenv J '-j $Parallel_compile_num'\n";
             print FH "./compile all_wrfvar >& compile.log.$Compile_options{$option}\n";
             print FH "\n";
             close (FH);
@@ -985,7 +942,7 @@ if ($Type =~ /3DVAR/i) {
      
                # Rename the executables:
                if (! rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}") {
-                  print "Program da_wrfvar.exe not created: check your compilation log.\n";
+                  print "Program da_wrfvar.exe not created for 3DVAR, $par_type: check your compilation log.\n";
                   exit 3;
                }
 
@@ -1496,8 +1453,8 @@ sub new_job {
             $cmd="./gen_be_wrapper.ksh 1>gen_be.out  2>gen_be.out";
             system($cmd);
 
-            if (-e "gen_be5/SUCCESS") {
-               copy("gen_be5/be.dat","be.dat") or die "Cannot copy be.dat: $!";
+            if (-e "gen_be_run/SUCCESS") {
+               copy("gen_be_run/be.dat","be.dat") or die "Cannot copy be.dat: $!";
             } else {
                chdir "..";
                return "GENBE_FAIL";
@@ -1650,10 +1607,10 @@ sub new_job_ys {
             # We need the script to see where the WRFDA directory is. See gen_be_wrapper.ksh in test directory
             print FH "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_3DVAR_".$par."\n";
             print FH "\n";
-            print FH "./gen_be_wrapper.ksh\n";
+            print FH "./gen_be_wrapper.ksh > gen_be.out\n";
             print FH "\n";
-            print FH "if( -e gen_be5/SUCCESS ) then\n";
-            print FH "   cp gen_be5/be.dat ./be.dat\n";
+            print FH "if( -e gen_be_run/SUCCESS ) then\n";
+            print FH "   cp gen_be_run/be.dat ./be.dat\n";
             print FH "endif\n";
             print FH "\n";
 
