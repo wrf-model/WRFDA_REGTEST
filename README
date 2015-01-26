@@ -41,11 +41,17 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
 
 3. Set up
 
-  The WRFDA Regression Testing Suite is kept in the following Subversion code repository:
+  The WRFDA Regression Testing Suite is kept in the following Subversion code repository (contact Michael Kavulich; 
+  kavulich@ucar.edu) for access:
 
     https://svn-user-kavulich.cgd.ucar.edu/trunk/REGTEST/
 
-  In this repository you will find the main testing script and the text files containing test information, 
+  In this repository you will find 
+    - the main testing script (regtest.pl)
+    - a text file containing test information (testdata.txt)
+    - a directory containing a few helpful scripts (scripts/)
+    - a text file containing data about compile times (compile_baseline.txt)
+    - this README file
 
   In addition to the files found in the above repository, you must download two data sets for the regression testing to 
   function:
@@ -75,30 +81,36 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
     Please note:
     A compiler MUST be specified to run this script. Other options are optional.
 
-  As should be obvious from the above message, there are a number of command-line options you can provide to the script to run the RTS in different ways. Let's examine these options in detail:
+  As should be obvious from the above message, there are a number of command-line options you can provide to the script to 
+  run the RTS in different ways. Let's examine these options in detail:
 
   compiler:
-    This is the name of the Fortran compiler you will be using to compile WRFDA. Active testing takes place with gfortran, ifort, and pgf90, but you should be able to easily adapt this test to use any Fortran compiler that WRF is set up for.
+    This is the name of the Fortran compiler you will be using to compile WRFDA. Active testing takes place with gfortran, 
+    ifort, and pgf90, but you should be able to easily adapt this test to use any Fortran compiler that WRF is set up for.
   source:
     This is the source of the code you will be testing. You can enter one of two options:
-      --source=SVN will check out a version of the code from the WRF code repository at https://svn-wrf-model.cgd.ucar.edu/trunk/. By default, the 
-                   most recent (HEAD) repository will be checked out, but you can use the "revision" option (explained later) to change this
-      --source=SOURCE_CODE.tar will use a tar file that you specify which contains the WRFDA source code. It must be a tar file which only contains
-                   the WRFDA code in a directory named "WRFDA". You can specify a tar file in a different directory with either a full path or a 
-                   relative path.
+      --source=SVN will check out a version of the code from the WRF code repository at 
+                   https://svn-wrf-model.cgd.ucar.edu/trunk/. By default, the most recent (HEAD) repository will be checked 
+                   out, but you can use the "revision" option (explained later) to change this
+      --source=SOURCE_CODE.tar will use a tar file that you specify which contains the WRFDA source code. It must be a tar 
+                   file which only contains the WRFDA code in a directory named "WRFDA". You can specify a tar file in a 
+                   different directory with either a full path or a relative path.
   revision:
-    If you specify "--source=SVN", you can use "--revision=####" to specify a specific revision number to check out of the repository
+    If you specify "--source=SVN", you can use "--revision=####" to specify a specific revision number to check out of the 
+    repository
   upload:
-    Choosing this option will upload a summary to the web (found at http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html). You must have
-    write permission on the MMM "nebula" machine to successfully use this option, as you will be prompted for your password to upload the files
+    Choosing this option will upload a summary to the web (found at 
+    http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html). You must have write permission on the MMM "nebula" 
+    machine to successfully use this option, as you will be prompted for your password to upload the files
   exec:
-    If you have run a previous test and do not wish to delete that code and re-compile, you can use "--exec=yes" to re-run the tests on existing code
+    If you have run a previous test and do not wish to delete that code and re-compile, you can use "--exec=yes" to re-run 
+    the tests on existing code
   debug:
-    This option should be used with caution, as WRFDA typically can not compile with debugging options due to poorly-written legacy code in external
-    libraries such as BUFR
+    This option should be used with caution, as WRFDA typically can not compile with debugging options due to poorly-written 
+    legacy code in external libraries such as BUFR
   j:
-    Specify the number of cores to be used with parallel make to speed up compilation. 6 is the maximum recommended value as there is minimal speedup
-    with higher numbers
+    Specify the number of cores to be used with parallel make to speed up compilation. 6 is the maximum recommended value as 
+    there is minimal speedup with higher numbers
 
 
 5. Output
