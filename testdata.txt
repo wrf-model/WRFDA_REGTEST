@@ -1,6 +1,6 @@
 ###########################################################################################
-#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
-Linux      x86_64  yellowstone    WRFDA_V3.6.1.tar       ifort         P64000400  caldera   WRFDA-data-EM    BASELINE.NEW
+#ARCH     MACHINE   NAME           SOURCE                       COMPILER  PROJECT   QUEUE     DATABASE       BASELINE
+Linux     x86_64    yellowstone    WORKDIR/tbd_changes/dave_changes/wrfda.tar    ifort     P64000400 caldera   WRFDA-data-EM  BASELINE.NEW
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            4    16      serial|dmpar
@@ -14,6 +14,7 @@ Linux      x86_64  yellowstone    WRFDA_V3.6.1.tar       ifort         P64000400
 10       iasi_kavulich               3DVAR           16    16      dmpar
 11       lat_lon_outerloops          3DVAR           16    16      dmpar
 12       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+13       radar_cv7                   GENBE|3DVAR      8    16      dmpar
 13       radar_meixu                 3DVAR            8    16      serial|dmpar
 14       radar_meixu_thinning        3DVAR            4    16      serial|dmpar
 15       rainfall_outerloops         4DVAR           32    16      dmpar
@@ -29,7 +30,7 @@ Linux      x86_64  yellowstone    WRFDA_V3.6.1.tar       ifort         P64000400
 25       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
-Linux      x86_64  yellowstone    WRFDA_V3.6.1.tar        gfortran      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
+Linux      x86_64  yellowstone    WORKDIR/tbd_changes/gen_be_parallel/wrfda.tar        gfortran      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            4    16      serial|dmpar
@@ -43,19 +44,20 @@ Linux      x86_64  yellowstone    WRFDA_V3.6.1.tar        gfortran      P6400051
 10       iasi_kavulich               3DVAR           16    16      dmpar
 11       lat_lon_outerloops          3DVAR           16    16      dmpar
 12       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-13       radar_meixu                 3DVAR            8    16      serial|dmpar
-14       radar_meixu_thinning        3DVAR            4    16      serial|dmpar
-15       rainfall_outerloops         4DVAR           32    16      dmpar
-16       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
-17       seviri_varbc                VARBC|3DVAR     16    16      dmpar
-18       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-19       t44_liuz                    3DVAR            2    16      serial|dmpar
-20       t44_prepbufr                3DVAR            8    16      serial|dmpar
-21       tut_xinzhang_4dvar          4DVAR           32    16      dmpar
-22       tut_xinzhang_fgat           FGAT            16    16      dmpar
-23       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
-24       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
-25       wind_sd                     3DVAR           16    16      serial|dmpar
+13       radar_cv7                   GENBE|3DVAR      8    16      dmpar
+14       radar_meixu                 3DVAR            8    16      serial|dmpar
+15       radar_meixu_thinning        3DVAR            4    16      serial|dmpar
+16      rainfall_outerloops         4DVAR           32    16      dmpar
+17       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
+18       seviri_varbc                VARBC|3DVAR     16    16      dmpar
+19       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+20       t44_liuz                    3DVAR            2    16      serial|dmpar
+21       t44_prepbufr                3DVAR            8    16      serial|dmpar
+22       tut_xinzhang_4dvar          4DVAR           32    16      dmpar
+23       tut_xinzhang_fgat           FGAT            16    16      dmpar
+24       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
+25       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
+26       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
 Linux      x86_64  yellowstone    WRFDA_V3.6.1_rttov112.tar        pgi      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
@@ -71,6 +73,7 @@ Linux      x86_64  yellowstone    WRFDA_V3.6.1_rttov112.tar        pgi      P640
 10       iasi_kavulich               3DVAR           16    16      dmpar
 11       lat_lon_outerloops          3DVAR           16    16      dmpar
 12       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+#13       radar_cv7                   GENBE|3DVAR      8    16      dmpar
 13       radar_meixu                 3DVAR            8    16      serial|dmpar
 14       radar_meixu_thinning        3DVAR            4    16      serial|dmpar
 15       rainfall_outerloops         4DVAR           32    16      dmpar

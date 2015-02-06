@@ -87,6 +87,7 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
   compiler:
     This is the name of the Fortran compiler you will be using to compile WRFDA. Active testing takes place with gfortran, 
     ifort, and pgf90, but you should be able to easily adapt this test to use any Fortran compiler that WRF is set up for.
+    This is the only mandatory command-line argument for regtest.pl
   source:
     This is the source of the code you will be testing. You can enter one of two options:
       --source=SVN will check out a version of the code from the WRF code repository at 
@@ -99,9 +100,9 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
     If you specify "--source=SVN", you can use "--revision=####" to specify a specific revision number to check out of the 
     repository
   upload:
-    Choosing this option will upload a summary to the web (found at 
-    http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html). You must have write permission on the MMM "nebula" 
-    machine to successfully use this option, as you will be prompted for your password to upload the files
+    Will upload a summary of the test to the web (found at http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html). 
+    You must have write permission on the MMM "nebula" machine to successfully use this option, as you will be prompted for 
+    your password to upload the summary files
   exec:
     If you have run a previous test and do not wish to delete that code and re-compile, you can use "--exec=yes" to re-run 
     the tests on existing code
@@ -109,8 +110,8 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
     This option should be used with caution, as WRFDA typically can not compile with debugging options due to poorly-written 
     legacy code in external libraries such as BUFR
   j:
-    Specify the number of cores to be used with parallel make to speed up compilation. 6 is the maximum recommended value as 
-    there is minimal speedup with higher numbers
+    Specify the number of cores to be used with parallel make to speed up compilation. The default is 4, and 16 is the 
+    maximum possible value, though values greater than 6 are not recommended, as there is minimal speedup beyond this
 
 
 5. Output
