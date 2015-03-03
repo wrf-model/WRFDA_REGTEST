@@ -343,7 +343,6 @@ if ( !($Baseline =~ /^\//) ) {
     $Baseline = $MainDir."/".$Baseline;
 }
 
-
 printf "Finished parsing the table, the experiments are : \n";
 printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
 printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n", 
@@ -398,9 +397,9 @@ if ($Exec) {
 $ENV{J}="-j $Parallel_compile_num";
 
 if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
-#   $ENV{CLOUD_CV}='1';
-#   print "\nWill compile for CLOUD_CV option\n\n";
-   die "CLOUD_CV option is not fully implemented yet. Exiting...";
+   $ENV{CLOUD_CV}='1';
+   print "\nWill compile for CLOUD_CV option\n\n";
+#   die "CLOUD_CV option is not fully implemented yet. Exiting...";
 }
 
 $ENV{CRTM}='1'; #These are not necessary since V3.6, but will not hurt
@@ -1294,9 +1293,9 @@ if ( $Machine_name eq "yellowstone" ) {
        my $numexp= scalar keys %Experiments;
        $go_on='';
 
-       if ( $numexp < 25 ) {
+       if ( $numexp < 26 ) {
           $scp_warn ++;
-          print "This run only includes $numexp of 25 tests, are you sure you want to upload?\a\n";
+          print "This run only includes $numexp of 26 tests, are you sure you want to upload?\a\n";
 
           while ($go_on eq "") {
              $go_on = <STDIN>;
@@ -1606,7 +1605,11 @@ sub new_job_ys {
             print FH "\n";
 
             # We need the script to see where the WRFDA directory is. See gen_be_wrapper.ksh in test directory
-            print FH "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_3DVAR_".$par."\n";
+            if ($types =~ /4DVAR/i) {
+               print FH "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_4DVAR_".$par."\n";
+            } else {
+               print FH "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_3DVAR_".$par."\n";
+            }
             print FH "\n";
             print FH "./gen_be_wrapper.ksh > gen_be.out\n";
             print FH "\n";
@@ -1906,6 +1909,7 @@ sub new_job_ys {
              "setenv OMP_NUM_THREADS $cpum\n" :"\n";
          print FH "\n";
 
+         print FH "unsetenv MP_PE_AFFINITY\n";
          print FH ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
@@ -2256,15 +2260,17 @@ sub check_baseline {
 sub svn_version {
 
 #This function is necessary since a Yellowstone upgrade bungled up the 'svnversion' function.
-#Should have the same functionality
+#Should have the same functionality for versioned directories, but will also try to retrieve
+#the WRF/WRFDA release version if possible
 
 
    my ($dir_name) = @_;
    my $revnum;
-
+   my $vernum;
 
    if ( -d "$dir_name/.svn" ) {
 
+      
       open (my $fh,"-|","svn","info","$dir_name")
          or die " Can't run svn info: $!\n";
       while (<$fh>) {
@@ -2274,6 +2280,14 @@ sub svn_version {
 
       return $revnum;
 
+   } elsif ( -e "$dir_name/inc/version_decl" ) {
+      open my $file, '<', "$dir_name/inc/version_decl"; 
+      my $readfile = <$file>; 
+      close $file;
+      $readfile =~ /\x27(.+)\x27/;
+      $vernum = $1;
+
+      return $vernum;
    } else {
 
       return "exported";

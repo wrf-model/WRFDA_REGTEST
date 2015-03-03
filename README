@@ -61,6 +61,10 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
 
   These data sets can be found at the WRFDA website: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html
 
+  This system is not yet set up to automatically compile WRFPLUS for 4DVAR tests. Therefore, to run 4DVAR tests, you must
+  compile the appropriate code separately. The testing suite will look for the WRFPLUS code in the test's working directory,
+  in a sub-directory named 'WRFPLUSV3_compiler', where "compiler" is gnu, intel, pgi, etc.
+
 4. Running WRFDA RTS
 
   The RTS can be run by executing the main script: 'regtest.pl'
@@ -139,5 +143,5 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
                               it is installed on your system and in your $PATH)
   Could not open output       Your output or baseline file is malformed (or possibly missing).
             and/or baseline
-  fg == wrfvar_output   The test produced output, but the output is equal to the first guess, indicating a problem.
+  fg == wrfvar_output         The test produced output, but the output is equal to the first guess, indicating a problem.
 
