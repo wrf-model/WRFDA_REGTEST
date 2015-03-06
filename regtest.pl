@@ -1358,19 +1358,23 @@ CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
           }
        }
 
+       #Remove dash from js functions, since this is a reserved character
+       my $Machine_name_nodash = $Machine_name;
+       $Machine_name_nodash =~ s/\-//g;
+
        #Create .js file which will display the test date on the webpage
        open WEBJS, ">${Machine_name}_${Compiler}_date.js" or
            die "Can not open ${Machine_name}_${Compiler}_date.js for write: $!\n";
 
-       print WEBJS "function ${Machine_name}_${Compiler}_date()\n";
+       print WEBJS "function ${Machine_name_nodash}_${Compiler}_date()\n";
        print WEBJS '{'."\n";
 
        if ($status == -1) {
-          print WEBJS "        document.getElementById(\"${Machine_name}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_nodash}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
        } elsif ($status == 1) {
-          print WEBJS "        document.getElementById(\"${Machine_name}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_nodash}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
        } else {
-          print WEBJS "        document.getElementById(\"${Machine_name}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b>ALL PASS</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_nodash}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b>ALL PASS</b>\";\n";
        }
        print WEBJS '}'."\n";
        close (WEBJS);
