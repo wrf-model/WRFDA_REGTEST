@@ -1358,33 +1358,38 @@ CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
           }
        }
 
-       #Remove dash from js functions, since this is a reserved character
-       my $Machine_name_nodash = $Machine_name;
-       $Machine_name_nodash =~ s/\-//g;
+       #Remove dashes and dots from js functions, since these are reserved characters
+       my $Machine_name_js = $Machine_name;
+       $Machine_name_js =~ s/\-//g;
+       $Machine_name_js =~ s/\./_/g; #Convert dots to underscores
+
+       my $Compiler_version_js = $Compiler_version;
+       $Compiler_version_js =~ s/\-//g;
+       $Compiler_version_js =~ s/\./_/g; #Convert dots to underscores
 
        #Create .js file which will display the test date on the webpage
-       open WEBJS, ">${Machine_name}_${Compiler}_date.js" or
-           die "Can not open ${Machine_name}_${Compiler}_date.js for write: $!\n";
+       open WEBJS, ">${Machine_name}_${Compiler}_${Compiler_version}_date.js" or
+           die "Can not open ${Machine_name}_${Compiler}_${Compiler_version}_date.js for write: $!\n";
 
-       print WEBJS "function ${Machine_name_nodash}_${Compiler}_date()\n";
+       print WEBJS "function ${Machine_name_js}_${Compiler}_${Compiler_version_js}_date()\n";
        print WEBJS '{'."\n";
 
        if ($status == -1) {
-          print WEBJS "        document.getElementById(\"${Machine_name_nodash}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
        } elsif ($status == 1) {
-          print WEBJS "        document.getElementById(\"${Machine_name_nodash}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
        } else {
-          print WEBJS "        document.getElementById(\"${Machine_name_nodash}_${Compiler}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b>ALL PASS</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b>ALL PASS</b>\";\n";
        }
        print WEBJS '}'."\n";
        close (WEBJS);
 
 
-       my @uploadit = ("scp", "summary_${Machine_name}_${Compiler}_${Compiler_version}.html","${Machine_name}_${Compiler}_date.js" , "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
+       my @uploadit = ("scp", "summary_${Machine_name}_${Compiler}_${Compiler_version}.html","${Machine_name}_${Compiler}_${Compiler_version}_date.js" , "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
        system(@uploadit) == 0
-          or die "Uploading 'summary_${Machine_name}_${Compiler}_${Compiler_version}.html' and '${Machine_name}_${Compiler}_date.js' to web failed: $?\n";
+          or die "Uploading 'summary_${Machine_name}_${Compiler}_${Compiler_version}.html' and '${Machine_name}_${Compiler}_${Compiler_version}_date.js' to web failed: $?\n";
        print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_${Machine_name}_${Compiler}_${Compiler_version}.html\n";
-       unlink "$Machine_name\_$Compiler\_date.js";
+       unlink "$Machine_name\_$Compiler\_${Compiler_version}_date.js";
     }
 }
 
@@ -1700,7 +1705,7 @@ sub new_job_ys {
          print FH '#'."\n";
          print FH "#BSUB -J $nam"."\n";
          # If more than 16 processors requested, can't use caldera
-         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "small" : $Queue)."\n";
+         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "regular" : $Queue)."\n";
          printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
                                         $cpun: 1;
          print FH "#BSUB -o job_${nam}_$par.output"."\n";
@@ -1760,7 +1765,7 @@ sub new_job_ys {
          print FH '#'."\n";
          print FH "#BSUB -J $nam"."\n";
          # If more than 16 processors requested, can't use caldera
-         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "small" : $Queue)."\n";
+         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "regular" : $Queue)."\n";
          printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
                                         $cpun: 1;
          print FH "#BSUB -o job_${nam}_$par.output"."\n";
@@ -1837,7 +1842,7 @@ sub new_job_ys {
          print FH '#'."\n";
          print FH "#BSUB -J $nam"."\n";
          # If more than 16 processors requested, can't use caldera
-         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "small" : $Queue)."\n";
+         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "regular" : $Queue)."\n";
          printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
                                         $cpun: 1;
          print FH "#BSUB -o job_${nam}_$par.output"."\n";
@@ -1898,7 +1903,7 @@ sub new_job_ys {
          print FH '#'."\n";
          print FH "#BSUB -J $nam"."\n";
          # If more than 16 processors requested, can't use caldera
-         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "small" : $Queue)."\n";
+         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "regular" : $Queue)."\n";
          printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
                                         $cpun: 1;
          print FH "#BSUB -o job_${nam}_$par.output"."\n";
@@ -2131,8 +2136,8 @@ sub submit_job_ys {
                              $Experiments{$name}{paropt}{$par}{jobid} = $rc ;    # assign the jobid.
                              $Experiments{$name}{status} = "close";
                              my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{jobid}`;
-                             if ($checkQ =~ /\ssmall\s/) {
-                                 printf "%-10s job for %-30s was submitted to queue 'small' with jobid: %10d \n", $par, $name, $rc;
+                             if ($checkQ =~ /\sregular\s/) {
+                                 printf "%-10s job for %-30s was submitted to queue 'regular' with jobid: %10d \n", $par, $name, $rc;
                              } else {
                                  printf "%-10s job for %-30s was submitted to queue '$Queue' with jobid: %10d \n", $par, $name, $rc;
                              }
