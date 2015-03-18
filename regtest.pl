@@ -33,6 +33,7 @@ my $Exec_defined;
 my $Debug_defined;
 my $Parallel_compile_num = 4;
 my $Revision = 'HEAD'; # Revision Number
+my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision Number
 my $Testfile = 'testdata.txt';
 my $CLOUDCV_defined;
 my $RTTOV_dir;
@@ -459,6 +460,8 @@ if ($Type =~ /4DVAR/i) {
 
     if (-d $WRFPLUSDIR) {
         $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
+        $WRFPLUS_Revision = &svn_version("$WRFPLUSDIR");
+#        print "WRFPLUS Revision = $WRFPLUS_Revision";
     } else {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR!\n";
@@ -1165,6 +1168,9 @@ print SENDMAIL "<p>";
 print SENDMAIL $Start_time."<br>";
 print SENDMAIL "Source: ",$Source."<br>";
 print SENDMAIL "Revision: ",$Revision."<br>";
+if ( $WRFPLUS_Revision ne "NONE" ) {
+print SENDMAIL "WRFPLUS Revision: ",$WRFPLUS_Revision."<br>";
+}
 print SENDMAIL "Tester: ",$Tester."<br>";
 print SENDMAIL "Machine name: ",$Host."<br>";
 print SENDMAIL "Operating system: ",$System,", ",$Machine."<br>";
@@ -1202,6 +1208,9 @@ sub create_webpage {
     print WEBH '<li>'.$Start_time.'</li>'."\n";
     print WEBH '<li>'."Source : $Source".'</li>'."\n";
     print WEBH '<li>'."Revision : $Revision".'</li>'."\n";
+if ( $WRFPLUS_Revision ne "NONE" ) {
+    print WEBH '<li>'."WRFPLUS Revision : $WRFPLUS_Revision".'</li>'."\n";
+}
     print WEBH '<li>'."Tester : $Tester".'</li>'."\n";
     print WEBH '<li>'."Machine name : $Host".'</li>'."\n";
     print WEBH '<li>'."Operating system : $System".'</li>'."\n";
@@ -1386,9 +1395,12 @@ CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
 
 
        my @uploadit = ("scp", "summary_${Machine_name}_${Compiler}_${Compiler_version}.html","${Machine_name}_${Compiler}_${Compiler_version}_date.js" , "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
-       system(@uploadit) == 0
-          or die "Uploading 'summary_${Machine_name}_${Compiler}_${Compiler_version}.html' and '${Machine_name}_${Compiler}_${Compiler_version}_date.js' to web failed: $?\n";
-       print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_${Machine_name}_${Compiler}_${Compiler_version}.html\n";
+       $status = system(@uploadit);
+       if ($status == 0) {
+          print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_${Machine_name}_${Compiler}_${Compiler_version}.html\n";
+       } else {
+          print "Uploading 'summary_${Machine_name}_${Compiler}_${Compiler_version}.html' and '${Machine_name}_${Compiler}_${Compiler_version}_date.js' to web failed: $?\n";
+       }
        unlink "$Machine_name\_$Compiler\_${Compiler_version}_date.js";
     }
 }
