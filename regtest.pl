@@ -2303,9 +2303,9 @@ sub svn_version {
       }
       close ($fh);
 
-      open (my $fh,"-|","svn","status","-q")
+      open (my $fh2,"-|","svn","status","-q")
            or die " Can't run svn status: $!\n";
-      while (my $row = <$fh>) {
+      while (my $row = <$fh2>) {
          if ( $row =~ /\S*/) {
             unless ($row =~ /^!/) { #We don't care if directories are missing; just modifications.
                                     #If important directories are missing everything will blow up anyway
@@ -2313,7 +2313,7 @@ sub svn_version {
             }
          }
       }
-      close ($fh);
+      close ($fh2);
       if($mod=~/\S+/){
          $revnum = "$revnum"."m"; #Add an 'm' if modified
       }
