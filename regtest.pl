@@ -461,7 +461,6 @@ if ($Type =~ /4DVAR/i) {
     if (-d $WRFPLUSDIR) {
         $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
         $WRFPLUS_Revision = &svn_version("$WRFPLUSDIR");
-#        print "WRFPLUS Revision = $WRFPLUS_Revision";
     } else {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR!\n";
@@ -2284,21 +2283,42 @@ sub svn_version {
 #Should have the same functionality for versioned directories, but will also try to retrieve
 #the WRF/WRFDA release version if possible
 
+#Also appends an "m" to the revision number if the contents are versioned and have been modified.
+##I think this was part of the original behavior of "svnversion" but I can't remember for sure.
 
    my ($dir_name) = @_;
+   my $wd = `pwd`;
+   chomp ($wd);
    my $revnum;
    my $vernum;
+   my $mod = '';
 
    if ( -d "$dir_name/.svn" ) {
-
-      
-      open (my $fh,"-|","svn","info","$dir_name")
-         or die " Can't run svn info: $!\n";
+      # Apparently svn info doesn't work on symlinks sometimes, so have to actually go into the directory >:[
+      chdir $dir_name;
+      open (my $fh,"-|","svn","info")
+           or die " Can't run svn info: $!\n";
       while (<$fh>) {
          $revnum = $1 if ( /Revision: \s+ (\d+)/x);
       }
       close ($fh);
 
+      open (my $fh,"-|","svn","status","-q")
+           or die " Can't run svn status: $!\n";
+      while (my $row = <$fh>) {
+         if ( $row =~ /\S*/) {
+            unless ($row =~ /^!/) { #We don't care if directories are missing; just modifications.
+                                    #If important directories are missing everything will blow up anyway
+               $mod = $row;
+            }
+         }
+      }
+      close ($fh);
+      if($mod=~/\S+/){
+         $revnum = "$revnum"."m"; #Add an 'm' if modified
+      }
+
+      chdir $wd;
       return $revnum;
 
    } elsif ( -e "$dir_name/inc/version_decl" ) {
