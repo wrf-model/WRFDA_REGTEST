@@ -9,7 +9,8 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
                          IT IS IMPORTANT TO NOTE THAT THIS SYSTEM CAN NOT DETECT INCORRECT RESULTS
 
   This testing suite can only ensure that all files that should have been created are created, and that the output of the 
-  test has not changed since the version which was used to generate the baseline.
+  test has not changed since the version which was used to generate the baseline. There are also sanity checks for NaNs in
+  the output and cases where the first guess file is equal to the output, but poor assimilation can not be detected.
 
 1. Contents 
 

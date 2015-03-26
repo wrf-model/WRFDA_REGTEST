@@ -373,7 +373,9 @@ if ($Arch eq "Linux") {
 
 # If exec=yes, collect version info and skip compilation
 if ($Exec) {
+   print "Option exec=yes specified; checking previously built code for revision number\n";
    if ( ($Type =~ /4DVAR/i) && ($Type =~ /3DVAR/i) ) {
+      print "Ensuring that all compiled code is the same version\n";
       if ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /dmpar/i) ) {
          my $Revision3 = &svn_version("WRFDA_3DVAR_dmpar");
          my $Revision4 = &svn_version("WRFDA_4DVAR_dmpar");
@@ -457,9 +459,10 @@ if ($Type =~ /4DVAR/i) {
   # Set WRFPLUS_DIR Environment variable
     my $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
     chomp($WRFPLUSDIR);
-
+    print "4DVAR tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR.\n";
     if (-d $WRFPLUSDIR) {
         $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
+        print "Checking WRFPLUS revision ...\n";
         $WRFPLUS_Revision = &svn_version("$WRFPLUSDIR");
     } else {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
@@ -488,25 +491,22 @@ if ($Type =~ /4DVAR/i) {
       if ( -e "WRFDA_4DVAR_$par_type" && -r "WRFDA_4DVAR_$par_type" ) {
          printf "Deleting the old WRFDA_4DVAR_$par_type directory ... \n";
          #Delete in background to save time rather than using "rmtree"
-         ! system("mv", "WRFDA_4DVAR_$par_type", ".WRFDA_4DVAR_$par_type") or die "Can not move 'WRFDA_4DVAR_$par_type' to '.WRFDA_4DVAR_$par_type': $!\n";
+         ! system("mv", "WRFDA_4DVAR_$par_type", ".WRFDA_4DVAR_$par_type") or die "Can not move 'WRFDA_4DVAR_$par_type' to '.WRFDA_4DVAR_$par_type for deletion': $!\n";
          ! system("rm -rf .WRFDA_4DVAR_$par_type &") or die "Can not remove WRFDA_4DVAR_$par_type: $!\n";
       }
 
       if ($Source eq "SVN") {
-         print "Getting the code from repository $SVN_REP to WRFDA_4DVAR_$par_type...\n";
+         print "Getting the code from repository $SVN_REP to WRFDA_4DVAR_$par_type ...\n";
          ! system ("svn","co","-q","-r",$Revision,$SVN_REP,"WRFDA_4DVAR_$par_type") or die " Can't run svn checkout: $!\n";
+         if ($Revision eq 'HEAD') {
+            $Revision = &svn_version("WRFDA_4DVAR_$par_type");
+         }
+         printf "Revision %5d successfully checked out to WRFDA_4DVAR_$par_type.\n",$Revision;
       } else {
-         print "Getting the code from $Source to WRFDA_4DVAR_$par_type...\n";
+         print "Getting the code from $Source to WRFDA_4DVAR_$par_type ...\n";
          ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
          ! system("mv", "WRFDA", "WRFDA_4DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_4DVAR_$par_type': $!\n";
-      }
-
-      # Check the revision number:
-
-      $Revision = &svn_version("WRFDA_4DVAR_$par_type");
-
-      if ($Source eq "SVN") {
-         printf "Revision %5d is exported to WRFDA_4DVAR_$par_type.\n",$Revision;
+         $Revision = &svn_version("WRFDA_4DVAR_$par_type");
       }
 
       # Change the working directory to WRFDA:
@@ -514,15 +514,15 @@ if ($Type =~ /4DVAR/i) {
 
       # Delete unnecessary directories to test code in release style
       if ( -e "chem" && -r "chem" ) {
-         printf "Deleting chem directory ... \n";
+         printf "Deleting chem directory ... ";
          rmtree ("chem") or die "Can not rmtree chem :$!\n";
       }
       if ( -e "dyn_nmm" && -r "dyn_nmm" ) {
-         printf "Deleting dyn_nmm directory ... \n";
+         printf "Deleting dyn_nmm directory ... ";
          rmtree ("dyn_nmm") or die "Can not rmtree dyn_nmm :$!\n";
       }
       if ( -e "hydro" && -r "hydro" ) {
-         printf "Deleting hydro directory ... \n";
+         printf "Deleting hydro directory ... ";
          rmtree ("hydro") or die "Can not rmtree hydro :$!\n";
       }
 
@@ -584,7 +584,7 @@ if ($Type =~ /4DVAR/i) {
          die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n";
       }
 
-      printf "Found 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$option}, $option;
+      printf "\nFound 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$option}, $option;
 
 
       # Compile the code:
@@ -738,26 +738,24 @@ if ($Type =~ /3DVAR/i) {
        if ( -e "WRFDA_3DVAR_$par_type" && -r "WRFDA_3DVAR_$par_type" ) {
             printf "Deleting the old WRFDA_3DVAR_$par_type directory ... \n";
             #Delete in background to save time rather than using "rmtree"
-            ! system("mv", "WRFDA_3DVAR_$par_type", ".WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA_3DVAR_$par_type' to '.WRFDA_3DVAR_$par_type': $!\n";
+            ! system("mv", "WRFDA_3DVAR_$par_type", ".WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA_3DVAR_$par_type' to '.WRFDA_3DVAR_$par_type for deletion': $!\n";
             ! system("rm -rf .WRFDA_3DVAR_$par_type &") or die "Can not remove WRFDA_3DVAR_$par_type: $!\n";
        }
 
        if ($Source eq "SVN") {
-          print "Getting the code from repository $SVN_REP to WRFDA_3DVAR_$par_type...\n";
+          print "Getting the code from repository $SVN_REP to WRFDA_3DVAR_$par_type ...\n";
           ! system ("svn","co","-q","-r",$Revision,$SVN_REP,"WRFDA_3DVAR_$par_type") or die " Can't run svn checkout: $!\n";
+          if ($Revision eq 'HEAD') {
+             $Revision = &svn_version("WRFDA_3DVAR_$par_type");
+          }
+          printf "Revision %5d successfully checked out to WRFDA_3DVAR_$par_type.\n",$Revision;
        } else {
-            print "Getting the code from $Source to WRFDA_3DVAR_$par_type...\n";
-            ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
-            ! system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
+          print "Getting the code from $Source to WRFDA_3DVAR_$par_type ...\n";
+          ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
+          ! system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
+          $Revision = &svn_version("WRFDA_3DVAR_$par_type");
        }
 
-       # Check the revision number:
-
-      $Revision = &svn_version("WRFDA_3DVAR_$par_type");
-
-      if ($Source eq "SVN") {
-         printf "Revision %5d is exported to WRFDA_3DVAR_$par_type.\n",$Revision;
-      }
  
        # Change the working directory to WRFDA:
      
@@ -765,15 +763,15 @@ if ($Type =~ /3DVAR/i) {
 
        # Delete unnecessary directories to test code in release style
        if ( -e "chem" && -r "chem" ) {
-          printf "Deleting chem directory ... \n";
+          printf "Deleting chem directory ... ";
           rmtree ("chem") or die "Can not rmtree chem :$!\n";
        }
        if ( -e "dyn_nmm" && -r "dyn_nmm" ) {
-          printf "Deleting dyn_nmm directory ... \n";
+          printf "Deleting dyn_nmm directory ... ";
           rmtree ("dyn_nmm") or die "Can not rmtree dyn_nmm :$!\n";
        }
        if ( -e "hydro" && -r "hydro" ) {
-          printf "Deleting hydro directory ... \n";
+          printf "Deleting hydro directory ... ";
           rmtree ("hydro") or die "Can not rmtree hydro :$!\n";
        }
 
@@ -838,7 +836,7 @@ if ($Type =~ /3DVAR/i) {
          die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n";
       }
 
-      printf "Found 3DVAR compilation option for %6s, option %2d.\n",$Compile_options{$option}, $option;
+      printf "\nFound 3DVAR compilation option for %6s, option %2d.\n",$Compile_options{$option}, $option;
 
 
        # Compile the code:
@@ -1280,7 +1278,7 @@ if ( $Machine_name eq "yellowstone" ) {
     my $go_on='';
 
     if ( $Upload =~ /yes/i ) {
-       if ( (!$Exec) && ($Revision =~ /\d+M$/) ) {
+       if ( (!$Exec) && ($Revision =~ /\d+(M|m)$/) ) {
           $scp_warn ++;
           print "This revision appears to be modified, are you sure you want to upload the summary?\a\n";
 

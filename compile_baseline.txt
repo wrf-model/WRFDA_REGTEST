@@ -3,6 +3,12 @@ under several different configurations. "j=#" indicates the number of
 processors used to compile in parallel (WRFDA default is j=2; regtest default
 is j=4).
 
+=========================================
+-------------- YELLOWSTONE --------------
+=========================================
+
+The following test results are for the NCAR Yellowstone supercomputer:
+
 j=4; WRFDA 3.6.1, ifort 15.0.1
 ----------------------------------------
 Job 3DVAR_serial (job number 91062) is finished!
@@ -11,8 +17,6 @@ Job 3DVAR_dmpar (job number 91059) is finished!
  It took 1106 seconds
 Job 4DVAR_dmpar (job number 91057) is finished!
  It took 1245 seconds
-
-
 
 j=4; Version 3.5
 ---------------------

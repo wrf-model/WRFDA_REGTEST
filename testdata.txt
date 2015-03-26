@@ -1,6 +1,7 @@
 ###########################################################################################
-#ARCH     MACHINE   NAME           SOURCE                       COMPILER  PROJECT   QUEUE     DATABASE       BASELINE
-Linux     x86_64    yellowstone    WORKDIR/tbd_changes/radar_with_prepbufr/wrfda.tar    ifort     P64000400 caldera   WRFDA-data-EM  BASELINE.NEW
+#ARCH    MACHINE   NAME           SOURCE         COMPILER  PROJECT   QUEUE     DATABASE       BASELINE
+Linux    x86_64    yellowstone    wrfda.tar      ifort     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW
+#
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            4    16      serial|dmpar
@@ -29,8 +30,9 @@ Linux     x86_64    yellowstone    WORKDIR/tbd_changes/radar_with_prepbufr/wrfda
 25       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 26       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
-#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
-Linux      x86_64  yellowstone    WORKDIR/tbd_changes/radar_with_prepbufr/wrfda.tar        gfortran      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
+#ARCH    MACHINE   NAME           SOURCE         COMPILER  PROJECT   QUEUE     DATABASE       BASELINE
+Linux    x86_64    yellowstone    wrfda.tar      gfortran  P64000510 caldera   WRFDA-data-EM  BASELINE.NEW
+#
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            4    16      serial|dmpar
@@ -59,8 +61,10 @@ Linux      x86_64  yellowstone    WORKDIR/tbd_changes/radar_with_prepbufr/wrfda.
 25       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 26       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
-#ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
-Linux      x86_64  yellowstone    WRFDA_V3.6.1_rttov112.tar        pgi      P64000510  caldera   WRFDA-data-EM    BASELINE.NEW
+#ARCH    MACHINE   NAME           SOURCE         COMPILER  PROJECT   QUEUE     DATABASE       BASELINE
+Linux    x86_64    yellowstone    wrfda.tar      pgi       P64000510 caldera   WRFDA-data-EM  BASELINE.NEW
+#
+#INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
 2        afwa_t7_ssmi_32             3DVAR            4    16      serial|dmpar
 3        ASR_prepbufr                3DVAR           16    16      dmpar
@@ -87,7 +91,6 @@ Linux      x86_64  yellowstone    WRFDA_V3.6.1_rttov112.tar        pgi      P640
 24       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
 25       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 26       wind_sd                     3DVAR           16    16      serial|dmpar
-#INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 ###########################################################################################
 #ARCH      MACHINE     NAME     SOURCE     COMPILER    PROJECT   QUEUE   DATABASE                             BASELINE
 Linux      x86_64  loblolly   /loblolly/kavulich/wrfda.tar        ifort         64000510  share   /loblolly/kavulich/WRFDA-data-EM    /loblolly/kavulich/BASELINE
