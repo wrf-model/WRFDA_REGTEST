@@ -1969,10 +1969,10 @@ sub compare_output {
 
      my $diffwrfpath = $diffwrfdir . "diffwrf";
 
-     return -3 unless ( -e "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler");
-     return -4 unless ( -e "$Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler");
+     return -3 unless ( -e "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version");
+     return -4 unless ( -e "$Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version");
 
-     my @output = `$diffwrfpath $name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler $Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler`;
+     my @output = `$diffwrfpath $name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version $Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version`;
  
      return -2 if (!@output);
      
@@ -2075,12 +2075,12 @@ sub submit_job {
 
             # Wrap-up this job:
 
-            rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler";
+            rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
             # Compare the wrfvar_output with the BASELINE:
 
             unless ($Baseline =~ /none/i) {
-                         &check_baseline ($name, $Arch, $Machine_name, $par, $Compiler, $Baseline);
+                         &check_baseline ($name, $Arch, $Machine_name, $par, $Compiler, $Baseline, $Compiler_version);
             }
         }
 
@@ -2206,12 +2206,12 @@ sub submit_job_ys {
 
                      # Wrap-up this job:
 
-                     rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler";
+                     rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
                      # Compare against the baseline
 
                      unless ($Baseline =~ /none/i) {
-                         &check_baseline ($name, $Arch, $Machine_name, $par, $Compiler, $Baseline);
+                         &check_baseline ($name, $Arch, $Machine_name, $par, $Compiler, $Baseline, $Compiler_version);
                      }
                  }
 
@@ -2235,14 +2235,14 @@ sub submit_job_ys {
 
 sub check_baseline {
 
-    my ($cbname, $cbArch, $cbMachine_name, $cbpar, $cbCompiler, $cbBaseline) = @_;
+    my ($cbname, $cbArch, $cbMachine_name, $cbpar, $cbCompiler, $cbBaseline, $cbCompiler_version) = @_;
 
-    print "\nComparing '$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler' 
-              to '$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler'" ;
-    if (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler",
-                     "$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler") == 0) {
+    print "\nComparing '$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version' 
+              to '$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version'" ;
+    if (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version",
+                     "$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version") == 0) {
         $Experiments{$cbname}{paropt}{$cbpar}{compare} = "match";
-    } elsif (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler","$cbname/fg") == 0) {
+    } elsif (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version","$cbname/fg") == 0) {
         $Experiments{$cbname}{paropt}{$cbpar}{status} = "error";
         $Experiments{$cbname}{paropt}{$cbpar}{compare} = "fg == wrfvar_output";
     } else {
