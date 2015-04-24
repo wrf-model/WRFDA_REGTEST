@@ -1053,9 +1053,9 @@ if ($Type =~ /4DVAR/i) {
 
 
 if ( ($Machine_name eq "yellowstone") ) {
-    printf "Moving to scratch space: /glade/scratch/$ThisGuy/REGTEST/$Compiler\_$year$mon$mday\_$hour:$min:$sec\n";
-    mkpath("/glade/scratch/$ThisGuy/REGTEST/$Compiler\_$year$mon$mday\_$hour:$min:$sec") or die "Mkdir failed: $!";
-    chdir "/glade/scratch/$ThisGuy/REGTEST/$Compiler\_$year$mon$mday\_$hour:$min:$sec" or die "Chdir failed: $!";
+    printf "Moving to scratch space: /glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec\n";
+    mkpath("/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec") or die "Mkdir failed: $!";
+    chdir "/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec" or die "Chdir failed: $!";
 }
 
 foreach my $name (keys %Experiments) {
@@ -1175,7 +1175,7 @@ print SENDMAIL "Compiler: ",$Compiler." ".$Compiler_version."<br>";
 print SENDMAIL "Baseline: ",$Baseline."<br>";
 print SENDMAIL "<br>";
 if ( $Machine_name eq "yellowstone" ) {
-    print SENDMAIL "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/"
+    print SENDMAIL "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/workdir/"
                     .$Compiler."_".$year.$mon.$mday."_".$hour.":".$min.":".$sec."'<br>";
     print SENDMAIL "<br>";
 }
@@ -1216,7 +1216,7 @@ if ( $WRFPLUS_Revision ne "NONE" ) {
     print WEBH '<li>'.$End_time.'</li>'."\n";
     print WEBH '</ul>'."\n";
 if ( $Machine_name eq "yellowstone" ) {
-    print WEBH "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/"
+    print WEBH "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/workdir/"
                     .$Compiler."_".$year.$mon.$mday."_".$hour.":".$min.":".$sec."'<br>";
     print WEBH "<br>";
 }
@@ -1267,7 +1267,7 @@ if ( $Machine_name eq "yellowstone" ) {
 # Save summary, send to internet if requested:
 
     if ( ($Machine_name eq "yellowstone") ) {
-        copy("summary_$Compiler\_$Compiler_version.html","/glade/scratch/$ThisGuy/REGTEST/$Compiler\_$year$mon$mday\_$hour:$min:$sec/summary_$Compiler\_$Compiler_version.html");
+        copy("summary_$Compiler\_$Compiler_version.html","/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec/summary_$Compiler\_$Compiler_version.html");
     }
 
 
