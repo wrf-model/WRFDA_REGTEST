@@ -1578,18 +1578,6 @@ sub create_ys_job_script {
     my ($jobname, $jobtype, $jobpar, $jobcompiler, $jobcores, $jobqueue, $jobproj, @stufftodo) = @_;
 
 
-    printf "TEST TEST TEST\n";
-    printf "This part outputs test script 'job_${jobname}_${jobtype}_${jobpar}.csh' which will NOT be executed!\n\n";
-    printf "The submitted script will be found at old name for comparison.\n";
-
-    print "jobname     = $jobname\n";
-    print "jobtype     = $jobtype\n";
-    print "jobpar      = $jobpar\n";
-    print "jobcompiler = $jobcompiler\n";
-    print "jobcores    = $jobcores\n";
-    print "jobqueue    = $jobqueue\n";
-    print "jobproj     = $jobproj\n";
-
     printf "Creating $jobtype job: $jobname, $jobpar\n";
 
     # Generate the LSF job script
@@ -1612,7 +1600,7 @@ sub create_ys_job_script {
     printf FH "#BSUB -R span[ptile=%d]"."\n", ($jobpar eq 'serial' || $jobpar eq 'smpar') ? 1 : (($jobcores < 16 ) ? $jobcores : 16);
     print FH "\n"; #End of BSUB commands; add newline for readability
 
-    # Comment this out for now; this line will be needed if smpar functionality is ever added
+    # Comment this out for now; this line will be needed if smpar functionality is ever added (also will need new variable passed, cpum)
     #print FH ( $par eq 'smpar' || $par eq 'dm+sm') ? "setenv OMP_NUM_THREADS $cpum\n" :"\n";
 
     # Include this line to avoid caldera problems. CISL-recommended kludge *sigh*
@@ -1628,8 +1616,6 @@ sub create_ys_job_script {
     # ALL DONE! Close the file and call it a day
     close (FH);
 
-    printf "TEST TEST TEST\n";
-    printf "DONE CREATING SCRIPT 'job_${jobname}_${jobtype}_${jobpar}.csh' which will NOT be executed!\n\n";
 }
 
 
@@ -1657,7 +1643,7 @@ sub new_job_ys {
             return "SKIPPED";
          } else {
 
-            #TESTING NEW SCRIPT: Put all commands for job script in an array
+            #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
             my @genbe_commands;
             $genbe_commands[0] = "tar -xf forecasts.tar\n";
             # We need the script to see where the WRFDA directory is. See 'gen_be_wrapper.ksh' in test directory
@@ -1671,55 +1657,11 @@ sub new_job_ys {
             $genbe_commands[4] = "   cp gen_be_run/be.dat ./be.dat\n";
             $genbe_commands[5] = "endif\n";
 
-            #TO DO: Replace cpu_mpi with 1...we shouldn't use multiple processors for gen_be
-            &create_ys_job_script ( $nam, "GENBE", $par, $com, $Experiments{$nam}{cpu_mpi},
+            &create_ys_job_script ( $nam, "GENBE", $par, $com, 1,
                                     $Queue, $Project, @genbe_commands );
 
-print "IN THE SCRIPT I JUST CREATED, the QUEUE value should be $Queue\n";
-
-            printf "Creating GEN_BE job: $nam, $par\n";
-
-            # Generate the LSF job script
-            unlink "job_${nam}_genbe_$par.csh" if -e 'job_$nam_$par.csh';
-            open FH, ">job_${nam}_genbe_$par.csh" or die "Can not open job_${nam}_genbe_$par.csh to write. $! \n";
-
-            print FH '#!/bin/csh'."\n";
-            print FH '#',"\n";
-            print FH '# LSF batch script'."\n";
-            print FH '#'."\n";
-            print FH "#BSUB -J $nam"."\n";
-            # Don't use multiple processors for gen_be
-            print FH "#BSUB -q caldera\n";
-            print FH "#BSUB -n 1\n";
-            print FH "#BSUB -o job_${nam}_genbe_$par.output"."\n";
-            print FH "#BSUB -e job_${nam}_genbe_$par.error"."\n";
-            print FH "#BSUB -W 20"."\n";
-            print FH "#BSUB -P $Project"."\n";
-            print FH "#BSUB -R span[ptile=1]\n";
-            print FH "\n";
-
-            # Unpack forecasts tar file.
-            print FH "tar -xf forecasts.tar\n";
-            print FH "\n";
-
-            # We need the script to see where the WRFDA directory is. See gen_be_wrapper.ksh in test directory
-            if ($types =~ /4DVAR/i) {
-               print FH "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_4DVAR_".$par."\n";
-            } else {
-               print FH "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_3DVAR_".$par."\n";
-            }
-            print FH "\n";
-            print FH "./gen_be_wrapper.ksh > gen_be.out\n";
-            print FH "\n";
-            print FH "if( -e gen_be_run/SUCCESS ) then\n";
-            print FH "   cp gen_be_run/be.dat ./be.dat\n";
-            print FH "endif\n";
-            print FH "\n";
-
-            close (FH);
-
             # Submit the job
-            $feedback = ` bsub < job_${nam}_genbe_$par.csh 2>/dev/null `;
+            $feedback = ` bsub < job_${nam}_GENBE_${par}.csh 2>/dev/null `;
          }
 
          # Return to the upper directory
@@ -1738,35 +1680,17 @@ print "IN THE SCRIPT I JUST CREATED, the QUEUE value should be $Queue\n";
             chdir "..";
             return "SKIPPED";
          } else {
-            printf "Creating OBSPROC job: $nam, $par\n";
+            #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
+            my @obsproc_commands;
+            $obsproc_commands[0] = "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
+            $obsproc_commands[1] = "cp -f obs_gts_*.3DVAR ob.ascii\n";
 
-            # Generate the LSF job script         
-            unlink "job_${nam}_obsproc_$par.csh" if -e 'job_$nam_$par.csh';
-            open FH, ">job_${nam}_obsproc_$par.csh" or die "Can not open job_${nam}_obsproc_$par.csh to write. $! \n";
-
-            print FH '#!/bin/csh'."\n";
-            print FH '#',"\n";
-            print FH '# LSF batch script'."\n";
-            print FH '#'."\n";
-            print FH "#BSUB -J $nam"."\n";
-            # Don't use multiple processors for obsproc
-            print FH "#BSUB -q caldera\n";
-            print FH "#BSUB -n 1\n";
-            print FH "#BSUB -o job_${nam}_obsproc_$par.output"."\n";
-            print FH "#BSUB -e job_${nam}_obsproc_$par.error"."\n";
-            print FH "#BSUB -W 20"."\n";
-            print FH "#BSUB -P $Project"."\n";
-            print FH "#BSUB -R span[ptile=1]\n";
-            print FH "\n";
-            print FH "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
-            print FH "cp -f obs_gts_*.3DVAR ob.ascii\n";
-            print FH "\n";
-
-            close (FH);
+            &create_ys_job_script ( $nam, "OBSPROC", $par, $com, 1,
+                                    $Queue, $Project, @obsproc_commands );
 
             # Submit the job
 
-            $feedback = ` bsub < job_${nam}_obsproc_$par.csh 2>/dev/null `;
+            $feedback = ` bsub < job_${nam}_OBSPROC_${par}.csh 2>/dev/null `;
          }
 
          # Return to the upper directory
@@ -1780,53 +1704,22 @@ print "IN THE SCRIPT I JUST CREATED, the QUEUE value should be $Queue\n";
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
-
-         printf "Creating 3DVAR VARBC job: $nam, $par\n";
-
-         # Generate the LSF job script:
-
-         unlink "job_${nam}_varbc_$par.csh" if -e 'job_$nam_varbc_$par.csh';
-         open FH, ">job_${nam}_varbc_$par.csh" or die "Can not open a job_${nam}_varbc_$par.csh to write. $! \n";
-
-         print FH '#!/bin/csh'."\n";
-         print FH '#',"\n";
-         print FH '# LSF batch script'."\n";
-         print FH '#'."\n";
-         print FH "#BSUB -J $nam"."\n";
-         # If more than 16 processors requested, can't use caldera
-         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "regular" : $Queue)."\n";
-         printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
-                                        $cpun: 1;
-         print FH "#BSUB -o job_${nam}_$par.output"."\n";
-         print FH "#BSUB -e job_${nam}_$par.error"."\n";
-         print FH "#BSUB -W 30"."\n";
-         print FH "#BSUB -P $Project"."\n";
-         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
-         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
-                                                    1 : (($cpun < 16 ) ? $cpun : 16);
-         print FH "\n";
-         print FH ( $par eq 'smpar' || $par eq 'dm+sm') ?
-             "setenv OMP_NUM_THREADS $cpum\n" :"\n";
-         print FH "\n";
-
-         print FH "unsetenv MP_PE_AFFINITY\n";
-
-         print FH ($par eq 'serial' || $par eq 'smpar') ?
+         #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
+         my @varbc_commands;
+         $varbc_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
+         $varbc_commands[1] = "mkdir varbc_run_1\n";
+         $varbc_commands[2] = "mv rsl* varbc_run_1\n";
+         $varbc_commands[3] = "rm -f VARBC.in\n";
+         $varbc_commands[4] = "mv VARBC.out VARBC.in\n";
 
-         print FH "\n";
-         print FH "mkdir varbc_run_1\n";
-         print FH "mv rsl* varbc_run_1\n";
-         print FH "rm -f VARBC.in\n";
-         print FH "mv VARBC.out VARBC.in\n";
-         print FH "\n";
-
-         close (FH);
+         &create_ys_job_script ( $nam, "VARBC", $par, $com, $Experiments{$nam}{cpu_mpi},
+                                 $Queue, $Project, @varbc_commands );
 
          # Submit the job
 
-         $feedback = ` bsub < job_${nam}_varbc_$par.csh 2>/dev/null `;
+         $feedback = ` bsub < job_${nam}_VARBC_${par}.csh 2>/dev/null `;
 
          # Return to the upper directory
 
@@ -1841,46 +1734,17 @@ print "IN THE SCRIPT I JUST CREATED, the QUEUE value should be $Queue\n";
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
-         printf "Creating FGAT job: $nam, $par\n";
-
-         # Generate the LSF job script:
-
-         unlink "job_${nam}_fgat_$par.csh" if -e 'job_$nam_fgat_$par.csh';
-         open FH, ">job_${nam}_fgat_$par.csh" or die "Can not open a job_${nam}_fgat_$par.csh to write. $! \n";
-
-         print FH '#!/bin/csh'."\n";
-         print FH '#',"\n";
-         print FH '# LSF batch script'."\n";
-         print FH '#'."\n";
-         print FH "#BSUB -J $nam"."\n";
-         # If more than 16 processors requested, can't use caldera
-         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "regular" : $Queue)."\n";
-         printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
-                                        $cpun: 1;
-         print FH "#BSUB -o job_${nam}_$par.output"."\n";
-         print FH "#BSUB -e job_${nam}_$par.error"."\n";
-         print FH "#BSUB -W 30"."\n";
-         print FH "#BSUB -P $Project"."\n";
-         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
-         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
-                                                    1 : (($cpun < 16 ) ? $cpun : 16);
-         print FH "\n";
-         print FH ( $par eq 'smpar' || $par eq 'dm+sm') ?
-             "setenv OMP_NUM_THREADS $cpum\n" :"\n";
-         print FH "\n";
-
-         print FH "unsetenv MP_PE_AFFINITY\n";
-
-         print FH ($par eq 'serial' || $par eq 'smpar') ?
+         #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
+         my @fgat_commands;
+         $fgat_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
-         print FH "\n";
-
-         close (FH);
+         &create_ys_job_script ( $nam, "FGAT", $par, $com, $Experiments{$nam}{cpu_mpi},
+                                 $Queue, $Project, @fgat_commands );
 
          # Submit the job
-         $feedback = ` bsub < job_${nam}_fgat_$par.csh 2>/dev/null `;
+         $feedback = ` bsub < job_${nam}_FGAT_${par}.csh 2>/dev/null `;
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
@@ -1915,49 +1779,18 @@ print "IN THE SCRIPT I JUST CREATED, the QUEUE value should be $Queue\n";
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
          
-
-         printf "Creating 3DVAR job: $nam, $par\n";
-
-
-         # Generate the LSF job script:
-
-         unlink "job_${nam}_3dvar_$par.csh" if -e 'job_$nam_3dvar_$par.csh';
-         open FH, ">job_${nam}_3dvar_$par.csh" or die "Can not open a job_${nam}_3dvar_$par.csh to write. $! \n";
-    
-         print FH '#!/bin/csh'."\n";
-         print FH '#',"\n";
-         print FH '# LSF batch script'."\n";
-         print FH '#'."\n";
-         print FH "#BSUB -J $nam"."\n";
-         # If more than 16 processors requested, can't use caldera
-         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "regular" : $Queue)."\n";
-         printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
-                                        $cpun: 1;
-         print FH "#BSUB -o job_${nam}_$par.output"."\n";
-         print FH "#BSUB -e job_${nam}_$par.error"."\n";
-         print FH "#BSUB -W 30"."\n";
-         print FH "#BSUB -P $Project"."\n";
-         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
-         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
-                                                    1 : (($cpun < 16 ) ? $cpun : 16);
-         print FH "\n";
-         print FH ( $par eq 'smpar' || $par eq 'dm+sm') ?
-             "setenv OMP_NUM_THREADS $cpum\n" :"\n";
-         print FH "\n";
-
-         print FH "unsetenv MP_PE_AFFINITY\n";
-         
-         print FH ($par eq 'serial' || $par eq 'smpar') ?
+         #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
+         my @_3dvar_commands;
+         $_3dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
-         print FH "\n";
-    
-         close (FH);
+         &create_ys_job_script ( $nam, "3DVAR", $par, $com, $Experiments{$nam}{cpu_mpi},
+                                 $Queue, $Project, @_3dvar_commands );
 
          # Submit the job
 
-         $feedback = ` bsub < job_${nam}_3dvar_$par.csh 2>/dev/null `;
+         $feedback = ` bsub < job_${nam}_3DVAR_${par}.csh 2>/dev/null `;
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
@@ -1977,46 +1810,16 @@ print "IN THE SCRIPT I JUST CREATED, the QUEUE value should be $Queue\n";
          $types =~ s/\|$//; # extra "|"
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
-
-         printf "Creating 4DVAR job: $nam, $par\n";
-
-
-         # Generate the LSF job script:
-         unlink "job_${nam}_4dvar_$par.csh" if -e 'job_$nam_4dvar_$par.csh';
-         open FH, ">job_${nam}_4dvar_$par.csh" or die "Can not open a job_${nam}_4dvar_$par.csh to write. $! \n";
-
-         print FH '#!/bin/csh'."\n";
-         print FH '#',"\n";
-         print FH '# LSF batch script'."\n";
-         print FH '#'."\n";
-         print FH "#BSUB -J $nam"."\n";
-         # If more than 16 processors requested, can't use caldera
-         print FH "#BSUB -q ".(($Queue eq 'caldera' && $cpun > 16) ? "regular" : $Queue)."\n";
-         printf FH "#BSUB -n %-3d"."\n",($par eq 'dmpar' || $par eq 'dm+sm') ?
-                                        $cpun: 1;
-         print FH "#BSUB -o job_${nam}_$par.output"."\n";
-         print FH "#BSUB -e job_${nam}_$par.error"."\n";
-         print FH "#BSUB -W 30"."\n";
-         print FH "#BSUB -P $Project"."\n";
-         # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
-         printf FH "#BSUB -R span[ptile=%d]"."\n", ($par eq 'serial' || $par eq 'smpar') ?
-                                                    1 : (($cpun < 16 ) ? $cpun : 16);
-         print FH "\n";
-         print FH ( $par eq 'smpar' || $par eq 'dm+sm') ?
-             "setenv OMP_NUM_THREADS $cpum\n" :"\n";
-         print FH "\n";
-
-         print FH "unsetenv MP_PE_AFFINITY\n";
-         print FH ($par eq 'serial' || $par eq 'smpar') ?
+         my @_4dvar_commands;
+         $_4dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
-         print FH "\n";
-
-         close (FH);
+         &create_ys_job_script ( $nam, "4DVAR", $par, $com, $Experiments{$nam}{cpu_mpi},
+                                 $Queue, $Project, @_4dvar_commands );
 
          # Submit the job
-         $feedback = ` bsub < job_${nam}_4dvar_$par.csh 2>/dev/null `;
+         $feedback = ` bsub < job_${nam}_4DVAR_${par}.csh 2>/dev/null `;
 
          # Return to the upper directory
 
@@ -2025,7 +1828,6 @@ print "IN THE SCRIPT I JUST CREATED, the QUEUE value should be $Queue\n";
      } else {
          die "You dun goofed!\n";
      }
-
 
 
      # Pick the job id
