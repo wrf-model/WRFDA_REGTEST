@@ -157,7 +157,7 @@ my $cmd='';
 #                                                           status => "pending"
 #                                                           starttime => 8912312131.2
 #                                                           endtime => 8912314560.2
-#                                                           walltime => 2529.0
+#                                                           walltime[0] => 2529.0
 #                                                           compare => "ok"
 #                                                          } 
 #                                                smpar  => {
@@ -165,7 +165,7 @@ my $cmd='';
 #                                                           status => "done"
 #                                                           starttime => 8912312131.2
 #                                                           endtime => 8912314560.2
-#                                                           walltime => 2529.0
+#                                                           walltime[0] => 2529.0
 #                                                           compare => "ok"
 #                                                          } 
 #                                               }
@@ -181,7 +181,7 @@ my $cmd='';
 #                                                           status => "pending"
 #                                                           starttime => 8912312131.2
 #                                                           endtime => 8912314560.2
-#                                                           walltime => 2529.0
+#                                                           walltime[0] => 2529.0
 #                                                           compare => "diff"
 #                                                          } 
 #                                               }
@@ -1131,7 +1131,7 @@ foreach my $name (keys %Experiments) {
     foreach my $par (keys %{$Experiments{$name}{paropt}}) {
         $Experiments{$name}{paropt}{$par}{status} = "pending";
         $Experiments{$name}{paropt}{$par}{compare} = "--";
-        $Experiments{$name}{paropt}{$par}{walltime} = 0;
+        $Experiments{$name}{paropt}{$par}{walltime}[0] = 0;
         $Experiments{$name}{paropt}{$par}{todo} = $Experiments{$name}{test_type};
         $Experiments{$name}{paropt}{$par}{started} = 0;
     } 
@@ -1265,7 +1265,7 @@ if ( $Machine_name eq "yellowstone" ) {
             print WEBH '<td>'.$Experiments{$name}{cpu_openmp}.'</td>'."\n";
             print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{status}.'</td>'."\n";
             printf WEBH '<td>'."%5d".'</td>'."\n",
-                         $Experiments{$name}{paropt}{$par}{walltime};
+                         $Experiments{$name}{paropt}{$par}{walltime}[0];
             print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{compare}.'</td>'."\n";
             print WEBH '</tr>'."\n";
         }
@@ -1428,7 +1428,7 @@ sub refresh_status {
                     $name, $par, $Experiments{$name}{test_type},
                     $Experiments{$name}{cpu_mpi},
                     $Experiments{$name}{paropt}{$par}{status},
-                    $Experiments{$name}{paropt}{$par}{walltime},
+                    $Experiments{$name}{paropt}{$par}{walltime}[0],
                     $Experiments{$name}{paropt}{$par}{compare};
         }
     }
@@ -1640,7 +1640,6 @@ sub new_job_ys {
      # Enter into the experiment working directory:
      
 
-
      if ($types =~ /GENBE/i) {
 
          $types =~ s/GENBE//i;
@@ -1803,6 +1802,8 @@ sub new_job_ys {
          # Submit the job
 
          $feedback = ` bsub < job_${nam}_3DVAR_${par}.csh 2>/dev/null `;
+
+         chdir ".." or die "Cannot chdir to .. : $!\n";
 
      } elsif ($types =~ /CYCLING/i) {
 
@@ -1990,7 +1991,7 @@ sub new_job_ys {
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
      } else {
-         die "You dun goofed!\n";
+         die "You dun goofed!\n$types is not a valid test type.";
      }
 
 
@@ -2093,7 +2094,7 @@ sub submit_job {
 
             #Set the end time for this job
             $Experiments{$name}{paropt}{$par}{endtime} = gettimeofday();
-            $Experiments{$name}{paropt}{$par}{walltime} =
+            $Experiments{$name}{paropt}{$par}{walltime}[0] =
                 $Experiments{$name}{paropt}{$par}{endtime} - $Experiments{$name}{paropt}{$par}{starttime};
             if (defined $rc) { 
                 if ($rc =~ /OBSPROC_FAIL/) {
@@ -2107,7 +2108,7 @@ sub submit_job {
                     &flush_status ();
                     next;
                 } else {
-                    printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
+                    printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime}[0];
                 }
             } else {
                 $Experiments{$name}{paropt}{$par}{status} = "error";
@@ -2226,10 +2227,13 @@ sub submit_job_ys {
                  # Job is finished.
                  my $bhist = `bhist $Experiments{$name}{paropt}{$par}{jobid}`;
                  my @jobhist = split('\s+',$bhist);
-                 if ($Experiments{$name}{paropt}{$par}{walltime} == 0) {
-                     $Experiments{$name}{paropt}{$par}{walltime} = $jobhist[24];
+                 if ($Experiments{$name}{paropt}{$par}{walltime}[0] == 0) {
+                     $Experiments{$name}{paropt}{$par}{walltime}[0] = $jobhist[24];
+                     $Experiments{$name}{paropt}{$par}{walltime}[1] = $jobhist[24];
                  } else {
-                     $Experiments{$name}{paropt}{$par}{walltime} = $Experiments{$name}{paropt}{$par}{walltime} + $jobhist[24];
+                     $Experiments{$name}{paropt}{$par}{walltime}[0] = $Experiments{$name}{paropt}{$par}{walltime}[0] + $jobhist[24];
+                     $Experiments{$name}{paropt}{$par}{walltime}[scalar @{ $Experiments{$name}{paropt}{$par}{walltime} }+1] = $jobhist[24];
+#                     $Experiments{$name}{paropt}{$par}{walltime}[0] = $Experiments{$name}{paropt}{$par}{walltime}[0] + $jobhist[24];
                  }
                  
 
@@ -2239,7 +2243,7 @@ sub submit_job_ys {
                      $Experiments{$name}{paropt}{$par}{status} = "pending";    # Still more tasks for this job.
                      $Experiments{$name}{paropt}{$par}{started} = 0;
 
-                     printf "First task of %-10s job for %-30s took %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
+                     printf "%-10s job for %-30s was completed in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime}[-1];
 
 
                  } else { #Nothing in $Experiments{$name}{paropt}{$par}{todo} means there's nothing left to do for this job
@@ -2247,7 +2251,7 @@ sub submit_job_ys {
                      $remain_par{$name} -- ;                               # Delete the count of jobs for this experiment.
                      $Experiments{$name}{paropt}{$par}{status} = "done";    # Done this job.
 
-                     printf "%-10s job for %-30s was completed in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
+                     printf "%-10s job for %-30s was completed in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime}[-1];
 
                      # Wrap-up this job:
 
