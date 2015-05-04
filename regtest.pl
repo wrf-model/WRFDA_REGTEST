@@ -18,6 +18,7 @@ use File::Compare;
 use IPC::Open2;
 use Net::FTP;
 use Getopt::Long;
+use Data::Dumper;
 
 # Start time:
 
@@ -151,22 +152,30 @@ my $cmd='';
 #                                     cpu_mpi=> 32
 #                                     cpu_openmp=> 8
 #                                     status=>"open"
+#                                     test_type=>"3DVAR"
 #                                     paropt => { 
 #                                                serial => {
-#                                                           jobid => 89123
+#                                                           currjob => 89123
+#                                                           status => "running"
+#                                                           starttime => 8912312131.2
+#                                                           endtime => 8912314560.2
+#                                                           walltime => 0 #sum of subjob walltimes
+#                                                           result => "ok"
+#                                                           job => {
+#                                                                    3DVAR => {
+#                                                                              jobid => 89123
+#                                                                              status => "running"
+#                                                                              walltime => 0
+#                                                                              }
+#                                                                   }
+#                                                          } 
+#                                                smpar  => {
+#                                                           currjob => 0
 #                                                           status => "pending"
 #                                                           starttime => 8912312131.2
 #                                                           endtime => 8912314560.2
-#                                                           walltime[0] => 2529.0
-#                                                           compare => "ok"
-#                                                          } 
-#                                                smpar  => {
-#                                                           jobid => 89123
-#                                                           status => "done"
-#                                                           starttime => 8912312131.2
-#                                                           endtime => 8912314560.2
-#                                                           walltime[0] => 2529.0
-#                                                           compare => "ok"
+#                                                           walltime => 0
+#                                                           result => "pending"
 #                                                          } 
 #                                               }
 #                                     )
@@ -175,14 +184,15 @@ my $cmd='';
 #                                     cpu_mpi=> 16
 #                                     cpu_openmp=> 4
 #                                     status=>"open"
+#                                     test_type=>"3DVAR"
 #                                     paropt => { 
 #                                                serial => {
-#                                                           jobid => 89123
-#                                                           status => "pending"
+#                                                           currjob => 89123
+#                                                           status => "done"
 #                                                           starttime => 8912312131.2
 #                                                           endtime => 8912314560.2
-#                                                           walltime[0] => 2529.0
-#                                                           compare => "diff"
+#                                                           walltime => 2529.0
+#                                                           result => "diff"
 #                                                          } 
 #                                               }
 #                                     )
@@ -484,8 +494,11 @@ if ($Type =~ /4DVAR/i) {
 
         foreach my $name (keys %Experiments) {
             foreach my $type ($Experiments{$name}{test_type}) {
-                delete $Experiments{$name} if ($type =~ /4DVAR/i) ;
-                next ;
+                if ($type =~ /4DVAR/i) {
+                   delete $Experiments{$name};
+                   print "\nDeleting 4DVAR experiment $name from test list.\n";
+                   next ;
+                }
             }
         }
     }
@@ -1112,51 +1125,75 @@ foreach my $name (keys %Experiments) {
 
 # How many experiments do we have ?
 
-my $remain_exps = scalar keys %Experiments;  
+ my $remain_exps = scalar keys %Experiments;  
 
 #How many jobs do we have for each experiment ?
 
-my %remain_par;
-$remain_par{$_} = scalar keys %{$Experiments{$_}{paropt}} 
+ my %remain_par;
+ $remain_par{$_} = scalar keys %{$Experiments{$_}{paropt}} 
     for keys %Experiments;
 
-#foreach my $name (keys %Experiments) {
-#  print "REMAIN_PAR{$name} = $remain_par{$name}\n";
-#}
+print "Checkpoint 1\n\n";
+print Dumper($Experiments{radar_4dvar_cv7});
+print "\n\n";
 
-# preset the the status of all jobs .
+# preset the the status of all jobs and subjobs (types)
 
-foreach my $name (keys %Experiments) {
+ foreach my $name (keys %Experiments) {
     $Experiments{$name}{status} = "pending";
     foreach my $par (keys %{$Experiments{$name}{paropt}}) {
-        $Experiments{$name}{paropt}{$par}{status} = "pending";
-        $Experiments{$name}{paropt}{$par}{compare} = "--";
-        $Experiments{$name}{paropt}{$par}{walltime}[0] = 0;
-        $Experiments{$name}{paropt}{$par}{todo} = $Experiments{$name}{test_type};
-        $Experiments{$name}{paropt}{$par}{started} = 0;
+       $Experiments{$name}{paropt}{$par}{status} = "pending";
+       $Experiments{$name}{paropt}{$par}{result} = "--";
+       $Experiments{$name}{paropt}{$par}{walltime} = 0;
+       $Experiments{$name}{paropt}{$par}{todo} = $Experiments{$name}{test_type};
+       $Experiments{$name}{paropt}{$par}{started} = 0;
+       my @jobtypes = split /\|/, $Experiments{$name}{test_type};
+          my %job_records;
+          $job_records{$_} = {} for @jobtypes;
+##                my %record = (
+##                     index => $1,
+##                     test_type => $3,
+##                     cpu_mpi => $4,
+##                     cpu_openmp => $5,
+##                     status => "open",
+##                     paropt => \%task_records
+##                );
+          $Experiments{$name}{paropt}{$par}{job} = \%job_records;
+          foreach my $job (keys %{$Experiments{$name}{paropt}{$par}{job}}) {
+             $Experiments{$name}{paropt}{$par}{job}{$job}{status} = "pending";
+             $Experiments{$name}{paropt}{$par}{job}{$job}{walltime} = 0;
+             $Experiments{$name}{paropt}{$par}{job}{$job}{jobid} = 0;
+       }
     } 
-} 
+ } 
+
+print "Checkpoint 2\n\n";
+print Dumper($Experiments{radar_4dvar_cv7});
+print "\n\n";
 
 # Initial Status:
 
-&flush_status ();
+ &flush_status ();
 
 # submit job:
 
-if ( ($Machine_name eq "yellowstone") ) {
+ if ( ($Machine_name eq "yellowstone") ) {
     &submit_job_ys ;
     chdir "$MainDir";
-    } else {
+ } else {
     &submit_job ;
-    }
+ }
 
+print "Final structure check:\n\n";
+print Dumper(%Experiments);
+print "\n\n";
 
 # End time:
 
-my $End_time;
-$tm = localtime;
-$End_time=sprintf "End   : %02d:%02d:%02d-%04d/%02d/%02d\n",
-        $tm->hour, $tm->min, $tm->sec, $tm->year+1900, $tm->mon+1, $tm->mday;
+ my $End_time;
+ $tm = localtime;
+ $End_time=sprintf "End   : %02d:%02d:%02d-%04d/%02d/%02d\n",
+      $tm->hour, $tm->min, $tm->sec, $tm->year+1900, $tm->mon+1, $tm->mday;
 
 # Create the webpage:
 
@@ -1244,7 +1281,7 @@ if ( $Machine_name eq "yellowstone" ) {
     print WEBH '<th>CPU_OMP</th>'."\n";
     print WEBH '<th>STATUS</th>'."\n";
     print WEBH '<th>WALLTIME(S)</th>'."\n";
-    print WEBH '<th>COMPARE</th>'."\n";
+    print WEBH '<th>RESULT</th>'."\n";
     print WEBH '</tr>'."\n";
 
     foreach my $name (sort keys %Experiments) {
@@ -1253,7 +1290,7 @@ if ( $Machine_name eq "yellowstone" ) {
             print WEBH '<tr';
             if ($Experiments{$name}{paropt}{$par}{status} eq "error") {
                 print WEBH ' style="background-color:red;color:white">'."\n";
-            } elsif ($Experiments{$name}{paropt}{$par}{compare} eq "diff") {
+            } elsif ($Experiments{$name}{paropt}{$par}{result} eq "diff") {
                 print WEBH ' style="background-color:yellow">'."\n";
             } else {
                 print WEBH '>'."\n";
@@ -1265,8 +1302,8 @@ if ( $Machine_name eq "yellowstone" ) {
             print WEBH '<td>'.$Experiments{$name}{cpu_openmp}.'</td>'."\n";
             print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{status}.'</td>'."\n";
             printf WEBH '<td>'."%5d".'</td>'."\n",
-                         $Experiments{$name}{paropt}{$par}{walltime}[0];
-            print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{compare}.'</td>'."\n";
+                         $Experiments{$name}{paropt}{$par}{walltime};
+            print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{result}.'</td>'."\n";
             print WEBH '</tr>'."\n";
         }
     }
@@ -1371,7 +1408,7 @@ CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
              if ($Experiments{$exp}{paropt}{$parl}{status} eq "error") {
                 $status = -1;
                 last CHECKRESULTS;
-             } elsif ($Experiments{$exp}{paropt}{$parl}{compare} eq "diff") {
+             } elsif ($Experiments{$exp}{paropt}{$parl}{result} eq "diff") {
                 $status = 1;
              }
           }
@@ -1419,7 +1456,7 @@ sub refresh_status {
 
     my @mes; 
 
-    push @mes, "Experiment                  Paropt      Job type        CPU_MPI  Status    Walltime (s)   Compare\n";
+    push @mes, "Experiment                  Paropt      Job type        CPU_MPI  Status    Walltime (s)   Result\n";
     push @mes, "=================================================================================================\n";
 
     foreach my $name (sort keys %Experiments) {
@@ -1428,8 +1465,8 @@ sub refresh_status {
                     $name, $par, $Experiments{$name}{test_type},
                     $Experiments{$name}{cpu_mpi},
                     $Experiments{$name}{paropt}{$par}{status},
-                    $Experiments{$name}{paropt}{$par}{walltime}[0],
-                    $Experiments{$name}{paropt}{$par}{compare};
+                    $Experiments{$name}{paropt}{$par}{walltime},
+                    $Experiments{$name}{paropt}{$par}{result};
         }
     }
 
@@ -1641,12 +1678,7 @@ sub new_job_ys {
      
 
      if ($types =~ /GENBE/i) {
-
-         $types =~ s/GENBE//i;
-         $types =~ s/^\|//;
-         $types =~ s/\|$//;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
-
+         $Experiments{$nam}{paropt}{$par}{currjob} = "GENBE";
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          if (-e "be.dat") {
@@ -1669,21 +1701,18 @@ sub new_job_ys {
             $genbe_commands[4] = "   cp gen_be_run/be.dat ./be.dat\n";
             $genbe_commands[5] = "endif\n";
 
-            &create_ys_job_script ( $nam, "GENBE", $par, $com, 1,
+            &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{currjob}, $par, $com, 1,
                                     $Queue, $Project, @genbe_commands );
 
             # Submit the job
-            $feedback = ` bsub < job_${nam}_GENBE_${par}.csh 2>/dev/null `;
+            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{currjob}}_${par}.csh 2>/dev/null `;
          }
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
      } elsif ($types =~ /OBSPROC/i) {
-         $types =~ s/OBSPROC//i;
-         $types =~ s/^\|//;
-         $types =~ s/\|$//;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
+         $Experiments{$nam}{paropt}{$par}{currjob} = "OBSPROC";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
@@ -1697,24 +1726,21 @@ sub new_job_ys {
             $obsproc_commands[0] = "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
             $obsproc_commands[1] = "cp -f obs_gts_*.3DVAR ob.ascii\n";
 
-            &create_ys_job_script ( $nam, "OBSPROC", $par, $com, 1,
+            &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{currjob}, $par, $com, 1,
                                     $Queue, $Project, @obsproc_commands );
 
             # Submit the job
 
-            $feedback = ` bsub < job_${nam}_OBSPROC_${par}.csh 2>/dev/null `;
+            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{currjob}}_${par}.csh 2>/dev/null `;
          }
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
      } elsif ($types =~ /VARBC/i) {
+         $Experiments{$nam}{paropt}{$par}{currjob} = "VARBC";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
-         $types =~ s/VARBC//i;
-         $types =~ s/^\|//;
-         $types =~ s/\|$//;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @varbc_commands;
@@ -1726,25 +1752,22 @@ sub new_job_ys {
          $varbc_commands[3] = "rm -f VARBC.in\n";
          $varbc_commands[4] = "mv VARBC.out VARBC.in\n";
 
-         &create_ys_job_script ( $nam, "VARBC", $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{currjob}, $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @varbc_commands );
 
          # Submit the job
 
-         $feedback = ` bsub < job_${nam}_VARBC_${par}.csh 2>/dev/null `;
+         $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{currjob}}_${par}.csh 2>/dev/null `;
 
          # Return to the upper directory
 
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
      } elsif ($types =~ /FGAT/i) {
+         $Experiments{$nam}{paropt}{$par}{currjob} = "FGAT";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
-         $types =~ s/FGAT//i;
-         $types =~ s/^\|//;
-         $types =~ s/\|$//;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @fgat_commands;
@@ -1752,11 +1775,11 @@ sub new_job_ys {
              "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
-         &create_ys_job_script ( $nam, "FGAT", $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{currjob}, $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @fgat_commands );
 
          # Submit the job
-         $feedback = ` bsub < job_${nam}_FGAT_${par}.csh 2>/dev/null `;
+         $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{currjob}}_${par}.csh 2>/dev/null `;
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
@@ -1764,6 +1787,7 @@ sub new_job_ys {
 
 
      } elsif ($types =~ /3DVAR/i) {
+         $Experiments{$nam}{paropt}{$par}{currjob} = "3DVAR";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
@@ -1785,23 +1809,18 @@ sub new_job_ys {
              }
          }
 
-         $types =~ s/3DVAR//i;
-         $types =~ s/^\|//;
-         $types =~ s/\|$//;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
-         
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @_3dvar_commands;
          $_3dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
-         &create_ys_job_script ( $nam, "3DVAR", $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{currjob}, $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @_3dvar_commands );
 
          # Submit the job
 
-         $feedback = ` bsub < job_${nam}_3DVAR_${par}.csh 2>/dev/null `;
+         $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{currjob}}_${par}.csh 2>/dev/null `;
 
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
@@ -1816,11 +1835,14 @@ sub new_job_ys {
          # For cycling jobs, after first 3DVAR run, we run UPDATEBC for lateral BC, then WRF,
          # then UPDATEBC for lower BC, then 3DVAR again at next time.
          # The output of the NEXT 3DVAR run is the one that will be checked against the baseline.
-#         $types =~ s/CYCLING/3DVAR/;
          $types =~ s/CYCLING//i;
          $types =~ s/^\|//;
          $types =~ s/\|$//;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
+
+         delete $Experiments{$nam}{paropt}{$par}{job}{CYCLING};    #some more fancy finagling: we're gonna need to expand 'CYCLING'
+                                                                   #into its individual jobs, to keep track of each
+         $Experiments{$nam}{paropt}{$par}{currjob} = "WRFDA_init"; #"WRFDA_init" is the first job, so it's the one we'll set as "currjob"
 
          # Cycling experiments are set up so that the first two steps are run in their own directories: WRFDA_init and WRF
          # The data for each of these is contained in a tar file (cycle_data.tar) to avoid overwriting original data
@@ -1835,21 +1857,25 @@ sub new_job_ys {
 
          chdir "WRFDA_init" or warn "Cannot chdir to 'WRFDA_init': $!\n";
 
+         $Experiments{$nam}{paropt}{$par}{job}{WRFDA_init}{walltime} = 0;
          my @_3dvar_init_commands;
          $_3dvar_init_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
-         &create_ys_job_script ( $nam, "3DVAR_init", $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, "WRFDA_init", $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @_3dvar_init_commands );
 
          # Submit initial 3DVAR job
-         $job_feedback = ` bsub < job_${nam}_3DVAR_init_${par}.csh 2>/dev/null `;
+         $job_feedback = ` bsub < job_${nam}_WRFDA_init_${par}.csh 2>/dev/null `;
 
 
          # We're gonna use some fancy Yellowstone finagling to submit all our jobs in sequence without the parent script 
-         # having to wait. To do this, we need to keep track of job numbers
+         # having to wait. To do this, we need to keep track of job numbers (hashes are unordered so we can't rely on %Experiments)
          if ($job_feedback =~ m/.*<(\d+)>/) {
+            $Experiments{$nam}{paropt}{$par}{job}{WRFDA_init}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{WRFDA_init}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{WRFDA_init}{status} = "pending";
             $jobids[0] = $1;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_init job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -1873,7 +1899,9 @@ sub new_job_ys {
 
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $jobids[1] = $1;
-            print "jobid = $jobids[1]\n";
+            $Experiments{$nam}{paropt}{$par}{job}{UPDATE_BC_LAT}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{UPDATE_BC_LAT}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{UPDATE_BC_LAT}{status} = "pending";
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LAT job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             return undef;
@@ -1893,6 +1921,9 @@ sub new_job_ys {
 
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $jobids[2] = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{WRF}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{WRF}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{WRF}{status} = "pending";
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRF job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             return undef;
@@ -1923,6 +1954,9 @@ sub new_job_ys {
 
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $jobids[3] = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{UPDATE_BC_LOW}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{UPDATE_BC_LOW}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{UPDATE_BC_LOW}{status} = "pending";
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LOW job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             return undef;
@@ -1933,13 +1967,16 @@ sub new_job_ys {
              "$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
-         &create_ys_job_script ( $nam, "3DVAR_final", $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, "WRFDA_final", $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @_3dvar_final_commands );
 
-         $job_feedback = ` bsub -w "ended($jobids[3])" < job_${nam}_3DVAR_final_${par}.csh 2>/dev/null `;
+         $job_feedback = ` bsub -w "ended($jobids[3])" < job_${nam}_WRFDA_final_${par}.csh 2>/dev/null `;
 
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $jobids[4] = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{WRFDA_final}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{WRFDA_final}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{WRFDA_final}{status} = "pending";
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_final job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             return undef;
@@ -1961,6 +1998,7 @@ sub new_job_ys {
          return $jobids[4];
 
      } elsif ($types =~ /4DVAR/i) {
+         $Experiments{$nam}{paropt}{$par}{currjob} = "4DVAR";
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
          #If an OBSPROC job, make sure it created the observation file!
          if ($Experiments{$nam}{test_type} =~ /OBSPROC/i) {
@@ -1970,21 +2008,16 @@ sub new_job_ys {
              }
          }
 
-         $types =~ s/4DVAR//i;
-         $types =~ s/^\|//; # these lines remove
-         $types =~ s/\|$//; # extra "|"
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
-
          my @_4dvar_commands;
          $_4dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n" :
              "mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par\n";
 
-         &create_ys_job_script ( $nam, "4DVAR", $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{currjob}, $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @_4dvar_commands );
 
          # Submit the job
-         $feedback = ` bsub < job_${nam}_4DVAR_${par}.csh 2>/dev/null `;
+         $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{currjob}}_${par}.csh 2>/dev/null `;
 
          # Return to the upper directory
 
@@ -1995,10 +2028,16 @@ sub new_job_ys {
      }
 
 
+     # Update the job list
+     $types =~ s/$Experiments{$nam}{paropt}{$par}{currjob}//i;
+     $types =~ s/^\|//;
+     $types =~ s/\|$//;
+     $Experiments{$nam}{paropt}{$par}{todo} = $types;
+
      # Pick the job id
 
      if ($feedback =~ m/.*<(\d+)>/) {;
-          # printf "Task %-30s 's jobid is %10d \n",$nam,$1;
+         $Experiments{$nam}{paropt}{$par}{job}{$Experiments{$nam}{paropt}{$par}{currjob}}{jobid} = $1;
          return $1;
      } else {
          print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit task for $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -2099,20 +2138,20 @@ sub submit_job {
             if (defined $rc) { 
                 if ($rc =~ /OBSPROC_FAIL/) {
                     $Experiments{$name}{paropt}{$par}{status} = "error";
-                    $Experiments{$name}{paropt}{$par}{compare} = "obsproc failed";
+                    $Experiments{$name}{paropt}{$par}{result} = "obsproc failed";
                     &flush_status ();
                     next;
                 } elsif ($rc =~ /VARBC_FAIL/) {
                     $Experiments{$name}{paropt}{$par}{status} = "error";
-                    $Experiments{$name}{paropt}{$par}{compare} = "Output missing";
+                    $Experiments{$name}{paropt}{$par}{result} = "Output missing";
                     &flush_status ();
                     next;
                 } else {
-                    printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime}[0];
+                    printf "%-10s job for %-30s was finished in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime};
                 }
             } else {
                 $Experiments{$name}{paropt}{$par}{status} = "error";
-                $Experiments{$name}{paropt}{$par}{compare} = "Mysterious error!";
+                $Experiments{$name}{paropt}{$par}{result} = "Mysterious error!";
                 &flush_status ();
                 next;   # Can not submit this job.
             }
@@ -2148,14 +2187,13 @@ sub submit_job_ys {
 
              foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
 
-#                 die "Not okay, this is bad.\n" unless ($Experiments{$name}{paropt}{$par}{todo});
-
-#                 print $Experiments{$name}{paropt}{$par}{todo}."\n";
-
                  next if ( $Experiments{$name}{paropt}{$par}{status} eq "done"  ||      # go to next job if it is done already..
                            $Experiments{$name}{paropt}{$par}{status} eq "error" );
 
-                 unless ( defined $Experiments{$name}{paropt}{$par}{jobid} ) {      #  to be submitted .
+print "Investigating structure for job $name \n\n";
+print Dumper($Experiments{$name});
+print "\n\n";
+                 unless ( defined $Experiments{$name}{paropt}{$par}{currjob} ) {      # No current job and not done; ready for submission
 
                      next if $Experiments{$name}{status} eq "close";      #  skip if this experiment already has a job running.
                          my $rc = &new_job_ys ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
@@ -2164,7 +2202,7 @@ sub submit_job_ys {
                      if (defined $rc) {
                          if ($rc =~ /OBSPROC_FAIL/) {
                              $Experiments{$name}{paropt}{$par}{status} = "error";
-                             $Experiments{$name}{paropt}{$par}{compare} = "obsproc failed";
+                             $Experiments{$name}{paropt}{$par}{result} = "obsproc failed";
                              $remain_par{$name} -- ;
                              if ($remain_par{$name} == 0) {
                                  $Experiments{$name}{status} = "done";
@@ -2174,7 +2212,7 @@ sub submit_job_ys {
                              next;
                          } elsif ($rc =~ /GENBE_FAIL/) {
                              $Experiments{$name}{paropt}{$par}{status} = "error";
-                             $Experiments{$name}{paropt}{$par}{compare} = "gen_be failed";
+                             $Experiments{$name}{paropt}{$par}{result} = "gen_be failed";
                              $remain_par{$name} -- ;
                              if ($remain_par{$name} == 0) {
                                  $Experiments{$name}{status} = "done";
@@ -2188,9 +2226,9 @@ sub submit_job_ys {
                              $Experiments{$name}{paropt}{$par}{started} = 0;
                              next;
                          } else {
-                             $Experiments{$name}{paropt}{$par}{jobid} = $rc ;    # assign the jobid.
+                             $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{jobid} = $rc ;    # assign the current jobid.
                              $Experiments{$name}{status} = "close";
-                             my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{jobid}`;
+                             my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{jobid}`;
                              if ($checkQ =~ /\sregular\s/) {
                                  printf "%-10s job for %-30s was submitted to queue 'regular' with jobid: %10d \n", $par, $name, $rc;
                              } else {
@@ -2199,7 +2237,7 @@ sub submit_job_ys {
                          }
                      } else {
                          $Experiments{$name}{paropt}{$par}{status} = "error";
-                         $Experiments{$name}{paropt}{$par}{compare} = "Job submit failed";
+                         $Experiments{$name}{paropt}{$par}{result} = "Job submit failed";
                          $remain_par{$name} -- ;
                          if ($remain_par{$name} == 0) {
                              $Experiments{$name}{status} = "done";
@@ -2212,10 +2250,11 @@ sub submit_job_ys {
 
                  # Job is still in queue.
 
-                 my $feedback = `bjobs $Experiments{$name}{paropt}{$par}{jobid}`;
+                 my $feedback = `bjobs $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{jobid}`;
                  if ( $feedback =~ m/RUN/ ) {; # Still running
                      unless ($Experiments{$name}{paropt}{$par}{started} == 1) { #set the start time when we first find it is running.
                          $Experiments{$name}{paropt}{$par}{status} = "running";
+                         $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{status} = "running";
                          $Experiments{$name}{paropt}{$par}{started} = 1;
                          &flush_status (); # refresh the status
                      }
@@ -2225,33 +2264,31 @@ sub submit_job_ys {
                  }
 
                  # Job is finished.
-                 my $bhist = `bhist $Experiments{$name}{paropt}{$par}{jobid}`;
-                 my @jobhist = split('\s+',$bhist);
-                 if ($Experiments{$name}{paropt}{$par}{walltime}[0] == 0) {
-                     $Experiments{$name}{paropt}{$par}{walltime}[0] = $jobhist[24];
-                     $Experiments{$name}{paropt}{$par}{walltime}[1] = $jobhist[24];
-                 } else {
-                     $Experiments{$name}{paropt}{$par}{walltime}[0] = $Experiments{$name}{paropt}{$par}{walltime}[0] + $jobhist[24];
-                     $Experiments{$name}{paropt}{$par}{walltime}[scalar @{ $Experiments{$name}{paropt}{$par}{walltime} }+1] = $jobhist[24];
-#                     $Experiments{$name}{paropt}{$par}{walltime}[0] = $Experiments{$name}{paropt}{$par}{walltime}[0] + $jobhist[24];
-                 }
-                 
+                 my $bhist = `bhist $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{jobid}`;
+                 my @jobhist = split('\s+',$bhist);  # Get runtime using bhist command, then store this job's runtime and add it to total runtime
+                 $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{walltime} = $jobhist[24];
+                 $Experiments{$name}{paropt}{$par}{walltime} = $Experiments{$name}{paropt}{$par}{walltime} + $jobhist[24];
 
                  if ($Experiments{$name}{paropt}{$par}{todo}) {
                      print "$Experiments{$name}{paropt}{$par}{todo}\n";
-                     delete $Experiments{$name}{paropt}{$par}{jobid};       # Delete the jobid.
                      $Experiments{$name}{paropt}{$par}{status} = "pending";    # Still more tasks for this job.
                      $Experiments{$name}{paropt}{$par}{started} = 0;
+                     printf "%-10s job for %-30s was completed in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{walltime};
+                     $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{status} = "done";
+                     delete $Experiments{$name}{paropt}{$par}{currjob};       # Delete the current job.
 
-                     printf "%-10s job for %-30s was completed in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime}[-1];
+#                     if () { #Before moving on, be sure the next job isn't already in the queue
+
+#                     }
 
 
                  } else { #Nothing in $Experiments{$name}{paropt}{$par}{todo} means there's nothing left to do for this job
-                     delete $Experiments{$name}{paropt}{$par}{jobid};       # Delete the jobid.
                      $remain_par{$name} -- ;                               # Delete the count of jobs for this experiment.
                      $Experiments{$name}{paropt}{$par}{status} = "done";    # Done this job.
+                     $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{status} = "done";
 
-                     printf "%-10s job for %-30s was completed in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{walltime}[-1];
+                     printf "%-10s job for %-30s was completed in %5d seconds. \n", $par, $name, $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{walltime};
+                     delete $Experiments{$name}{paropt}{$par}{currjob};       # Delete the jobid.
 
                      # Wrap-up this job:
 
@@ -2290,13 +2327,13 @@ sub check_baseline {
               to '$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version'" ;
     if (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version",
                      "$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version") == 0) {
-        $Experiments{$cbname}{paropt}{$cbpar}{compare} = "match";
+        $Experiments{$cbname}{paropt}{$cbpar}{result} = "match";
     } elsif (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version","$cbname/fg") == 0) {
         $Experiments{$cbname}{paropt}{$cbpar}{status} = "error";
-        $Experiments{$cbname}{paropt}{$cbpar}{compare} = "fg == wrfvar_output";
+        $Experiments{$cbname}{paropt}{$cbpar}{result} = "fg == wrfvar_output";
     } else {
         my $baselinetest = &compare_output ($cbname,$cbpar);
-        my %compare_problem = (
+        my %result_problem = (
             1       => "diff",
             -1      => "ERROR",
             -2      => "Diffwrf comparison failed",
@@ -2310,14 +2347,14 @@ sub check_baseline {
         if ( $baselinetest ) {
             if ( $baselinetest < 0 ) {
                 $Experiments{$cbname}{paropt}{$cbpar}{status} = "error";
-                $Experiments{$cbname}{paropt}{$cbpar}{compare} = $compare_problem{$baselinetest};
+                $Experiments{$cbname}{paropt}{$cbpar}{result} = $result_problem{$baselinetest};
             } elsif ( $baselinetest > 0 ) {
-                $Experiments{$cbname}{paropt}{$cbpar}{compare} = $compare_problem{$baselinetest};
+                $Experiments{$cbname}{paropt}{$cbpar}{result} = $result_problem{$baselinetest};
             }
         } elsif ( $missvars ) {
-            $Experiments{$cbname}{paropt}{$cbpar}{compare} = "ok, vars missing";
+            $Experiments{$cbname}{paropt}{$cbpar}{result} = "ok, vars missing";
         } else {
-            $Experiments{$cbname}{paropt}{$cbpar}{compare} = "ok";
+            $Experiments{$cbname}{paropt}{$cbpar}{result} = "ok";
         }
     }
 
