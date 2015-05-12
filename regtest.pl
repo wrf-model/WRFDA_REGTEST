@@ -1698,81 +1698,89 @@ sub new_job_ys {
 #         $Experiments{$nam}{paropt}{$par}{currjobname} = "GENBE";
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
-         if (-e "be.dat") {
-            print "'be.dat' already exists, skipping GEN_BE step\n";
-            chdir "..";
-            return "SKIPPED";
+
+         #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
+         my @genbe_commands;
+         $genbe_commands[0] = "tar -xf forecasts.tar\n";
+         # We need the script to see where the WRFDA directory is. See 'gen_be_wrapper.ksh' in test directory
+         if ($types =~ /4DVAR/i) {
+            $genbe_commands[1] = "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_4DVAR_".$par."\n";
          } else {
+            $genbe_commands[1] = "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_3DVAR_".$par."\n";
+         }
+         $genbe_commands[2] = "./gen_be_wrapper.ksh > gen_be.out\n";
+         $genbe_commands[3] = "if( -e gen_be_run/SUCCESS ) then\n";
+         $genbe_commands[4] = "   cp gen_be_run/be.dat ./be.dat\n";
+         $genbe_commands[5] = "endif\n";
 
-            #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
-            my @genbe_commands;
-            $genbe_commands[0] = "tar -xf forecasts.tar\n";
-            # We need the script to see where the WRFDA directory is. See 'gen_be_wrapper.ksh' in test directory
-            if ($types =~ /4DVAR/i) {
-               $genbe_commands[1] = "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_4DVAR_".$par."\n";
-            } else {
-               $genbe_commands[1] = "setenv REGTEST_WRFDA_DIR ".$MainDir."/WRFDA_3DVAR_".$par."\n";
-            }
-            $genbe_commands[2] = "./gen_be_wrapper.ksh > gen_be.out\n";
-            $genbe_commands[3] = "if( -e gen_be_run/SUCCESS ) then\n";
-            $genbe_commands[4] = "   cp gen_be_run/be.dat ./be.dat\n";
-            $genbe_commands[5] = "endif\n";
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+                                 $Queue, $Project, @genbe_commands );
 
-            &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
-                                    $Queue, $Project, @genbe_commands );
+         # Submit the job
 
-            # Submit the job
-
-            if ($i == 1) {
-               $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.csh 2>/dev/null `;
-            } else {
-               $h = $i - 1;
-               $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})"  < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.csh 2>/dev/null `;
-            }
-
+         if ($i == 1) {
+            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.csh 2>/dev/null `;
+         } else {
+            $h = $i - 1;
+            $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})"  < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.csh 2>/dev/null `;
+         }
+         if ($feedback =~ m/.*<(\d+)>/) {
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            $i ++;
+         } else {
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit GENBE job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            return undef;
          }
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
-     } elsif ($types =~ /OBSPROC/i) {
+     }
+
+     if ($types =~ /OBSPROC/i) {
          $types =~ s/OBSPROC//i;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
-         $Experiments{$nam}{paropt}{$par}{job}{$1}{jobname} = "OBSPROC";
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "OBSPROC";
 #         $Experiments{$nam}{paropt}{$par}{currjobname} = "OBSPROC";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
-         if (-e "ob.ascii") {
-            print "'ob.ascii' already exists, skipping OBSPROC step\n";
-            chdir "..";
-            return "SKIPPED";
+         #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
+         my @obsproc_commands;
+         $obsproc_commands[0] = "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
+         $obsproc_commands[1] = "cp -f obs_gts_*.3DVAR ob.ascii\n";
+
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+                                 $Queue, $Project, @obsproc_commands );
+
+         # Submit the job
+
+         if ($i == 1) {
+            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.csh 2>/dev/null `;
          } else {
-            #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
-            my @obsproc_commands;
-            $obsproc_commands[0] = "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
-            $obsproc_commands[1] = "cp -f obs_gts_*.3DVAR ob.ascii\n";
-
-            &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
-                                    $Queue, $Project, @obsproc_commands );
-
-            # Submit the job
-
-            if ($i == 1) {
-               $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.csh 2>/dev/null `;
-            } else {
-               $h = $i - 1;
-               $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.csh 2>/dev/null `;
-            }
+            $h = $i - 1;
+            $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.csh 2>/dev/null `;
+         }
+         if ($feedback =~ m/.*<(\d+)>/) {
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            $i ++;
+         } else {
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit OBSPROC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+           return undef;
          }
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
+     }
 
-     } elsif ($types =~ /VARBC/i) {
+     if ($types =~ /VARBC/i) {
          $types =~ s/VARBC//i;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
@@ -1803,12 +1811,22 @@ sub new_job_ys {
             $h = $i - 1;
             $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.csh 2>/dev/null `;
          }
+         if ($feedback =~ m/.*<(\d+)>/) {
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            $i ++;
+         } else {
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VARBC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+           return undef;
+         }
 
          # Return to the upper directory
 
          chdir ".." or die "Cannot chdir to .. : $!\n";
+     }
 
-     } elsif ($types =~ /FGAT/i) {
+     if ($types =~ /FGAT/i) {
          $types =~ s/FGAT//i;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
@@ -1835,13 +1853,22 @@ sub new_job_ys {
             $h = $i - 1;
             $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.csh 2>/dev/null `;
          }
+         if ($feedback =~ m/.*<(\d+)>/) {
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            $i ++;
+         } else {
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit FGAT job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+           return undef;
+         }
 
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
+     }
 
 
-
-     } elsif ($types =~ /3DVAR/i) {
+     if ($types =~ /3DVAR/i) {
          $types =~ s/3DVAR//i;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
@@ -1850,24 +1877,6 @@ sub new_job_ys {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "3DVAR";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
-
-         #If an OBSPROC job, make sure it created the observation file!
-         if ($Experiments{$nam}{test_type} =~ /OBSPROC/i) {
-             printf "Checking OBSPROC output\n";
-             unless (-e "ob.ascii") {
-                 chdir "..";
-                 return "OBSPROC_FAIL";
-             }
-         }
-
-         #If a GENBE job, make sure GEN_BE completed successfully
-         if ($Experiments{$nam}{test_type} =~ /GENBE/i) {
-             printf "Checking GENBE output\n";
-             unless (-e "be.dat") {
-                 chdir "..";
-                 return "GENBE_FAIL";
-             }
-         }
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @_3dvar_commands;
@@ -1897,8 +1906,9 @@ sub new_job_ys {
          }
 
          chdir ".." or die "Cannot chdir to .. : $!\n";
+     }
 
-     } elsif ($types =~ /CYCLING/i) {
+     if ($types =~ /CYCLING/i) {
          $types =~ s/CYCLING//i;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
@@ -1915,7 +1925,6 @@ sub new_job_ys {
             $i ++;
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_init";
-#         $Experiments{$nam}{paropt}{$par}{currjob} = "WRFDA_init"; #"WRFDA_init" is the first job, so it's the one we'll set as "currjob"
 
          # Cycling experiments are set up so that the first two steps are run in their own directories: WRFDA_init and WRF
          # The data for each of these is contained in a tar file (cycle_data.tar) to avoid overwriting original data
@@ -2094,7 +2103,9 @@ sub new_job_ys {
          # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
          return 1;
 
-     } elsif ($types =~ /4DVAR/i) {
+     }
+
+     if ($types =~ /4DVAR/i) {
          $types =~ s/4DVAR//i;
          $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
@@ -2102,13 +2113,6 @@ sub new_job_ys {
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "4DVAR";
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
-         #If an OBSPROC job, make sure it created the observation file!
-         if ($Experiments{$nam}{test_type} =~ /OBSPROC/i) {
-             printf "Checking OBSPROC output\n";
-             unless (-e "ob01.ascii") {
-                 return "OBSPROC_FAIL";
-             }
-         }
 
          my @_4dvar_commands;
          $_4dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
@@ -2125,13 +2129,19 @@ sub new_job_ys {
             $h = $i - 1;
             $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.csh 2>/dev/null `;
          }
+         if ($feedback =~ m/.*<(\d+)>/) {
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            $i ++;
+         } else {
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit 4DVAR job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+           return undef;
+         }
 
          # Return to the upper directory
 
          chdir ".." or die "Cannot chdir to .. : $!\n";
-
-     } else {
-         die "You dun goofed!\n$types is not a valid test type.";
      }
 
 
@@ -2173,8 +2183,6 @@ sub compare_output {
 
      foreach (@output) {
          
-#         print "\nThis line is '$_'\n";
-
          return -5 if ( $_=~/could not open/i);
 
          if (/pntwise max/) {
@@ -2302,49 +2310,18 @@ sub submit_job_ys {
                      my $rc = &new_job_ys ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
                                    $Experiments{$name}{cpu_openmp},$Experiments{$name}{paropt}{$par}{todo} );
 
-print "Investigating structure for job $name 1\n\n";
-print Dumper($Experiments{$name});
-print "\n\n";
                      if (defined $rc) {
-                         if ($rc =~ /OBSPROC_FAIL/) {
-                             $Experiments{$name}{paropt}{$par}{status} = "error";
-                             $Experiments{$name}{paropt}{$par}{result} = "obsproc failed";
-                             $remain_par{$name} -- ;
-                             if ($remain_par{$name} == 0) {
-                                 $Experiments{$name}{status} = "done";
-                                 $remain_exps -- ;
-                             }
-                             &flush_status ();
-                             next;
-                         } elsif ($rc =~ /GENBE_FAIL/) {
-                             $Experiments{$name}{paropt}{$par}{status} = "error";
-                             $Experiments{$name}{paropt}{$par}{result} = "gen_be failed";
-                             $remain_par{$name} -- ;
-                             if ($remain_par{$name} == 0) {
-                                 $Experiments{$name}{status} = "done";
-                                 $remain_exps -- ;
-                             }
-                             &flush_status ();
-                             next;
-                         } elsif ($rc =~ /SKIPPED/) {
-
-                             $Experiments{$name}{paropt}{$par}{status} = "pending";    # Still more tasks for this job.
-                             $Experiments{$name}{paropt}{$par}{started} = 0;
-                             next;
+                         $Experiments{$name}{paropt}{$par}{currjob} = $rc ;    # keep track of current job number; this should be 1 at this point
+                         $Experiments{$name}{paropt}{$par}{currjobid} = $Experiments{$name}{paropt}{$par}{job}{$rc}{jobid} ;    # assign the current jobid.
+                         $Experiments{$name}{paropt}{$par}{currjobname} = $Experiments{$name}{paropt}{$par}{job}{$rc}{jobname} ;    # assign the current job name
+                         $Experiments{$name}{status} = "close";
+                         my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{currjobid}`;
+                         if ($checkQ =~ /\sregular\s/) {
+                             printf "%-10s job for %-30s,%8s was submitted to queue 'regular' with jobid: %10d \n",
+                                  $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
                          } else {
-                             print "rc = $rc\n";
-                             $Experiments{$name}{paropt}{$par}{currjob} = $rc ;    # keep track of current job number; this should be 1 at this point
-                             $Experiments{$name}{paropt}{$par}{currjobid} = $Experiments{$name}{paropt}{$par}{job}{$rc}{jobid} ;    # assign the current jobid.
-                             $Experiments{$name}{paropt}{$par}{currjobname} = $Experiments{$name}{paropt}{$par}{job}{$rc}{jobname} ;    # assign the current job name
-                             $Experiments{$name}{status} = "close";
-                             my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{currjobid}`;
-                             if ($checkQ =~ /\sregular\s/) {
-                                 printf "%-10s job for %-30s,%8s was submitted to queue 'regular' with jobid: %10d \n",
-                                      $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
-                             } else {
-                                 printf "%-10s job for %-30s,%8s was submitted to queue '$Queue' with jobid: %10d \n",
-                                      $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
-                             }
+                             printf "%-10s job for %-30s,%8s was submitted to queue '$Queue' with jobid: %10d \n",
+                                  $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
                          }
                      } else {
                          $Experiments{$name}{paropt}{$par}{status} = "error";
@@ -2373,9 +2350,6 @@ print "\n\n";
                      next;
                  }
 
-print "Investigating structure for job $name 2\n\n";
-print Dumper($Experiments{$name});
-print "\n\n";
                  # If we got to this point, job is finished. Finalize the test or prepare for next job
                  my $bhist = `bhist $Experiments{$name}{paropt}{$par}{currjobid}`;
                  my @jobhist = split('\s+',$bhist);  # Get runtime using bhist command, then store this job's runtime and add it to total runtime
@@ -2384,10 +2358,8 @@ print "\n\n";
 
                  my $i = 1;
                  while ( exists $Experiments{$name}{paropt}{$par}{job}{$i} ) { # Loop through each job to determine if there are any left to run
-                    print "\$i is $i\n";
                     if ($Experiments{$name}{paropt}{$par}{job}{$i}{status} eq "done") {
                        $i ++; #This job has already been completed and checked, go to next
-                       print "INCREMENTING \$i\n";
                        next;
                     } elsif ($Experiments{$name}{paropt}{$par}{job}{$i}{status} eq "running" || $Experiments{$name}{paropt}{$par}{job}{$i}{status} eq "pending") {
                        #Note about above if statement: it's possible that a job could be completed before we even see it in the "running" state, 
@@ -2409,12 +2381,6 @@ print "\n\n";
                              print "bkill $Experiments{$name}{paropt}{$par}{job}{$j}{jobid}\n";
                              $j ++;
                           }
-#                          if ($remain_par{$name} == 0) {            # if all par options are done, this experiment is finished.
-#                             $Experiments{$name}{status} = "done";
-#                             $remain_exps -- ;
-#                          } else {
-#                             $Experiments{$name}{status} = "open";  # If there are still parallelism options remaining, open to submit new parallelization option.
-#                          }
                        } else {
                           $Experiments{$name}{paropt}{$par}{job}{$i}{status} = "done";
                        }
@@ -2442,23 +2408,16 @@ print "\n\n";
                        die "Serious error...WE SHOULD NEVER BE HERE!!\n";
                     }
                  }
-print "\$i is now $i\n";
-print "Investigating structure for job $name 3\n\n";
-print Dumper($Experiments{$name});
-print "\n\n";
 
                  if ($Experiments{$name}{paropt}{$par}{status} eq "pending") { #If we set this to pending, it's because there are more jobs in the queue
-                    print "We set this to pending because there are more jobs in the queue\n";
                     next;
                  } else {
                     unless ($Experiments{$name}{paropt}{$par}{status} eq "error") { #These steps are unnecessary if we've already determined there's an error
-                       print "Am I here??\n";
                        next if ($Experiments{$name}{paropt}{$par}{todo}); #If there is more to do, need to call &new_job_ys again
                                                                           # THIS SHOULD BE DEPRECIATED, the current system should not need "todo"
                        $remain_par{$name} -- ;                            # If we got to this point, this parallelism for this test is done
                        $Experiments{$name}{paropt}{$par}{status} = "done";
 
-                       print "\$i is $i\n";
                        printf "%-10s job for %-30s,%8s was completed in %5d seconds. \n", $Experiments{$name}{paropt}{$par}{job}{$i}{jobname}, $name, $par, $Experiments{$name}{paropt}{$par}{job}{$i}{walltime};
 
                        # Wrap-up this job:
@@ -2471,9 +2430,6 @@ print "\n\n";
                     }
                  }
 
-print "Investigating structure for job $name 4\n\n";
-print Dumper($Experiments{$name});
-print "\n\n";
                  if ($remain_par{$name} == 0) {                        # if all par options are done, this experiment is finished.
                      $Experiments{$name}{status} = "done";
                      $remain_exps -- ;
