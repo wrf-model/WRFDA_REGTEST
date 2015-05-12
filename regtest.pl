@@ -1150,9 +1150,9 @@ foreach my $name (keys %Experiments) {
  $remain_par{$_} = scalar keys %{$Experiments{$_}{paropt}} 
     for keys %Experiments;
 
-print "Checkpoint 1\n\n";
-print Dumper($Experiments{radar_4dvar_cv7});
-print "\n\n";
+#print "Checkpoint 1\n\n";
+#print Dumper($Experiments{radar_4dvar_cv7});
+#print "\n\n";
 
 # preset the the status of all jobs and subjobs (types)
 
@@ -1176,9 +1176,9 @@ print "\n\n";
     } 
  } 
 
-print "Checkpoint 2\n\n";
-print Dumper($Experiments{radar_4dvar_cv7});
-print "\n\n";
+#print "Checkpoint 2\n\n";
+#print Dumper($Experiments{radar_4dvar_cv7});
+#print "\n\n";
 
 # Initial Status:
 
@@ -1886,6 +1886,15 @@ sub new_job_ys {
             $h = $i - 1;
             $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.csh 2>/dev/null `;
          }
+         if ($feedback =~ m/.*<(\d+)>/) {
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            $i ++;
+         } else {
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit 3DVAR job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+           return undef;
+         }
 
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
@@ -1895,7 +1904,6 @@ sub new_job_ys {
 
          # Cycling jobs need some extra variables. You'll see why if you read on
          my $job_feedback;
-         my @jobids;
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
@@ -2324,6 +2332,7 @@ print "\n\n";
                              $Experiments{$name}{paropt}{$par}{started} = 0;
                              next;
                          } else {
+                             print "rc = $rc\n";
                              $Experiments{$name}{paropt}{$par}{currjob} = $rc ;    # keep track of current job number; this should be 1 at this point
                              $Experiments{$name}{paropt}{$par}{currjobid} = $Experiments{$name}{paropt}{$par}{job}{$rc}{jobid} ;    # assign the current jobid.
                              $Experiments{$name}{paropt}{$par}{currjobname} = $Experiments{$name}{paropt}{$par}{job}{$rc}{jobname} ;    # assign the current job name
@@ -2368,16 +2377,17 @@ print "Investigating structure for job $name 2\n\n";
 print Dumper($Experiments{$name});
 print "\n\n";
                  # If we got to this point, job is finished. Finalize the test or prepare for next job
-                 my $bhist = `bhist $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{jobid}`;
+                 my $bhist = `bhist $Experiments{$name}{paropt}{$par}{currjobid}`;
                  my @jobhist = split('\s+',$bhist);  # Get runtime using bhist command, then store this job's runtime and add it to total runtime
                  $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{walltime} = $jobhist[24];
                  $Experiments{$name}{paropt}{$par}{walltime} = $Experiments{$name}{paropt}{$par}{walltime} + $jobhist[24];
 
                  my $i = 1;
                  while ( exists $Experiments{$name}{paropt}{$par}{job}{$i} ) { # Loop through each job to determine if there are any left to run
-                    print "$i\n";
+                    print "\$i is $i\n";
                     if ($Experiments{$name}{paropt}{$par}{job}{$i}{status} eq "done") {
                        $i ++; #This job has already been completed and checked, go to next
+                       print "INCREMENTING \$i\n";
                        next;
                     } elsif ($Experiments{$name}{paropt}{$par}{job}{$i}{status} eq "running" || $Experiments{$name}{paropt}{$par}{job}{$i}{status} eq "pending") {
                        #Note about above if statement: it's possible that a job could be completed before we even see it in the "running" state, 
@@ -2414,8 +2424,6 @@ print "\n\n";
 
                        last if ( $Experiments{$name}{paropt}{$par}{status} eq "error"); #Exit while loop if there's an error
 
-  #                     my $next_job_check = &next_job($name, $par, $Experiments{$name}{paropt}{$par}{currjob});
-#                       $Experiments{$name}{paropt}{$par}{currjob} = &next_job($name, $par, $Experiments{$name}{paropt}{$par}{currjob});
                        my $j = $i + 1;
                        if ( exists $Experiments{$name}{paropt}{$par}{job}{$j} ) { #Before moving on, be sure the next job isn't already in the queue
                           if ( $Experiments{$name}{paropt}{$par}{job}{$j}{status} eq "waiting") {
@@ -2425,8 +2433,8 @@ print "\n\n";
                              $Experiments{$name}{paropt}{$par}{currjobid} = $Experiments{$name}{paropt}{$par}{job}{$j}{jobid};
                              $Experiments{$name}{paropt}{$par}{currjobname} = $Experiments{$name}{paropt}{$par}{job}{$j}{jobname};
                           }
-                       last;
                        }
+                    last;
                     } else {
 print "Investigating structure for job $name\n\n";
 print Dumper($Experiments{$name});
@@ -2434,28 +2442,23 @@ print "\n\n";
                        die "Serious error...WE SHOULD NEVER BE HERE!!\n";
                     }
                  }
+print "\$i is now $i\n";
 print "Investigating structure for job $name 3\n\n";
 print Dumper($Experiments{$name});
 print "\n\n";
-#                     foreach my $jobs (sort keys %{$Experiments{$name}{paropt}{$par}{job}}) {
-#                         my @jobcheck; #We're gonna kludge it up: use this array to sort the job numbers and treat the 
-#                                       #lowest remaining job number as the next one
-#                         my @sorted_numbers = sort { $a <=> $b } @jobcheck;
-#                         if ($Experiments{$name}{paropt}{$par}{job}{$jobs} eq "ready" ) {
-#                         }
-#                     }
-
 
                  if ($Experiments{$name}{paropt}{$par}{status} eq "pending") { #If we set this to pending, it's because there are more jobs in the queue
                     print "We set this to pending because there are more jobs in the queue\n";
                     next;
                  } else {
                     unless ($Experiments{$name}{paropt}{$par}{status} eq "error") { #These steps are unnecessary if we've already determined there's an error
+                       print "Am I here??\n";
                        next if ($Experiments{$name}{paropt}{$par}{todo}); #If there is more to do, need to call &new_job_ys again
                                                                           # THIS SHOULD BE DEPRECIATED, the current system should not need "todo"
                        $remain_par{$name} -- ;                            # If we got to this point, this parallelism for this test is done
                        $Experiments{$name}{paropt}{$par}{status} = "done";
 
+                       print "\$i is $i\n";
                        printf "%-10s job for %-30s,%8s was completed in %5d seconds. \n", $Experiments{$name}{paropt}{$par}{job}{$i}{jobname}, $name, $par, $Experiments{$name}{paropt}{$par}{job}{$i}{walltime};
 
                        # Wrap-up this job:
@@ -2471,7 +2474,6 @@ print "\n\n";
 print "Investigating structure for job $name 4\n\n";
 print Dumper($Experiments{$name});
 print "\n\n";
-die;
                  if ($remain_par{$name} == 0) {                        # if all par options are done, this experiment is finished.
                      $Experiments{$name}{status} = "done";
                      $remain_exps -- ;
@@ -2489,23 +2491,6 @@ die;
 
 }
 
-sub next_job { #subroutine to find the next job if we submitted more than one
-
-    my ($name, $par, $currjob) = @_;
-
-#    foreach my $name (sort { $planets{$a} <=> $planets{$b} } keys %planets) {
-#    printf "%-8s %s\n", $name, $planets{$name};
-#    }
-    foreach my $jobs (sort {$Experiments{$name}{paropt}{$par}{job}{$a} <=> $Experiments{$name}{paropt}{$par}{job}{$b}} keys %{$Experiments{$name}{paropt}{$par}{job}}) {
-       print "This job is $jobs\n";
-       print "Jobid is $Experiments{$name}{paropt}{$par}{job}{$jobs}{jobid}\n";
-    }
-#    $Experiments{$name}{paropt}{$par}{currjob}
-    print 'TEST';
-    # IF NO MORE JOBS, RETURN NULL    return '';
-    return 'TEST';
-
-}
 
 sub check_baseline {
 
