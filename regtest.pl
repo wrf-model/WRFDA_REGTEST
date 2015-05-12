@@ -1150,10 +1150,6 @@ foreach my $name (keys %Experiments) {
  $remain_par{$_} = scalar keys %{$Experiments{$_}{paropt}} 
     for keys %Experiments;
 
-#print "Checkpoint 1\n\n";
-#print Dumper($Experiments{radar_4dvar_cv7});
-#print "\n\n";
-
 # preset the the status of all jobs and subjobs (types)
 
  foreach my $name (keys %Experiments) {
@@ -1164,21 +1160,8 @@ foreach my $name (keys %Experiments) {
        $Experiments{$name}{paropt}{$par}{walltime} = 0;
        $Experiments{$name}{paropt}{$par}{todo} = $Experiments{$name}{test_type};
        $Experiments{$name}{paropt}{$par}{started} = 0;
-#       my @jobtypes = split /\|/, $Experiments{$name}{test_type};
-#          my %job_records;
-#          $job_records{$_} = {} for @jobtypes;
-#          $Experiments{$name}{paropt}{$par}{job} = \%job_records;
-#          foreach my $job (keys %{$Experiments{$name}{paropt}{$par}{job}}) {
-#             $Experiments{$name}{paropt}{$par}{job}{$job}{status} = "pending";
-#             $Experiments{$name}{paropt}{$par}{job}{$job}{walltime} = 0;
-#             $Experiments{$name}{paropt}{$par}{job}{$job}{jobid} = 0;
-#       }
     } 
  } 
-
-#print "Checkpoint 2\n\n";
-#print Dumper($Experiments{radar_4dvar_cv7});
-#print "\n\n";
 
 # Initial Status:
 
@@ -1192,10 +1175,6 @@ foreach my $name (keys %Experiments) {
  } else {
     &submit_job ;
  }
-
-print "Final structure check:\n\n";
-print Dumper(%Experiments);
-print "\n\n";
 
 # End time:
 
@@ -1711,7 +1690,11 @@ sub new_job_ys {
          $genbe_commands[2] = "./gen_be_wrapper.ksh > gen_be.out\n";
          $genbe_commands[3] = "if( -e gen_be_run/SUCCESS ) then\n";
          $genbe_commands[4] = "   cp gen_be_run/be.dat ./be.dat\n";
-         $genbe_commands[5] = "endif\n";
+         $genbe_commands[5] = "else\n";
+         $genbe_commands[6] = "cat > ../FAIL << EOF\n";
+         $genbe_commands[7] = "$Experiments{$nam}{paropt}{$par}{job}{1}{jobname}\n";
+         $genbe_commands[8] = "EOF\n";
+         $genbe_commands[9] = "endif\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
                                  $Queue, $Project, @genbe_commands );
@@ -1754,6 +1737,11 @@ sub new_job_ys {
          my @obsproc_commands;
          $obsproc_commands[0] = "$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe\n";
          $obsproc_commands[1] = "cp -f obs_gts_*.3DVAR ob.ascii\n";
+         $obsproc_commands[2] = 'if ( ! -e "ob.ascii") then'."\n";
+         $obsproc_commands[3] = "cat > ../FAIL << EOF\n";
+         $obsproc_commands[4] = "$Experiments{$nam}{paropt}{$par}{job}{1}{jobname}\n";
+         $obsproc_commands[5] = "EOF\n";
+         $obsproc_commands[6] = "endif\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
                                  $Queue, $Project, @obsproc_commands );
@@ -1799,6 +1787,11 @@ sub new_job_ys {
          $varbc_commands[2] = "mv rsl* varbc_run_1\n";
          $varbc_commands[3] = "rm -f VARBC.in\n";
          $varbc_commands[4] = "mv VARBC.out VARBC.in\n";
+         $varbc_commands[5] = 'if ( ! -e "wrfvar_output") then'."\n";
+         $varbc_commands[6] = "cat > ../FAIL << EOF\n";
+         $varbc_commands[7] = "$Experiments{$nam}{paropt}{$par}{job}{1}{jobname}\n";
+         $varbc_commands[8] = "EOF\n";
+         $varbc_commands[9] = "endif\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @varbc_commands );
@@ -1962,7 +1955,6 @@ sub new_job_ys {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
-            print "Jobid(\$i) = $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid}\n";
             $h = $i;
             $i ++;
          } else {
@@ -1990,9 +1982,6 @@ sub new_job_ys {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
-            print "i = $i, h = $h\n\n";
-            print "Jobid(\$h) = $Experiments{$nam}{paropt}{$par}{job}{$h}{jobid}\n";
-            print "Jobid(\$i) = $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid}\n";
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LAT job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -2015,9 +2004,6 @@ sub new_job_ys {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
-            print "i = $i, h = $h\n\n";
-            print "Jobid(\$h) = $Experiments{$nam}{paropt}{$par}{job}{$h}{jobid}\n";
-            print "Jobid(\$i) = $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid}\n";
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRF job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -2057,9 +2043,6 @@ sub new_job_ys {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
-            print "i = $i, h = $h\n\n";
-            print "Jobid(\$h) = $Experiments{$nam}{paropt}{$par}{job}{$h}{jobid}\n";
-            print "Jobid(\$i) = $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid}\n";
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LOW job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -2087,9 +2070,6 @@ sub new_job_ys {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
-            print "i = $i, h = $h\n\n";
-            print "Jobid(\$h) = $Experiments{$nam}{paropt}{$par}{job}{$h}{jobid}\n";
-            print "Jobid(\$i) = $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid}\n";
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_final job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             return undef;
@@ -2369,7 +2349,6 @@ sub submit_job_ys {
                             $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par, 
                             $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{walltime};
                        if ( -e "$name/FAIL" ) {
-                          print "FAILURE DETECTED\n\n";
                           $Experiments{$name}{paropt}{$par}{status} = "error";
                           $Experiments{$name}{paropt}{$par}{result} = "$Experiments{$name}{paropt}{$par}{job}{$i}{jobname} error";
                           $Experiments{$name}{paropt}{$par}{job}{$i}{status} = "error";
@@ -2402,10 +2381,8 @@ sub submit_job_ys {
                        }
                     last;
                     } else {
-print "Investigating structure for job $name\n\n";
-print Dumper($Experiments{$name});
-print "\n\n";
-                       die "Serious error...WE SHOULD NEVER BE HERE!!\n";
+                       print Dumper($Experiments{$name});
+                       die "\nSerious error...WE SHOULD NEVER BE HERE!!\n";
                     }
                  }
 
