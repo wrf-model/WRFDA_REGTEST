@@ -75,7 +75,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "cloudcv:s" => \$CLOUDCV_defined ) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
-  print "\nA compiler must be specified!\n\nAbortin!\n\n";
+  print "\nA compiler must be specified!\n\nAborting the script with dignity.\n";
   &print_help_and_die;
 }
 
@@ -222,12 +222,10 @@ my %compile_job_array;
 
 # What's my name?
 
-my $ThisGuy = `whoami`;
-chomp($ThisGuy);
+my $ThisGuy = `whoami`; chomp($ThisGuy);
 
 # Where am I?
-$MainDir = `pwd`;
-chomp($MainDir);
+$MainDir = `pwd`; chomp($MainDir);
 
 # What's my hostname, system, and machine?
 
@@ -285,7 +283,7 @@ while (<DATA>) {
      last if ( /^####/ && (keys %Experiments) > 0 );
      next if /^#/;
      if ( /^(\D)/ ) {
-         ($Arch, $Machine, $Name, $Source, $Compiler, $Project, $Queue, $Database, $Baseline) = 
+         ($Arch, $Machine, $Name, $Compiler, $Project, $Queue, $Database, $Baseline, $Source) = 
                split /\s+/,$_;
      }
 
@@ -2377,11 +2375,22 @@ sub submit_job_ys {
                              $Experiments{$name}{paropt}{$par}{currjob} = $j;
                              $Experiments{$name}{paropt}{$par}{currjobid} = $Experiments{$name}{paropt}{$par}{job}{$j}{jobid};
                              $Experiments{$name}{paropt}{$par}{currjobname} = $Experiments{$name}{paropt}{$par}{job}{$j}{jobname};
+                             my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{currjobid}`;
+                             if ($checkQ =~ /\sregular\s/) {
+                                printf "%-10s job for %-30s,%8s was submitted to queue 'regular' with jobid: %10d \n",
+                                     $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
+                             } else {
+                                printf "%-10s job for %-30s,%8s was submitted to queue '$Queue' with jobid: %10d \n",
+                                     $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
+                             }
+
                           }
                        }
                     last;
                     } else {
                        print Dumper($Experiments{$name});
+                       print "Name = $name\n";
+                       print "Par  = $par\n";
                        die "\nSerious error...WE SHOULD NEVER BE HERE!!\n";
                     }
                  }
