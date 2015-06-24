@@ -1122,8 +1122,11 @@ foreach my $name (keys %Experiments) {
      chdir "$name" or die "Cannot chdir to $name : $!\n";
      my @allfiles = glob ("$Database/$name/*");
      foreach (@allfiles) {
-         symlink "$_", basename($_)
-             or warn "Cannot symlink $_ to local directory: $!\n";
+         if ($_ =~ "namelist.input") {
+            copy("$_", basename($_)) or warn "Cannot copy $_ to local directory: $!\n";
+         } else {
+            symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+         }
      }
      
      mkdir "trace"; #Make trace directory for "trace_use" option
@@ -1261,10 +1264,10 @@ if ( $Machine_name eq "yellowstone" ) {
 #   print WEBH '<caption>Regression Test Summary</caption>'."\n";
     print WEBH '<tr>'."\n";
     print WEBH '<th>EXPERIMENT</th>'."\n";
-    print WEBH '<th>TYPE</th>'."\n";
     print WEBH '<th>PAROPT</th>'."\n";
     print WEBH '<th>CPU_MPI</th>'."\n";
-    print WEBH '<th>CPU_OMP</th>'."\n";
+    print WEBH '<th>JOB</th>'."\n";
+#    print WEBH '<th>CPU_OMP</th>'."\n";
     print WEBH '<th>STATUS</th>'."\n";
     print WEBH '<th>WALLTIME(S)</th>'."\n";
     print WEBH '<th>RESULT</th>'."\n";
@@ -1275,22 +1278,33 @@ if ( $Machine_name eq "yellowstone" ) {
             print WEBH '<tr>'."\n";
             print WEBH '<tr';
             if ($Experiments{$name}{paropt}{$par}{status} eq "error") {
-                print WEBH ' style="background-color:red;color:white">'."\n";
+                print WEBH ' style="background-color:red;color:white" ';
             } elsif ($Experiments{$name}{paropt}{$par}{result} eq "diff") {
-                print WEBH ' style="background-color:yellow">'."\n";
-            } else {
-                print WEBH '>'."\n";
+                print WEBH ' style="background-color:yellow" ';
             }
+            printf WEBH ' rowspan="%1d" >'."\n",scalar keys %{$Experiments{$name}{paropt}{$par}{job}};
             print WEBH '<td>'.$name.'</td>'."\n";
-            print WEBH '<td>'.$Experiments{$name}{test_type}.'</td>'."\n";
             print WEBH '<td>'.$par.'</td>'."\n";
             print WEBH '<td>'.$Experiments{$name}{cpu_mpi}.'</td>'."\n";
-            print WEBH '<td>'.$Experiments{$name}{cpu_openmp}.'</td>'."\n";
+            print WEBH '<td> </td>'."\n";
             print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{status}.'</td>'."\n";
             printf WEBH '<td>'."%5d".'</td>'."\n",
                          $Experiments{$name}{paropt}{$par}{walltime};
             print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{result}.'</td>'."\n";
             print WEBH '</tr>'."\n";
+            my $job = 1;
+            foreach (sort keys %{$Experiments{$name}{paropt}{$par}{job}}) {
+                print WEBH '<tr>'."\n";
+                print WEBH '<td colspan=3> </td>'."\n";
+                print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{job}{$job}{jobname}.'</td>'."\n";
+#                print WEBH '<td>'.$Experiments{$name}{cpu_openmp}.'</td>'."\n";
+                print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{job}{$job}{status}.'</td>'."\n";
+                printf WEBH '<td>'."%5d".'</td>'."\n",
+                             $Experiments{$name}{paropt}{$par}{job}{$job}{walltime};
+                print WEBH '<td> </td>'."\n";
+                print WEBH '</tr>'."\n";
+                $job ++;
+            }
         }
     }
             print WEBH '</table>'."\n"; 
@@ -1708,7 +1722,11 @@ sub new_job_ys {
          if ($feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit GENBE job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -1755,7 +1773,11 @@ sub new_job_ys {
          if ($feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit OBSPROC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -1805,7 +1827,11 @@ sub new_job_ys {
          if ($feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VARBC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -1847,7 +1873,11 @@ sub new_job_ys {
          if ($feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit FGAT job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -1889,7 +1919,11 @@ sub new_job_ys {
          if ($feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit 3DVAR job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -1952,7 +1986,11 @@ sub new_job_ys {
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $h = $i;
             $i ++;
          } else {
@@ -1979,7 +2017,11 @@ sub new_job_ys {
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LAT job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -2001,7 +2043,11 @@ sub new_job_ys {
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRF job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -2040,7 +2086,11 @@ sub new_job_ys {
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LOW job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -2067,7 +2117,11 @@ sub new_job_ys {
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_final job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             return undef;
@@ -2110,7 +2164,11 @@ sub new_job_ys {
          if ($feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit 4DVAR job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
