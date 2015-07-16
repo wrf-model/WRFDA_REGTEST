@@ -37,8 +37,9 @@ my $Revision = 'HEAD'; # Revision Number
 my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision Number
 my $Testfile = 'testdata.txt';
 my $CLOUDCV_defined;
+my $REPO_defined;
 my $RTTOV_dir;
-my @valid_options = ("compiler","source","revision","upload","exec","debug","j","testfile","cloudcv");
+my @valid_options = ("compiler","source","revision","upload","exec","debug","j","cloudcv","testfile","repo");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -71,8 +72,9 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "exec:s" => \$Exec_defined,
             "debug:s" => \$Debug_defined,
             "j:s" => \$Parallel_compile_num,
+            "cloudcv:s" => \$CLOUDCV_defined,
             "testfile:s" => \$Testfile,
-            "cloudcv:s" => \$CLOUDCV_defined ) or &print_help_and_die;
+            "repo:s" => \$REPO_defined ) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
   print "\nA compiler must be specified!\n\nAborting the script with dignity.\n";
@@ -81,16 +83,19 @@ unless ( defined $Compiler_defined ) {
 
 
 sub print_help_and_die {
-  print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
-                              --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS --testfile=testdata.txt\n\n";
+  print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes\n";
+  print "                   --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS --cloudcv=[no]/yes\n";
+  print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n\n";
   print "        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)\n";
-  print "        source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository\n";
-  print "        revision: Specify code revision to retrieve (only works when '--source=SVN' specified\n";
-  print "        upload:   Uploads summary to web (default is 'yes' iff source=SVN and revision=HEAD)\n";
+  print "        source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)\n";
+  print "        revision: Specify code revision to retrieve (only works when '--source=REPO' specified)\n";
+  print "        upload:   Uploads summary to web (default is 'yes' iff source=REPO and revision=HEAD)\n";
   print "        exec:     Execute only; skips compile, utilizes existing executables\n";
   print "        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well\n";
   print "        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)\n";
+  print "        cloudcv:  Compile for CLOUD_CV options\n";
   print "        testfile: Name of test data file (default: testdata.txt)\n";
+  print "        repo:     Location of code repository\n";
   die "\n";
 }
 
@@ -115,8 +120,7 @@ if (defined $Debug_defined && $Debug_defined eq 'super') {
 
 if ( $Parallel_compile_num > 16 ) {die "Can not parallel compile using more than 16 processors; set j<=16\n"};
 
-# Constant variables
-my $SVN_REP = 'https://svn-wrf-model.cgd.ucar.edu/trunk';
+# Who is running the test?
 my $Tester = getlogin();
 
 # Local variables
@@ -346,10 +350,16 @@ foreach my $name (keys %Experiments) {
 # If source specified on command line, use it
 $Source = $Source_defined if defined $Source_defined;
 
+# If the source is "REPO", we need to specify the location of the code repository
+my $CODE_REPO = 'https://svn-wrf-model.cgd.ucar.edu/trunk';
+if ( ($Source eq "REPO") && (defined $REPO_defined) ) {
+    $CODE_REPO = $REPO_defined;
+}
+
 # Upload summary to web by default if source is head of repository; 
 # otherwise do not upload unless upload option is explicitly selected
 my $Upload;
-if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "SVN") && ($Revision eq "HEAD") && !(defined $Upload_defined) ) {
+if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "REPO") && ($Revision eq "HEAD") && !(defined $Upload_defined) ) {
     $Upload="yes";
     print "\nSource is head of repository: will upload summary to web when test is complete.\n\n";
 } elsif ( !(defined $Upload_defined) ) {
@@ -360,7 +370,7 @@ if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "SVN") && ($Revision eq "HEAD"
 
 # If specified paths are relative then point them to the full path
 if ( !($Source =~ /^\//) ) {
-    unless ( ($Source eq "SVN") or $Exec) {$Source = $MainDir."/".$Source};
+    unless ( ($Source eq "REPO") or $Exec) {$Source = $MainDir."/".$Source};
 }
 if ( !($Database =~ /^\//) ) {
     $Database = $MainDir."/".$Database;
@@ -402,18 +412,18 @@ if ($Exec) {
    if ( ($Type =~ /4DVAR/i) && ($Type =~ /3DVAR/i) ) {
       print "Ensuring that all compiled code is the same version\n";
       if ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /dmpar/i) ) {
-         my $Revision3 = &svn_version("WRFDA_3DVAR_dmpar");
-         my $Revision4 = &svn_version("WRFDA_4DVAR_dmpar");
+         my $Revision3 = &get_repo_revision("WRFDA_3DVAR_dmpar");
+         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_dmpar");
          die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
-         $Revision = &svn_version("WRFDA_3DVAR_dmpar");
+         $Revision = &get_repo_revision("WRFDA_3DVAR_dmpar");
       }
    } elsif ($Type =~ /4DVAR/i) {
-      $Revision = &svn_version("WRFDA_4DVAR_dmpar");
+      $Revision = &get_repo_revision("WRFDA_4DVAR_dmpar");
    } else {
       if ( $Par =~ /dmpar/i ) {
-         $Revision = &svn_version("WRFDA_3DVAR_dmpar");
+         $Revision = &get_repo_revision("WRFDA_3DVAR_dmpar");
       } else {
-         $Revision = &svn_version("WRFDA_3DVAR_serial");
+         $Revision = &get_repo_revision("WRFDA_3DVAR_serial");
       }
    }
    chomp($Revision);
@@ -501,7 +511,7 @@ if ($Type =~ /4DVAR/i) {
     if (-d $WRFPLUSDIR) {
         $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
         print "Checking WRFPLUS revision ...\n";
-        $WRFPLUS_Revision = &svn_version("$WRFPLUSDIR");
+        $WRFPLUS_Revision = &get_repo_revision("$WRFPLUSDIR");
     } else {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR!\n";
@@ -536,18 +546,19 @@ if ($Type =~ /4DVAR/i) {
          ! system("rm -rf .WRFDA_4DVAR_$par_type &") or die "Can not remove WRFDA_4DVAR_$par_type: $!\n";
       }
 
-      if ($Source eq "SVN") {
-         print "Getting the code from repository $SVN_REP to WRFDA_4DVAR_$par_type ...\n";
-         ! system ("svn","co","-q","-r",$Revision,$SVN_REP,"WRFDA_4DVAR_$par_type") or die " Can't run svn checkout: $!\n";
+      if ($Source eq "REPO") {
+         print "Getting the code from repository $CODE_REPO to WRFDA_4DVAR_$par_type ...\n";
+         # SHOULD CREATE CUSTOM FUNCTION FOR GIT CHECKOUT EVENTUALLY
+         ! system ("svn","co","-q","-r",$Revision,$CODE_REPO,"WRFDA_4DVAR_$par_type") or die " Can't run svn checkout: $!\n";
          if ($Revision eq 'HEAD') {
-            $Revision = &svn_version("WRFDA_4DVAR_$par_type");
+            $Revision = &get_repo_revision("WRFDA_4DVAR_$par_type");
          }
          printf "Revision %5d successfully checked out to WRFDA_4DVAR_$par_type.\n",$Revision;
       } else {
          print "Getting the code from $Source to WRFDA_4DVAR_$par_type ...\n";
          ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
          ! system("mv", "WRFDA", "WRFDA_4DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_4DVAR_$par_type': $!\n";
-         $Revision = &svn_version("WRFDA_4DVAR_$par_type");
+         $Revision = &get_repo_revision("WRFDA_4DVAR_$par_type");
       }
 
       # Change the working directory to WRFDA:
@@ -783,18 +794,18 @@ if ($Type =~ /3DVAR/i) {
             ! system("rm -rf .WRFDA_3DVAR_$par_type &") or die "Can not remove WRFDA_3DVAR_$par_type: $!\n";
        }
 
-       if ($Source eq "SVN") {
-          print "Getting the code from repository $SVN_REP to WRFDA_3DVAR_$par_type ...\n";
-          ! system ("svn","co","-q","-r",$Revision,$SVN_REP,"WRFDA_3DVAR_$par_type") or die " Can't run svn checkout: $!\n";
+       if ($Source eq "REPO") {
+          print "Getting the code from repository $CODE_REPO to WRFDA_3DVAR_$par_type ...\n";
+          ! system ("svn","co","-q","-r",$Revision,$CODE_REPO,"WRFDA_3DVAR_$par_type") or die " Can't run svn checkout: $!\n";
           if ($Revision eq 'HEAD') {
-             $Revision = &svn_version("WRFDA_3DVAR_$par_type");
+             $Revision = &get_repo_revision("WRFDA_3DVAR_$par_type");
           }
           printf "Revision %5d successfully checked out to WRFDA_3DVAR_$par_type.\n",$Revision;
        } else {
           print "Getting the code from $Source to WRFDA_3DVAR_$par_type ...\n";
           ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
           ! system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
-          $Revision = &svn_version("WRFDA_3DVAR_$par_type");
+          $Revision = &get_repo_revision("WRFDA_3DVAR_$par_type");
        }
 
  
@@ -1368,7 +1379,7 @@ if ( $Machine_name eq "yellowstone" ) {
        }
 
        $go_on='';
-       unless ( $Source eq "SVN" ) {
+       unless ( $Source eq "REPO" ) {
           $scp_warn ++;
           print "This revision, '$Source', may not be the trunk version,\nare you sure you want to upload?\a\n";
           while ($go_on eq "") {
@@ -2462,7 +2473,7 @@ sub submit_job_ys {
                        $remain_par{$name} -- ;                            # If we got to this point, this parallelism for this test is done
                        $Experiments{$name}{paropt}{$par}{status} = "done";
 
-                       printf "%-10s job for %-30s,%8s was completed in %5d seconds. \n", $Experiments{$name}{paropt}{$par}{job}{$i}{jobname}, $name, $par, $Experiments{$name}{paropt}{$par}{job}{$i}{walltime};
+                       printf "%-30s test,%8s was completed in %5d seconds. \n", $name, $par, $Experiments{$name}{paropt}{$par}{walltime};
 
                        # Wrap-up this job:
                        rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
@@ -2534,14 +2545,16 @@ sub check_baseline {
 }
 
 
-sub svn_version {
+sub get_repo_revision {
 
-#This function is necessary since a Yellowstone upgrade bungled up the 'svnversion' function.
-#Should have the same functionality for versioned directories, but will also try to retrieve
-#the WRF/WRFDA release version if possible
+#This function was originally made due to a Yellowstone upgrade which bungled up the 'svnversion' function.
+#Should have the same functionality as old "svnversion" function for directories under SVN revision
+#control, but will also try to retrieve the WRF/WRFDA release version if possible.
 
 #Also appends an "m" to the revision number if the contents are versioned and have been modified.
-##I think this was part of the original behavior of "svnversion" but I can't remember for sure.
+#I think this was part of the original behavior of "svnversion" but I can't remember for sure.
+
+#Needs to be updated with git functionality once we start the transition to git for version control
 
    my ($dir_name) = @_;
    my $wd = `pwd`;
