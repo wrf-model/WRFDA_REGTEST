@@ -36,28 +36,26 @@ use Getopt::Long;
  chomp $Script_dir;
  my $WRF_dir="$Main_dir/WRFV3";
  my $WPS_dir="$Main_dir/WPS";
- my $GRIB_dir="/glade/p/rda/data/ds083.2/grib2/2013/2013.12";   #Where to find grib input data
+ my $GRIB_dir="/glade/p/rda/data/ds083.2/grib2/2008/2008.02";   #Where to find grib input data
  my $geog_dir="/glade/p/work/wrfhelp/WPS_GEOG/";
  my $WORKDIR="/glade/scratch/kavulich/GEN_BE_FORECASTS";
 
 # Directories for running WPS/WRF and storing output
- my $Run_dir="$WORKDIR/arctic_tutorial_case_6hr";
- my $Out_dir="$Script_dir/Output/arctic_tutorial_case_6hr";
-
- mkdir $Run_dir;
- mkdir $Out_dir;
+ my $Exp_name="tutorial_CONUS60_genbe_monthlong";
+ my $Run_dir="$WORKDIR/$Exp_name";
+ my $Out_dir="$Script_dir/Output/$Exp_name";
 
 # Start and end dates
- my $initial_date="2013-12-23_00:00:00"; #Initial time for first forecast
- my $final_date="2013-12-25_12:00:00";   #Initial time for final forecast
+ my $initial_date="2008-02-01_00:00:00"; #Initial time for first forecast
+ my $final_date="2008-03-01_00:00:00";   #Initial time for final forecast
 
 # Set number of WPS time stamps for each cycle
  my $WPS_times=5;
 
 # WRF parameters
  my $METEM_INTERVAL=21600;   #WPS output interval               IN SECONDS
- my $OUT_INTERVAL=360;       #WRF output interval               IN MINUTES
- my $FC_INTERVAL=360;        #Interval between forecasts        IN MINUTES
+ my $OUT_INTERVAL=720;       #WRF output interval               IN MINUTES
+ my $FC_INTERVAL=720;        #Interval between forecasts        IN MINUTES
  my $GRIB_INTERVAL=6;        #WPS GRIB input interval           IN HOURS
                              # I'm so, so sorry about this part ^^^^^^^^^^ 
                              # but it's necessary due to WPS/WRF namelist conventions
@@ -65,35 +63,40 @@ use Getopt::Long;
  my $RUN_HOURS = 24;
  my $RUN_MINUTES = 0;
  my $NUM_DOMAINS = 1; #For NUM_DOMAINS > 1, be sure that the appropriate variables are all set for all domains below!
- my $WRF_DT = 240;
- my @WRF_DX = ( 60000, 1000 );
- my @WEST_EAST_GRID = ( 181, 61 );
- my @SOUTH_NORTH_GRID = ( 181, 51 );
+ my $WRF_DT = 360;
+ my @WRF_DX = ( 60000, 20000 );
+ my @WEST_EAST_GRID = ( 90, 220 );
+ my @SOUTH_NORTH_GRID = ( 60, 151 );
  my @VERTICAL_GRID = ( 41, 41 );
+ my @PARENT_GRID_RATIO = ( 1, 3 );
+ my @I_PARENT_START = ( 1, 71 );
+ my @J_PARENT_START = ( 1, 125 );
 # my $NL_ETA_LEVELS="1.000 0.9880 0.9765 0.9620 0.9440 0.9215 0.8945 0.8587 0.8161 0.7735 0.7309 0.6724 0.6010 0.5358 0.4763 0.4222 0.3730 0.3283 0.2878 0.2512 0.2182 0.1885 0.1619 0.1380 0.1166 0.0977 0.0808 0.0659 0.0528 0.0412 0.0312 0.0224 0.0148 0.0083 0.0026 0.0000";
 # my $NL_ETA_LEVELS="1.000000,0.998000,0.996000,0.994000,0.992000,0.990000,0.988100,0.981800,0.974000,0.966000,0.958000,0.952000,0.943400,0.920000,0.880000,0.840000,0.800000,0.760000,0.720000,0.680000,0.640000,0.600000,0.560000,0.520000,0.480000,0.440000,0.400000,0.360000,0.320000,0.280000,0.240000,0.200000,0.160000,0.140000,0.120000,0.100000,0.080000,0.060000,0.040000,0.020000,0.00000";
- my $MAP_PROJ="polar";
- my $REF_LAT=90.;    #AKA PHIC AKA CEN_LAT
- my $REF_LON=5.;     #AKA XLONC AKA CEN_LON
- my $STAND_LON=-175.;
- my $TRUELAT1=60.;
- my $TRUELAT2=60.;
+ my $MAP_PROJ="lambert";
+ my $REF_LAT=40.00001;    #AKA PHIC AKA CEN_LAT
+ my $REF_LON=-95.;     #AKA XLONC AKA CEN_LON
+ my $STAND_LON=-95.;
+ my $TRUELAT1=40.;
+ my $TRUELAT2=0.;
  my $POLE_LAT=90.;
  my $POLE_LON=0.;
 
 # WRF options
- my @MP_PHYSICS = ( 4, 8 );
- my @RA_LW_PHYSICS = ( 24, 4 );
- my @RA_SW_PHYSICS = ( 24, 4 );
- my @RADT = ( 15, 15 );
+ my @MP_PHYSICS = ( 3, 4 );
+ my @RA_LW_PHYSICS = ( 1, 24 );
+ my @RA_SW_PHYSICS = ( 1, 24 );
+ my $RADT = 60;
  my @SF_SFCLAY_PHYSICS = ( 1, 1);
- my @SF_SURFACE_PHYSICS = ( 2, 2);
+ my @SF_SURFACE_PHYSICS = ( 1, 2);
 
 # Job submission options
- my $MAX_JOBS = 10;
- my $NUM_PROCS = 16;
- my $JOBQUEUE = "caldera";
- my $PROJECT = "P64000510";
+ my $MAX_JOBS = 50;
+ my $NUM_PROCS = 64;
+ my $NUM_PROCS_REAL = 1;
+ my $JOBQUEUE = "regular";
+ my $JOBQUEUE_REAL = "caldera";
+ my $PROJECT = "P64000400";
 
 
 ############################################
@@ -101,8 +104,30 @@ use Getopt::Long;
 ############################################
 
 # Check there are no problem values
+ if (($NUM_PROCS_REAL > 16) and ($JOBQUEUE_REAL eq "caldera"))
+     { die "\nERROR ERROR ERROR\nCaldera queue has a max NUM_PROCS of 16\nYou specified NUM_PROCS_REAL = $NUM_PROCS_REAL\nERROR ERROR ERROR\n\n"};
  if (($NUM_PROCS > 16) and ($JOBQUEUE eq "caldera")) 
-     { die "\nERROR ERROR ERROR\nCaldera queue has a max NUM_PROCS of 16\nERROR ERROR ERROR\n\n"};
+     { die "\nERROR ERROR ERROR\nCaldera queue has a max NUM_PROCS of 16\nYou specified NUM_PROCS = $NUM_PROCS\nERROR ERROR ERROR\n\n"};
+
+# If old data exists, ask to overwrite
+ if (-d $Out_dir) {
+    my $go_on='';
+    print "$Out_dir already exists, do you want to overwrite?\a\n";
+    while ($go_on eq "") {
+       $go_on = <STDIN>;
+       chop($go_on);
+       if ($go_on =~ /N/i) {
+          die "Choose another value for \$Out_dir.\n";
+       } elsif ($go_on =~ /Y/i) {
+       } else {
+          print "Invalid input: ".$go_on;
+          $go_on='';
+       }
+    }
+ }
+
+ mkdir $Run_dir;
+ mkdir $Out_dir;
 
 # Remove old FAIL file if it exists
  unlink "FAIL";
@@ -119,9 +144,9 @@ use Getopt::Long;
  }
 
  sub current_jobs {
-    my $bjobs = `bjobs -q $JOBQUEUE`;
+    my $bjobs = `bjobs`;
     my $jobnum = $bjobs =~ tr/\n//;
-#    print "Currently $jobnum jobs are pending or running in $JOBQUEUE queue\n";
+#    print "Currently $jobnum jobs are pending or running\n";
     return $jobnum;
  }
 
@@ -215,9 +240,9 @@ use Getopt::Long;
     print NL "/\n";
     print NL "&geogrid\n";
     print NL " parent_id         =   1,   1,\n";
-    print NL " parent_grid_ratio =   1,   3,\n";
-    print NL " i_parent_start    =   1,  15,\n";
-    print NL " j_parent_start    =   1,  11,\n";
+    print NL " parent_grid_ratio =   $PARENT_GRID_RATIO[0],  $PARENT_GRID_RATIO[1],\n";
+    print NL " i_parent_start    =   $I_PARENT_START[0],  $I_PARENT_START[1],\n";
+    print NL " j_parent_start    =   $J_PARENT_START[0],  $J_PARENT_START[1],\n";
     print NL " e_we              =  $WEST_EAST_GRID[0], $WEST_EAST_GRID[1],\n";
     print NL " e_sn              =  $SOUTH_NORTH_GRID[0], $SOUTH_NORTH_GRID[1],\n";
     print NL " geog_data_res     = '2m','30s',\n";
@@ -251,28 +276,29 @@ use Getopt::Long;
     print NL " run_hours                = $RUN_HOURS,\n";
     print NL " run_minutes              = $RUN_MINUTES,\n";
     print NL " run_seconds              = 0,\n";
-    print NL " start_year               = $syear,\n";
-    print NL " start_month              = $smonth,\n";
-    print NL " start_day                = $sday,\n";
-    print NL " start_hour               = $shour,\n";
-    print NL " start_minute             = $smin,\n";
-    print NL " start_second             = $ssec,\n";
-    print NL " end_year                 = $eyear,\n";
-    print NL " end_month                = $emonth,\n";
-    print NL " end_day                  = $eday,\n";
-    print NL " end_hour                 = $ehour,\n";
-    print NL " end_minute               = $emin,\n";
-    print NL " end_second               = $esec,\n";
+    print NL " start_year               = $syear,$syear\n";
+    print NL " start_month              = $smonth,$smonth\n";
+    print NL " start_day                = $sday,$sday\n";
+    print NL " start_hour               = $shour,$shour\n";
+    print NL " start_minute             = $smin,$smin\n";
+    print NL " start_second             = $ssec,$ssec\n";
+    print NL " end_year                 = $eyear,$eyear\n";
+    print NL " end_month                = $emonth,$emonth\n";
+    print NL " end_day                  = $eday,$eday\n";
+    print NL " end_hour                 = $ehour,$ehour\n";
+    print NL " end_minute               = $emin,$emin\n";
+    print NL " end_second               = $esec,$esec\n";
     print NL " interval_seconds         = $METEM_INTERVAL,\n";
-    print NL " history_interval         = $OUT_INTERVAL,\n";
-    print NL " frames_per_outfile       = 1,\n";
+    print NL " history_interval         = $OUT_INTERVAL,$OUT_INTERVAL\n";
+    print NL " input_from_file          = .true.,.true.,.true.,\n";
+    print NL " frames_per_outfile       = 1,1,\n";
     print NL " restart                  = .false.,\n";
     print NL " restart_interval         = 500000,\n";
     print NL " debug_level              = 0,\n";
     print NL "/\n";
     print NL "&domains\n";
     print NL " time_step                = $WRF_DT,\n";
-    print NL " max_dom                  = 1,\n";
+    print NL " max_dom                  = $NUM_DOMAINS,\n";
     print NL " e_we                     = $WEST_EAST_GRID[0], $WEST_EAST_GRID[1],\n";
     print NL " e_sn                     = $SOUTH_NORTH_GRID[0], $SOUTH_NORTH_GRID[1],\n";
     print NL " e_vert                   = $VERTICAL_GRID[0], $VERTICAL_GRID[1],\n";
@@ -283,21 +309,21 @@ use Getopt::Long;
     print NL " p_top_requested          = 5000,\n";
     print NL " num_metgrid_levels       = 27,\n";
     print NL " num_metgrid_soil_levels  = 4,\n";
-    print NL " grid_id                  = 1,\n";
-    print NL " parent_id                = 0,\n";
-    print NL " i_parent_start           = 1,\n";
-    print NL " j_parent_start           = 1,\n";
-    print NL " parent_grid_ratio        = 1,\n";
-    print NL " parent_time_step_ratio   = 1,\n";
+    print NL " grid_id                  = 1, 2,\n";
+    print NL " parent_id                = 0, 1,\n";
+    print NL " i_parent_start           = $I_PARENT_START[0],  $I_PARENT_START[1],\n";
+    print NL " j_parent_start           = $J_PARENT_START[0],  $J_PARENT_START[1],\n";
+    print NL " parent_grid_ratio        = $PARENT_GRID_RATIO[0],  $PARENT_GRID_RATIO[1],\n";
+    print NL " parent_time_step_ratio   = $PARENT_GRID_RATIO[0],  $PARENT_GRID_RATIO[1],\n";
     print NL " feedback                 = 1,\n";
     print NL "/\n";
     print NL "&physics\n";
-    print NL " mp_physics               = $MP_PHYSICS[0],\n";
-    print NL " ra_lw_physics            = $RA_LW_PHYSICS[0],\n";
-    print NL " ra_sw_physics            = $RA_SW_PHYSICS[0],\n";
-    print NL " radt                     = $RADT[0],\n";
-    print NL " sf_sfclay_physics        = $SF_SFCLAY_PHYSICS[0],\n";
-    print NL " sf_surface_physics       = $SF_SURFACE_PHYSICS[0],\n";
+    print NL " mp_physics               = $MP_PHYSICS[0], $MP_PHYSICS[1],\n";
+    print NL " ra_lw_physics            = $RA_LW_PHYSICS[0], $RA_LW_PHYSICS[1],\n";
+    print NL " ra_sw_physics            = $RA_SW_PHYSICS[0], $RA_SW_PHYSICS[1],\n";
+    print NL " radt                     = $RADT, $RADT,\n";
+    print NL " sf_sfclay_physics        = $SF_SFCLAY_PHYSICS[0], $SF_SFCLAY_PHYSICS[1],\n";
+    print NL " sf_surface_physics       = $SF_SURFACE_PHYSICS[0], $SF_SURFACE_PHYSICS[1],\n";
     print NL " bl_pbl_physics           = 1,\n";
     print NL " bldt                     = 0,\n";
     print NL " cu_physics               = 1,\n";
@@ -329,8 +355,8 @@ use Getopt::Long;
     print NL " spec_bdy_width           = 5,\n";
     print NL " spec_zone                = 1,\n";
     print NL " relax_zone               = 4,\n";
-    print NL " specified                = .true.,\n";
-    print NL " nested                   = .false.,\n";
+    print NL " specified                = .true., .false.,.false.,\n";
+    print NL " nested                   = .false., .true., .true.,\n";
     print NL "/\n";
     print NL "&namelist_quilt\n";
     print NL " nio_tasks_per_group      = 0,\n";
@@ -349,7 +375,7 @@ use Getopt::Long;
        my $fnlhour  = substr("$fnl_date", 11, 2);
        
        my @fnl_file = glob("$GRIB_dir/fnl_$fnlyear$fnlmonth$fnlday\_$fnlhour*");
-       symlink $fnl_file[0], "fnl_$fnlyear$fnlmonth$fnlday\_$fnlhour" or die "Cannot symlink $_ to local directory: $!\n";
+       symlink $fnl_file[0], "fnl_$fnlyear$fnlmonth$fnlday\_$fnlhour" or warn "Cannot symlink $_ to local directory: $!\n";
 
        $fnl_date = `$Script_dir/da_advance_time.exe $fnl_date ${GRIB_INTERVAL}h -w`;
        chomp ($fnl_date);
@@ -384,7 +410,7 @@ use Getopt::Long;
     close FH ;
 
     $job_feedback = ` bsub < run_wps.csh `;
-    print "Job feedback = $job_feedback\n";
+    print "$job_feedback\n";
     if ($job_feedback =~ m/.*<(\d+)>/) {
        $jobid = $1;
     } else {
@@ -400,15 +426,17 @@ use Getopt::Long;
     print FH "# LSF batch script\n";
     print FH "# Automatically generated by $0\n";
     print FH "#BSUB -J ${syear}-${smonth}-${sday}-${shour}zREAL\n";
-    print FH "#BSUB -q $JOBQUEUE\n";
-    print FH "#BSUB -n $NUM_PROCS\n";
+    print FH "#BSUB -q $JOBQUEUE_REAL\n";
+    print FH "#BSUB -n $NUM_PROCS_REAL\n";
     print FH "#BSUB -o run_real.output"."\n";
     print FH "#BSUB -e run_real.error"."\n";
     print FH "#BSUB -W 10"."\n";
     print FH "#BSUB -P $PROJECT\n";
-    printf FH "#BSUB -R span[ptile=%d]"."\n", ($NUM_PROCS < 16 ) ? $NUM_PROCS : 16;
+    printf FH "#BSUB -R span[ptile=%d]"."\n", ($NUM_PROCS_REAL < 16 ) ? $NUM_PROCS_REAL : 16;
     print FH "\n"; #End of BSUB commands; add newline for readability
-    print FH "unsetenv MP_PE_AFFINITY\n";  # Include this line to avoid caldera problems. CISL-recommended kludge *sigh*
+    if ( $JOBQUEUE_REAL =~ "caldera") {
+       print FH "unsetenv MP_PE_AFFINITY\n";  # Include this line to avoid caldera problems. CISL-recommended kludge *sigh*
+    }
     print FH "mpirun.lsf ./real.exe\n";
     print FH "if ( (!(-e 'wrfinput_d01')) && (!(-e '$Script_dir/FAIL')) ) then\n";
     print FH "   echo 'real.exe failure in $Run_dir/$fcst_date' > $Script_dir/FAIL\n";
@@ -416,6 +444,7 @@ use Getopt::Long;
     close FH ;
 
     $job_feedback = ` bsub -w "ended($jobid)" < run_real.csh `;
+    print "$job_feedback\n";
     if ($job_feedback =~ m/.*<(\d+)>/) {
        $jobid = $1;
     } else {
@@ -439,7 +468,9 @@ use Getopt::Long;
     print FH "#BSUB -P $PROJECT\n";
     printf FH "#BSUB -R span[ptile=%d]"."\n", ($NUM_PROCS < 16 ) ? $NUM_PROCS : 16;
     print FH "\n"; #End of BSUB commands; add newline for readability
-    print FH "unsetenv MP_PE_AFFINITY\n";  # Include this line to avoid caldera problems. CISL-recommended kludge *sigh*
+    if ( $JOBQUEUE =~ "caldera") {
+       print FH "unsetenv MP_PE_AFFINITY\n";  # Include this line to avoid caldera problems. CISL-recommended kludge *sigh*
+    }
     print FH "mkdir real_rsl\n";
     print FH "mv rsl* real_rsl/\n";
     print FH "mpirun.lsf ./wrf.exe\n";
@@ -447,11 +478,12 @@ use Getopt::Long;
     print FH "   echo 'WRF failure in $Run_dir/$fcst_date' > $Script_dir/FAIL\n";
     print FH "endif\n";
     print FH "mkdir -p $Out_dir/$fcst_dirname\n";
-    print FH "cp $Run_dir/$fcst_date/wrfout_d0* $Out_dir/$fcst_dirname/\n";
+    print FH "\\cp $Run_dir/$fcst_date/wrfout_d0* $Out_dir/$fcst_dirname/\n";
     close FH ;
 
 
     $job_feedback = ` bsub -w "ended($jobid)" < run_wrf.csh`;
+    print "$job_feedback\n";
     if ($job_feedback =~ m/.*<(\d+)>/) {
        $jobid = $1;
     } else {
