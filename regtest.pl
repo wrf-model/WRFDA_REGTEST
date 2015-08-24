@@ -1214,9 +1214,12 @@ print SENDMAIL "<body>";
 print SENDMAIL "<p>";
 print SENDMAIL $Start_time."<br>";
 print SENDMAIL "Source: ",$Source."<br>";
+if ( $Source eq "REPO" ) {
+    print SENDMAIL '<li>'."Repository location : $CODE_REPO".'</li>'."\n";
+}
 print SENDMAIL "Revision: ",$Revision."<br>";
 if ( $WRFPLUS_Revision ne "NONE" ) {
-print SENDMAIL "WRFPLUS Revision: ",$WRFPLUS_Revision."<br>";
+    print SENDMAIL "WRFPLUS Revision: ",$WRFPLUS_Revision."<br>";
 }
 print SENDMAIL "Tester: ",$Tester."<br>";
 print SENDMAIL "Machine name: ",$Host."<br>";
@@ -1254,7 +1257,9 @@ sub create_webpage {
     print WEBH '<ul>'."\n";
     print WEBH '<li>'.$Start_time.'</li>'."\n";
     print WEBH '<li>'."Source : $Source".'</li>'."\n";
-    print WEBH '<li>'."Revision : $Revision".'</li>'."\n";
+if ( $Source eq "REPO" ) {
+    print WEBH '<li>'."Repository location : $CODE_REPO".'</li>'."\n";
+}
 if ( $WRFPLUS_Revision ne "NONE" ) {
     print WEBH '<li>'."WRFPLUS Revision : $WRFPLUS_Revision".'</li>'."\n";
 }
@@ -2041,10 +2046,12 @@ sub new_job_ys {
          # Third: Use our updated wrfinput and wrfbdy to run a forecast
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRF";
          chdir "../WRF" or warn "Cannot chdir to '../WRF': $!\n";
+
          my @wrf_commands;
-         $wrf_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "$MainDir/WRFV3_$com/main/wrf.exe\n" :
-             "mpirun.lsf $MainDir/WRFV3_$com/main/wrf.exe\n";
+         $wrf_commands[0] = "ln -sf $MainDir/WRFV3_$com/run/*.TBL .\n";
+         $wrf_commands[1] = "ln -sf $MainDir/WRFV3_$com/run/RRTM*DATA .\n";
+         $wrf_commands[2] = "ln -sf $MainDir/WRFV3_$com/run/ozone* .\n";
+         $wrf_commands[3] = ($par eq 'serial' || $par eq 'smpar') ? "$MainDir/WRFV3_$com/main/wrf.exe\n" : "mpirun.lsf $MainDir/WRFV3_$com/main/wrf.exe\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @wrf_commands );
@@ -2085,7 +2092,7 @@ sub new_job_ys {
          $low_bc_commands[2] = "$MainDir/WRFDA_3DVAR_$par/var/build/da_update_bc.exe\n";
          $low_bc_commands[3] = 'if ( ! -e "fg") then'."\n";
          $low_bc_commands[4] = "cat > FAIL << EOF\n";
-         $low_bc_commands[5] = "$Experiments{$nam}{paropt}{$par}{job}{$h}{jobname}\n";
+         $low_bc_commands[5] = "$Experiments{$nam}{paropt}{$par}{job}{$h}{jobname}\n"; #Remember that "h" is the previous job
          $low_bc_commands[6] = "EOF\n";
          $low_bc_commands[7] = "endif\n";
 
@@ -2338,6 +2345,7 @@ sub submit_job {
 
 sub submit_job_ys {
 
+$count = 0;
     while ($remain_exps > 0) {    # cycling until no more experiments remain
 
          #This first loop submits all parallel jobs
@@ -2409,7 +2417,7 @@ sub submit_job_ys {
                        $i ++; #This job has already been completed and checked, go to next
                        next;
                     } elsif ($Experiments{$name}{paropt}{$par}{job}{$i}{status} eq "running" || $Experiments{$name}{paropt}{$par}{job}{$i}{status} eq "pending") {
-                       #Note about above if statement: it's possible that a job could be completed before we even see it in the "running" state, 
+                       #Note about above if statement: it's possible that a fast job could be completed before we even see it in the "running" state, 
                        # which is why "pending" is included in the above elsif statement
                        $Experiments{$name}{paropt}{$par}{started} = 0;
                        printf "%-10s job for %-30s,%8s was completed in %5d seconds. \n", 
@@ -2417,9 +2425,19 @@ sub submit_job_ys {
                             $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{walltime};
                        if ( -e "$name/FAIL" ) {
                           $Experiments{$name}{paropt}{$par}{status} = "error";
-                          $Experiments{$name}{paropt}{$par}{result} = "$Experiments{$name}{paropt}{$par}{job}{$i}{jobname} error";
+                          my $readFAIL;
+                          if (open(my $FAILfile, '<:encoding(UTF-8)', "$name/FAIL")) {
+                             $readFAIL = <$FAILfile>;
+                             chomp $readFAIL;
+                             print "READING:$readFAIL\n";
+                             close $FAILfile;
+                             $Experiments{$name}{paropt}{$par}{result} = "$readFAIL error";
+                          } else {
+                             warn "Could not open file '$name/FAIL' $!";
+                             $Experiments{$name}{paropt}{$par}{result} = "Mysterious error";
+                          }
                           $Experiments{$name}{paropt}{$par}{job}{$i}{status} = "error";
-                          $remain_par{$name} -- ;                   # We got an error, so, this parallelism for this test is done
+                          $remain_par{$name} -- ;                   # We got an error, so this parallelism for this test is done
                           my $j = $i + 1;
                           while ( exists $Experiments{$name}{paropt}{$par}{job}{$j}) { # Kill the rest of the jobs
                              $Experiments{$name}{paropt}{$par}{job}{$j}{status} = "--";
@@ -2454,6 +2472,8 @@ sub submit_job_ys {
                              }
 
                           }
+                       } else {
+                          $Experiments{$name}{paropt}{$par}{status} = "done"; # If the job finished too quickly, it might still be "pending"; don't want that!
                        }
                     last;
                     } else {
@@ -2468,7 +2488,7 @@ sub submit_job_ys {
                     next;
                  } else {
                     unless ($Experiments{$name}{paropt}{$par}{status} eq "error") { #These steps are unnecessary if we've already determined there's an error
-                       next if ($Experiments{$name}{paropt}{$par}{todo}); #If there is more to do, need to call &new_job_ys again
+#                       next if ($Experiments{$name}{paropt}{$par}{todo}); #If there is more to do, need to call &new_job_ys again
                                                                           # THIS SHOULD BE DEPRECIATED, the current system should not need "todo"
                        $remain_par{$name} -- ;                            # If we got to this point, this parallelism for this test is done
                        $Experiments{$name}{paropt}{$par}{status} = "done";
@@ -2497,7 +2517,28 @@ sub submit_job_ys {
 
          }
          sleep (2.);
+         $count ++;
 
+         if ($count > 300) {
+            print "\nOne or more tests are taking longer than expected, do you want to keep waiting?\a\n";
+            my $go = ''; 
+            while ($go eq "") {
+               $go = <STDIN>;
+               chop($go);
+               if ($go =~ /N/i) {
+                  print "Exiting test\n";
+                  print Dumper(%Experiments);
+                  return;
+               } elsif ($go =~ /Y/i) {
+                  $count = $count - 60;
+                  &flush_status ();
+               } else {
+                  print "Invalid input: ".$go;
+                  $go='';
+               }
+            }
+            
+         }
     }
 
 }
