@@ -146,6 +146,7 @@ my $diffwrfdir = "";
 my $missvars;
 my @gtsfiles;
 my @childs;
+my @exefiles;
 my %Experiments ;
 my $cmd='';
 #   Sample %Experiments Structure: #####################
@@ -728,22 +729,23 @@ if ($Type =~ /4DVAR/i) {
 
             # Check if the compilation is successful:
 
-            my @exefiles = glob ("var/build/*.exe");
+            @exefiles = &check_executables;
 
-            if (@exefiles < 42) {
-               print "The number of exe files is less than 42. \n";
-               exit 2;
+            if (@exefiles) {
+               print "\nThe following executables were not created for 4DVAR, $par_type: check your compilation log.\n";
+               foreach ( @exefiles ) {
+                  print "  $_\n";
+               }
+               exit 2
             }
 
-            foreach ( @exefiles ) {
-               warn "The exe file $_ has problem. \n" unless -s ;
-            }
-
-            # Rename the executables:
+            # Rename the main executable:
             if (! rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options_4dvar{$option}") {
                print "Program da_wrfvar.exe not created for 4DVAR, $par_type: check your compilation log.\n";
                exit 3;
             }
+
+            # Check other executables for failures
 
             printf "\nCompilation of WRFDA_4DVAR_$par_type with %10s compiler for %6s was successful.\nCompilation took %4d seconds.\n",
                  $Compiler, $Compile_options_4dvar{$option}, ($end_time - $begin_time);
@@ -981,18 +983,17 @@ if ($Type =~ /3DVAR/i) {
 
                # Check if the compilation is successful:
 
-               my @exefiles = glob ("var/build/*.exe");
+               @exefiles = &check_executables;
 
-               if (@exefiles < 42) {
-                  print "The number of exe files is less than 42. \n";
-                  exit 2;
-               }
-
-               foreach ( @exefiles ) {
-                  warn "The exe file $_ has problem. \n" unless -s ;
+               if (@exefiles) {
+                  print "\nThe following executables were not created for 3DVAR, $par_type: check your compilation log.\n";
+                  foreach ( @exefiles ) {
+                     print "  $_\n";
+                  }
+                  exit 2
                }
      
-               # Rename the executables:
+               # Rename the main executable:
                if (! rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}") {
                   print "Program da_wrfvar.exe not created for 3DVAR, $par_type: check your compilation log.\n";
                   exit 3;
@@ -1065,7 +1066,18 @@ while ( @compile_job_list ) {
       my @details = split /_/, $compile_job_array{$jobnum};
       copy( "WRFDA_$compile_job_array{$jobnum}/compile.log.$details[1]", "regtest_compile_logs/$year$mon$mday/compile_$details[1].log.$details[0]_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\nWRFDA_$compile_job_array{$jobnum}/compile.log.$details[1]\nregtest_compile_logs/$year$mon$mday/compile_$details[1].log.$details[0]_$Compiler\_$hour:$min:$sec";
 
-      rename "WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe","WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]" or die "Program da_wrfvar.exe not created for $details[0], $details[1]: check your compilation log.\n";
+      # Check that all executables were created
+      @exefiles = &check_executables("WRFDA_$compile_job_array{$jobnum}");
+
+      if (@exefiles) {
+         print "\nThe following executables were not created for $details[0], $details[1]: check your compilation log.\n";
+         foreach ( @exefiles ) {
+            print "  $_\n";
+         }
+         die "Exiting $0\n";
+      }
+
+      rename "WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe","WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]" or die "\nSERIOUS ERROR\nSERIOUS ERROR\nHow on earth did you even get here? The script should have already failed if the main executable doesn't exist!\nProgram da_wrfvar.exe not created for $details[0], $details[1]: check your compilation log.\n";
 
       # Delete job from list of active jobs
       splice (@temparray,$i,1);
@@ -1660,7 +1672,7 @@ sub create_ys_job_script {
     printf FH "#BSUB -n %-3d"."\n",($jobpar eq 'dmpar' || $jobpar eq 'dm+sm') ? $jobcores: 1;
     print FH "#BSUB -o job_${jobname}_${jobtype}_${jobpar}.output"."\n";
     print FH "#BSUB -e job_${jobname}_${jobtype}_${jobpar}.error"."\n";
-    print FH "#BSUB -W 30"."\n";
+    printf FH "#BSUB -W %d"."\n", ($Debug > 0) ? (($jobpar eq 'dmpar' || $jobpar eq 'dm+sm') ? 30: 60) : 15;
     print FH "#BSUB -P $jobproj"."\n";
     # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
     printf FH "#BSUB -R span[ptile=%d]"."\n", ($jobpar eq 'serial' || $jobpar eq 'smpar') ? 1 : (($jobcores < 16 ) ? $jobcores : 16);
@@ -2519,7 +2531,7 @@ $count = 0;
          sleep (2.);
          $count ++;
 
-         if ($count > 300) {
+         if ($count > (300*($Debug + 1))) { #The "$Debug" logic is because a higher debug level will cause longer test run times
             print "\nOne or more tests are taking longer than expected, do you want to keep waiting?\a\n";
             my $go = ''; 
             while ($go eq "") {
@@ -2530,7 +2542,7 @@ $count = 0;
                   print Dumper(%Experiments);
                   return;
                } elsif ($go =~ /Y/i) {
-                  $count = $count - 60;
+                  $count = $count - 60*($Debug + 1);
                   &flush_status ();
                } else {
                   print "Invalid input: ".$go;
@@ -2541,6 +2553,74 @@ $count = 0;
          }
     }
 
+}
+
+
+sub check_executables {
+    my ($dirname) = @_;
+    my @badfiles;
+    #Unless dirname is specified, set current working directory
+    unless ($dirname) {
+       $dirname = `pwd`;
+       chomp ($dirname);
+    }
+    unless (-d $dirname) {die "\n$dirname does not exist or is not a directory!\nYou have done something terribly wrong!\n"};
+    my @checkfiles  = qw(
+       var/build/da_advance_time.exe
+       var/build/da_bias_airmass.exe
+       var/build/da_bias_scan.exe
+       var/build/da_bias_sele.exe
+       var/build/da_bias_verif.exe
+       var/build/da_rad_diags.exe
+       var/build/da_tune_obs_desroziers.exe
+       var/build/da_tune_obs_hollingsworth1.exe
+       var/build/da_tune_obs_hollingsworth2.exe
+       var/build/da_update_bc_ad.exe
+       var/build/da_update_bc.exe
+       var/build/da_verif_grid.exe
+       var/build/da_verif_obs.exe
+       var/build/da_wrfvar.exe
+       var/build/gen_be_addmean.exe
+       var/build/gen_be_cov2d3d_contrib.exe
+       var/build/gen_be_cov2d.exe
+       var/build/gen_be_cov3d2d_contrib.exe
+       var/build/gen_be_cov3d3d_bin3d_contrib.exe
+       var/build/gen_be_cov3d3d_contrib.exe
+       var/build/gen_be_cov3d.exe
+       var/build/gen_be_diags.exe
+       var/build/gen_be_diags_read.exe
+       var/build/gen_be_ensmean.exe
+       var/build/gen_be_ensrf.exe
+       var/build/gen_be_ep1.exe
+       var/build/gen_be_ep2.exe
+       var/build/gen_be_etkf.exe
+       var/build/gen_be_hist.exe
+       var/build/gen_be_stage0_gsi.exe
+       var/build/gen_be_stage0_wrf.exe
+       var/build/gen_be_stage1_1dvar.exe
+       var/build/gen_be_stage1.exe
+       var/build/gen_be_stage1_gsi.exe
+       var/build/gen_be_stage2_1dvar.exe
+       var/build/gen_be_stage2a.exe
+       var/build/gen_be_stage2.exe
+       var/build/gen_be_stage2_gsi.exe
+       var/build/gen_be_stage3.exe
+       var/build/gen_be_stage4_global.exe
+       var/build/gen_be_stage4_regional.exe
+       var/build/gen_be_vertloc.exe
+       var/build/gen_mbe_stage2.exe
+       var/obsproc/src/obsproc.exe
+    );
+    my $i = 0;
+    my $filename;
+    foreach (@checkfiles) {
+       $filename="$dirname/$_";
+       unless (-s $filename) {
+          $badfiles[$i] = $_;
+          $i++;
+       }
+    }
+    return @badfiles;
 }
 
 
