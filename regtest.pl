@@ -388,6 +388,8 @@ printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{
 
 die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" unless (keys %Experiments) > 0 ; 
 
+sleep 2; #Pause to let user see list
+
 
 # Set paths to necessary utilities, set BUFR read ENV variables if needed
 
@@ -453,6 +455,7 @@ $ENV{BUFR}='1';
           } else {
               print "$RTTOV_dir DOES NOT EXIST\n";
               print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
+              $RTTOV_dir = undef;
           }
 
       } else { # Loblolly
@@ -463,6 +466,7 @@ $ENV{BUFR}='1';
           } else {
               print "$RTTOV_dir DOES NOT EXIST\n";
               print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
+              $RTTOV_dir = undef;
           }
 
       }
@@ -486,18 +490,34 @@ $ENV{BUFR}='1';
       } else {
           print "$RTTOV_dir DOES NOT EXIST\n";
           print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
+          $RTTOV_dir = undef;
       }
   }
 
 #For cycle jobs, WRF must exist. Will add capability to compile WRF in the near future
   if ($Type =~ /CYCLING/i) {
-      if (-d "$MainDir/WRFV3_$Compiler") {
-          print "Will use WRF code in $MainDir/WRFV3_$Compiler for CYCLING test\n";
-      } else {
-          print "\n$MainDir/WRFV3_$Compiler DOES NOT EXIST\n";
-          print "\nCYCLING TEST WILL FAIL!!\n";
-      }
+     if (-d "$MainDir/WRFV3_$Compiler") {
+        print "Will use WRF code in $MainDir/WRFV3_$Compiler for CYCLING test\n";
+     } else {
+        print "\n$MainDir/WRFV3_$Compiler DOES NOT EXIST\n";
+        print "Removing cycling tests...\n\n";
+        foreach my $name (keys %Experiments) {
+           foreach my $type ($Experiments{$name}{test_type}) {
+              if ($type =~ /CYCLING/i) {
+                 delete $Experiments{$name};
+                 print "Deleting Cycling experiment $name from test list.\n\n";
+                 next ;
+              }
+           }
+        }
+        printf "\nNew list of experiments : \n";
+        printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
+        printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
+             $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
+                 keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
+        sleep 2; #Pause to let user see new list
 
+     }
   }
 
 
@@ -527,6 +547,12 @@ if ($Type =~ /4DVAR/i) {
                 }
             }
         }
+    printf "\nNew list of experiments : \n";
+    printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
+    printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
+         $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
+             keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
+    sleep 2; #Pause to let user see new list
     }
 }
 
@@ -1377,9 +1403,9 @@ if ( $Machine_name eq "yellowstone" ) {
        my $numexp= scalar keys %Experiments;
        $go_on='';
 
-       if ( $numexp < 26 ) {
+       if ( $numexp < 28 ) {
           $scp_warn ++;
-          print "This run only includes $numexp of 26 tests, are you sure you want to upload?\a\n";
+          print "This run only includes $numexp of 28 tests, are you sure you want to upload?\a\n";
 
           while ($go_on eq "") {
              $go_on = <STDIN>;
