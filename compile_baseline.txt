@@ -28,5 +28,29 @@ Job 3DVAR_dmpar (job number 198771) is finished!
 Job 4DVAR_dmpar (job number 198774) is finished!                                                                                             
  It took 849 seconds                                                                                                                         
 
+=========================================
+--------------- LOBLOLLY ----------------
+=========================================
 
+j=4; Version 3.7, gfortran 4.9.2
+---------------------
+Compilation of WRFDA_3DVAR_serial with   gfortran compiler for serial was successful.
+Compilation took  626 seconds.
+
+Compilation of WRFDA_3DVAR_dmpar with   gfortran compiler for  dmpar was successful.
+Compilation took  660 seconds.
+
+Compilation of WRFDA_4DVAR_dmpar with   gfortran compiler for  dmpar was successful.
+Compilation took  774 seconds.
+
+j=4; Version 3.7, ifort 15.0.1
+---------------------
+Compilation of WRFDA_3DVAR_serial with      ifort compiler for serial was successful.
+Compilation took 1557 seconds.
+
+Compilation of WRFDA_3DVAR_dmpar with      ifort compiler for  dmpar was successful.
+Compilation took 1667 seconds.
+
+Compilation of WRFDA_4DVAR_dmpar with      ifort compiler for  dmpar was successful.
+Compilation took 1878 seconds.
 

@@ -1208,7 +1208,6 @@ foreach my $name (keys %Experiments) {
        $Experiments{$name}{paropt}{$par}{status} = "pending";
        $Experiments{$name}{paropt}{$par}{result} = "--";
        $Experiments{$name}{paropt}{$par}{walltime} = 0;
-       $Experiments{$name}{paropt}{$par}{todo} = $Experiments{$name}{test_type};
        $Experiments{$name}{paropt}{$par}{started} = 0;
     } 
  } 
@@ -1532,68 +1531,96 @@ sub new_job {
      
      my ($nam, $com, $par, $cpun, $cpum, $types) = @_;
 
+     my $feedback;
+     my $starttime;
+     my $endtime;
+     my $h;
+     my $i = 1; #jobnum loop counter
+
      # Enter into the experiment working directory:
 
      chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
      if ($types =~ /OBSPROC/i) {
          $types =~ s/OBSPROC//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
+
+         while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+            $i ++;
+         }
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "OBSPROC";
 
          print "Running OBSPROC for $par job '$nam'\n";
 
+         $starttime = gettimeofday();
          $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
          ! system($cmd) or die "Execution of obsproc failed: $!";
+         $endtime = gettimeofday();
 
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime} 
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          @gtsfiles = glob ("obs_gts_*.3DVAR");
          if (defined $gtsfiles[0]) {
-             copy("$gtsfiles[0]","ob.ascii") or die "YOU HAVE COMMITTED AN OFFENSE! $!";
-             printf "OBSPROC complete\n";
+            copy("$gtsfiles[0]","ob.ascii") or die "YOU HAVE COMMITTED AN OFFENSE! $!";
+            printf "OBSPROC complete\n";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
-             chdir "..";
-             return "OBSPROC_FAIL";
+            chdir "..";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+            return "OBSPROC_FAIL";
          }
      }
 
 
      if ($types =~ /GENBE/i) {
          $types =~ s/GENBE//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
+         while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+            $i ++;
+         }
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "GENBE";
 
-         if (-e "be.dat") {
-            print "'be.dat' already exists, skipping GEN_BE step\n";
+         print "Running GEN_BE for $par job '$nam'\n";
+
+         # Unpack forecasts tar file.
+         ! system("tar -xf forecasts.tar")or die "Can't untar forecasts file: $!\n";
+
+         # We need the script to see where the WRFDA directory is. See gen_be_wrapper.ksh in test directory
+         $ENV{REGTEST_WRFDA_DIR}="$MainDir/WRFDA_3DVAR_$par";
+
+         $starttime = gettimeofday();
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
+         $cmd="./gen_be_wrapper.ksh 1>gen_be.out  2>gen_be.out";
+         system($cmd);
+         $endtime = gettimeofday();
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         if (-e "gen_be_run/SUCCESS") {
+            copy("gen_be_run/be.dat","be.dat") or die "Cannot copy be.dat: $!";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
-
-            print "Running GEN_BE for $par job '$nam'\n";
-
-            # Unpack forecasts tar file.
-            ! system("tar -xf forecasts.tar")or die "Can't untar forecasts file: $!\n";
-
-            # We need the script to see where the WRFDA directory is. See gen_be_wrapper.ksh in test directory
-            $ENV{REGTEST_WRFDA_DIR}="$MainDir/WRFDA_3DVAR_$par";
-
-            $cmd="./gen_be_wrapper.ksh 1>gen_be.out  2>gen_be.out";
-            system($cmd);
-
-            if (-e "gen_be_run/SUCCESS") {
-               copy("gen_be_run/be.dat","be.dat") or die "Cannot copy be.dat: $!";
-            } else {
-               chdir "..";
-               return "GENBE_FAIL";
-            }
-
+            chdir "..";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+            return "GENBE_FAIL";
          }
      }
 
      if ($types =~ /3DVAR/i) {
          if ($types =~ /VARBC/i) {
              $types =~ s/VARBC//i;
-             $Experiments{$nam}{paropt}{$par}{todo} = $types;
+
+             while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+                $i ++;
+             }
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VARBC";
 
              # Submit the first job for VARBC:
 
              print "Starting VARBC 3DVAR $par job '$nam'\n";
 
+             $starttime = gettimeofday();
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
              if ($par=~/dm/i) {
                  $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
                  system($cmd);
@@ -1601,24 +1628,35 @@ sub new_job {
                  $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
                  system($cmd);
              }
+             $endtime = gettimeofday();
 
-             mkpath('varbc_run_1') or die "Mkdir failed: $!";
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+             $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                           + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+             mkpath('varbc_run_1') or die "mkdir failed: $!";
              unless ( -e "wrfvar_output") {
                  chdir "..";
+                 $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
                  return "VARBC_FAIL";
              }
              system('mv statistics rsl* wrfvar_output varbc_run_1/');
              unlink 'VARBC.in';
              move('VARBC.out','VARBC.in') or die "Move failed: $!";
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          }
 
          $types =~ s/3DVAR//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
          # Submit the 3DVAR job:
+         while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+            $i ++;
+         }
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "3DVAR";
 
          print "Starting 3DVAR $par job '$nam'\n";
 
+         $starttime = gettimeofday();
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          if ($par=~/dm/i) { 
              $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
              system($cmd);
@@ -1626,8 +1664,18 @@ sub new_job {
              $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler"; 
              system($cmd);
          }
+         $endtime = gettimeofday();
     
          rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         if ( -e "wrfvar_output") {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         } else {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+         }
     
          # Back to the upper directory:
 
@@ -1637,9 +1685,14 @@ sub new_job {
 
      } elsif ($types =~ /FGAT/i) {
          $types =~ s/FGAT//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
+         while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+            $i ++;
+         }
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "FGAT";
 
+         $starttime = gettimeofday();
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          if ($par=~/dm/i) {
              $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
              system($cmd);
@@ -1647,19 +1700,194 @@ sub new_job {
              $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
              system($cmd);
          }
+         $endtime = gettimeofday();
          rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
 
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         if ( -e "wrfvar_output") {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         } else {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+         }
          # Back to the upper directory:
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
          return 1;
 
+
+     } elsif ($types =~ /CYCLING/i) {
+         $types =~ s/CYCLING//i;
+
+         # Cycling jobs need some extra variables. You'll see why if you read on
+         my $job_feedback;
+
+         # For cycling jobs, after first 3DVAR run, we run UPDATEBC for lateral BC, then WRF,
+         # then UPDATEBC for lower BC, then 3DVAR again at next time.
+         # The output of the NEXT 3DVAR run is the one that will be checked against the baseline.
+
+         while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+            $i ++;
+         }
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_init";
+
+         # Cycling experiments are set up so that the first two steps are run in their own directories: WRFDA_init and WRF
+         # The data for each of these is contained in a tar file (cycle_data.tar) to avoid overwriting original data
+
+         my $tarstatus = system("tar", "xf", "cycle_data.tar");
+         unless ($tarstatus == 0) {
+            print "Problem opening cycle_data.tar; $!\nTest probably not set up correctly\n";
+            return undef;
+         }
+
+         # First: run initial 3DVAR job
+
+         chdir "WRFDA_init" or warn "Cannot chdir to 'WRFDA_init': $!\n";
+
+         $starttime = gettimeofday();
+         if ($par=~/dm/i) {
+             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+             system($cmd);
+         } else {
+             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>WRFDA.out.$nam.$par 2>WRFDA.out.$nam.$par";
+             system($cmd);
+         }
+         $endtime = gettimeofday();
+         rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         if ( -e "wrfvar_output") {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         } else {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+             chdir "../.." or die "Cannot chdir to ../.. : $!\n";
+             return 1;
+         }
+         $i++;
+
+         # Second: run da_update_bc.exe to update lateral boundary conditions before WRF run. This is done in the WRFDA_init directory
+
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UPDATE_BC_LAT";
+         $starttime = gettimeofday();
+         copy( "wrfbdy_d01.orig", "wrfbdy_d01" );
+         $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_update_bc.exe 1>update_bc.out.$nam.$par 2>update_bc.out.$nam.$par";
+         system($cmd);
+         copy( "wrfbdy_d01", "../WRF/wrfbdy_d01" );
+         copy( "wrfvar_output", "../WRF/wrfinput_d01" );
+         $endtime = gettimeofday();
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         $i++;
+
+         # Third: Use our updated wrfinput and wrfbdy to run a forecast
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRF";
+         chdir "../WRF" or warn "Cannot chdir to '../WRF': $!\n";
+         $starttime = gettimeofday();
+         system("ln -sf $MainDir/WRFV3_$com/run/*.TBL .");      #Linking the necessary WRF accessory files
+         system("ln -sf $MainDir/WRFV3_$com/run/RRTM*DATA .");
+         system("ln -sf $MainDir/WRFV3_$com/run/ozone* .");
+         if ($par=~/dm/i) {
+             $cmd= "mpirun -np $cpun $MainDir/WRFV3_$com/main/wrf.exe 1>/dev/null 2>/dev/null";
+             system($cmd);
+         } else {
+             $cmd="$MainDir/WRFV3_$com/main/wrf.exe 1>WRF.out.$nam.$par 2>WRF.out.$nam.$par";
+             system($cmd);
+         }
+         $endtime = gettimeofday();
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         my @wrfout = glob("wrfout*");
+         if ( @wrfout) {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         } else {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+             my $wd = `pwd`;
+             chomp($wd);
+             print "\nWD: $wd\n";
+             chdir "../.." or die "Cannot chdir to ../.. : $!\n";
+             $wd = `pwd`;
+             chomp($wd);
+             print "\nWD: $wd\n";
+             return 1;
+         }
+         $i++;
+         
+         #Link new fg file
+         symlink ($wrfout[-1],"fg");
+
+         # Fourth: run da_update_bc.exe to update lower boundary conditions before 2nd WRFDA run
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UPDATE_BC_LOW";
+         chdir ".." or warn "Cannot chdir to '..': $!\n";
+
+         #Link new fg file
+         symlink ("WRF/".$wrfout[-1],"fg");
+
+         $starttime = gettimeofday();
+         $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_update_bc.exe 1>update_bc.out.$nam.$par 2>update_bc.out.$nam.$par";
+         system($cmd);
+         $endtime = gettimeofday();
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         $i++;
+
+
+         #Fifth and lastly, run 3dvar again
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_final";
+
+         $starttime = gettimeofday();
+         if ($par=~/dm/i) {
+             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+             system($cmd);
+         } else {
+             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>WRFDA.out.$nam.$par 2>WRFDA.out.$nam.$par";
+             system($cmd);
+         }
+         $endtime = gettimeofday();
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         if ( -e "wrfvar_output") {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         } else {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+             chdir ".." or die "Cannot chdir to .. : $!\n";
+             return 1;
+         }
+
+         # Return to the upper directory
+         chdir ".." or die "Cannot chdir to .. : $!\n";
+
+         # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
+         return 1;
+
+
      } elsif ($types =~ /4DVAR/i) {
          $types =~ s/4DVAR//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
          print "Starting 4DVAR $par job '$nam'\n";
 
 
+         while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+            $i ++;
+         }
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "4DVAR";
+
+         $starttime = gettimeofday();
          if ($par=~/dm/i) {
              $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
              system($cmd);
@@ -1667,7 +1895,17 @@ sub new_job {
              $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
              system($cmd);
          }
+         $endtime = gettimeofday();
          rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         if ( -e "wrfvar_output") {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         } else {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+         }
 
          # Back to the upper directory:
          chdir ".." or die "Cannot chdir to .. : $!\n";
@@ -2333,23 +2571,30 @@ sub submit_job {
             &flush_status (); # refresh the status
 
 
+#print "\nDumper check 1\n";
+#print Dumper($Experiments{$name});
             #Submit job
             my $rc = &new_job ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
-                                $Experiments{$name}{cpu_openmp},$Experiments{$name}{paropt}{$par}{todo} );
+                                $Experiments{$name}{cpu_openmp},$Experiments{$name}{test_type} );
 
             #Set the end time for this job
             $Experiments{$name}{paropt}{$par}{endtime} = gettimeofday();
-            $Experiments{$name}{paropt}{$par}{walltime}[0] =
+            $Experiments{$name}{paropt}{$par}{walltime} =
                 $Experiments{$name}{paropt}{$par}{endtime} - $Experiments{$name}{paropt}{$par}{starttime};
             if (defined $rc) { 
                 if ($rc =~ /OBSPROC_FAIL/) {
                     $Experiments{$name}{paropt}{$par}{status} = "error";
-                    $Experiments{$name}{paropt}{$par}{result} = "obsproc failed";
+                    $Experiments{$name}{paropt}{$par}{result} = "OBSPROC error";
                     &flush_status ();
                     next;
                 } elsif ($rc =~ /VARBC_FAIL/) {
                     $Experiments{$name}{paropt}{$par}{status} = "error";
-                    $Experiments{$name}{paropt}{$par}{result} = "Output missing";
+                    $Experiments{$name}{paropt}{$par}{result} = "VARBC error";
+                    &flush_status ();
+                    next;
+                } elsif ($rc =~ /GENBE_FAIL/) {
+                    $Experiments{$name}{paropt}{$par}{status} = "error";
+                    $Experiments{$name}{paropt}{$par}{result} = "GENBE error";
                     &flush_status ();
                     next;
                 } else {
@@ -2362,6 +2607,8 @@ sub submit_job {
                 next;   # Can not submit this job.
             }
 
+#print "\nDumper check 2\n";
+#print Dumper($Experiments{$name});
             $Experiments{$name}{paropt}{$par}{status} = "done";
 
             # Wrap-up this job:
@@ -2375,6 +2622,8 @@ sub submit_job {
             }
         }
 
+#print "\nDumper check 3\n";
+#print Dumper($Experiments{$name});
     }
 
     &flush_status (); # refresh the status
@@ -2401,7 +2650,7 @@ $count = 0;
 
                      next if $Experiments{$name}{status} eq "close";      #  skip if this experiment already has a job running.
                      my $rc = &new_job_ys ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
-                                   $Experiments{$name}{cpu_openmp},$Experiments{$name}{paropt}{$par}{todo} );
+                                   $Experiments{$name}{cpu_openmp},$Experiments{$name}{test_type} );
 
                      if (defined $rc) {
                          $Experiments{$name}{paropt}{$par}{currjob} = $rc ;    # keep track of current job number; this should be 1 at this point
