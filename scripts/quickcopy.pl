@@ -37,8 +37,11 @@ foreach $arg (@ARGV) {
 }
 
 chomp ($baseline_dir);
-die "Baseline directory '$baseline_dir' does not exist! Exiting...\n" unless (-e "$baseline_dir");
 
+unless (-e "$baseline_dir") {
+    print "Baseline directory '$baseline_dir' does not exist! Exiting...\n";
+    &usage_and_die;
+}
 my $q = (@ARGV);
 
 my @files = `find . -maxdepth 2 -follow -name "wrfvar_output.*"`;
@@ -94,3 +97,6 @@ if ($copied_num > 0){
     print "Check your input arguments, and that the 'wrfvar_output' files exist.\n\n";
 }
 
+sub usage_and_die {
+    die "\nUsage: ./quickcopy.pl --baseline=[BASELINE_DIRECTORY]\n";
+}
