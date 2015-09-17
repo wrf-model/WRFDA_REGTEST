@@ -26,8 +26,8 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 21       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
 22       t44_liuz                    3DVAR            2    16      serial|dmpar
 23       t44_prepbufr                3DVAR            8    16      serial|dmpar
-24       tut_xinzhang_4dvar          4DVAR           32    16      dmpar
-25       tut_xinzhang_fgat           FGAT            16    16      dmpar
+24       tut_xinzhang_4dvar          OBSPROC|4DVAR   32    16      dmpar
+25       tut_xinzhang_fgat           OBSPROC|FGAT    16    16      dmpar
 26       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
 27       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 28       wind_sd                     3DVAR           16    16      serial|dmpar
@@ -60,7 +60,7 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 22       t44_liuz                    3DVAR            2    16      serial|dmpar
 23       t44_prepbufr                3DVAR            8    16      serial|dmpar
 24       tut_xinzhang_4dvar          4DVAR           32    16      dmpar
-25       tut_xinzhang_fgat           FGAT            16    16      dmpar
+25       tut_xinzhang_fgat           OBSPROC|FGAT    16    16      dmpar
 26       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
 27       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
 28       wind_sd                     3DVAR           16    16      serial|dmpar
