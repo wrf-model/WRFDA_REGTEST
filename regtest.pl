@@ -1550,25 +1550,63 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "OBSPROC";
 
          print "Running OBSPROC for $par job '$nam'\n";
-
          $starttime = gettimeofday();
-         $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
-         ! system($cmd) or die "Execution of obsproc failed: $!";
-         $endtime = gettimeofday();
+         if ($types =~ /3DVAR/i) {
+            $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
+            ! system($cmd) or die "Execution of obsproc failed: $!";
+            @gtsfiles = glob ("obs_gts_*.3DVAR");
+            copy("$gtsfiles[0]","ob.ascii") or warn "COULD NOT COPY OBSERVATION FILE $!";
+            $endtime = gettimeofday();
 
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
-         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime} 
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+            $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
-         @gtsfiles = glob ("obs_gts_*.3DVAR");
-         if (defined $gtsfiles[0]) {
-            copy("$gtsfiles[0]","ob.ascii") or die "YOU HAVE COMMITTED AN OFFENSE! $!";
-            printf "OBSPROC complete\n";
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+            if (-e "ob.ascii") {
+               printf "OBSPROC complete\n";
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+            } else {
+               printf "ob.ascii does not exist!\n";
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+               chdir "..";
+               return "OBSPROC_FAIL";
+            }
          } else {
-            chdir "..";
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-            return "OBSPROC_FAIL";
+            if ($types =~ /FGAT/i) {
+               $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
+               ! system($cmd) or die "Execution of obsproc failed: $!";
+               @gtsfiles = glob ("obs_gts_*.FGAT");
+            } elsif ($types =~ /4DVAR/i) {
+               $cmd="$MainDir/WRFDA_4DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
+               ! system($cmd) or die "Execution of obsproc failed: $!";
+               @gtsfiles = glob ("obs_gts_*.4DVAR");
+            }
+
+            my $index = 0;
+            foreach my $gtsfile (@gtsfiles) {
+               $index ++;
+               if ($index < 10) {
+                  copy("$gtsfile","ob0$index.ascii") or warn "COULD NOT COPY OBSERVATION FILES $!"; 
+               } else {
+                  copy("$gtsfile","ob$index.ascii")  or warn "COULD NOT COPY OBSERVATION FILES $!";
+               }
+            }
+            $endtime = gettimeofday();
+
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+            $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+            if (-e "ob01.ascii") {
+               printf "OBSPROC complete\n";
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+            } else {
+               printf "ob01.ascii does not exist!\n";
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+               chdir "..";
+               return "OBSPROC_FAIL";
+            }
+
          }
+
      }
 
 
