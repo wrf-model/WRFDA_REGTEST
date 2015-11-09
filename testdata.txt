@@ -16,21 +16,22 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 11       cycle_ne_blizzard           CYCLING         16    16      dmpar
 12       iasi_kavulich               3DVAR           16    16      dmpar
 13       lat_lon_outerloops          3DVAR           16    16      dmpar
-14       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-15       radar_4dvar_cv7             GENBE|4DVAR     16    16      dmpar
-16       radar_cv7                   GENBE|3DVAR      8    16      dmpar
-17       radar_meixu                 3DVAR            8    16      serial|dmpar
-18       rainfall_outerloops         4DVAR           32    16      dmpar
-19       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
-20       seviri_varbc                VARBC|3DVAR     16    16      dmpar
-21       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-22       t44_liuz                    3DVAR            2    16      serial|dmpar
-23       t44_prepbufr                3DVAR            8    16      serial|dmpar
-24       tut_xinzhang_4dvar          OBSPROC|4DVAR   32    16      dmpar
-25       tut_xinzhang_fgat           OBSPROC|FGAT    16    16      dmpar
-26       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
-27       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
-28       wind_sd                     3DVAR           16    16      serial|dmpar
+14       multirad_pacific            3DVAR           16    16      dmpar
+15       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+16       radar_4dvar_cv7             GENBE|4DVAR     16    16      dmpar
+17       radar_cv7                   GENBE|3DVAR      8    16      dmpar
+18       radar_meixu                 3DVAR            8    16      serial|dmpar
+19       rainfall_outerloops         4DVAR           32    16      dmpar
+20       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
+21       seviri_varbc                VARBC|3DVAR     16    16      dmpar
+22       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+23       t44_liuz                    3DVAR            2    16      serial|dmpar
+24       t44_prepbufr                3DVAR            8    16      serial|dmpar
+25       tut_xinzhang_4dvar          OBSPROC|4DVAR   32    16      dmpar
+26       tut_xinzhang_fgat           OBSPROC|FGAT    16    16      dmpar
+27       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
+28       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
+29       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
 Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.7.1.tar
@@ -49,21 +50,22 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 11       cycle_ne_blizzard           CYCLING         16    16      dmpar
 12       iasi_kavulich               3DVAR           16    16      dmpar
 13       lat_lon_outerloops          3DVAR           16    16      dmpar
-14       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-15       radar_4dvar_cv7             GENBE|4DVAR     16    16      dmpar
-16       radar_cv7                   GENBE|3DVAR      8    16      dmpar
-17       radar_meixu                 3DVAR            8    16      serial|dmpar
-18       rainfall_outerloops         4DVAR           32    16      dmpar
-19       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
-20       seviri_varbc                VARBC|3DVAR     16    16      dmpar
-21       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-22       t44_liuz                    3DVAR            2    16      serial|dmpar
-23       t44_prepbufr                3DVAR            8    16      serial|dmpar
-24       tut_xinzhang_4dvar          OBSPROC|4DVAR   32    16      dmpar
-25       tut_xinzhang_fgat           OBSPROC|FGAT    16    16      dmpar
-26       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
-27       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
-28       wind_sd                     3DVAR           16    16      serial|dmpar
+14       multirad_pacific            3DVAR           16    16      dmpar
+15       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+16       radar_4dvar_cv7             GENBE|4DVAR     16    16      dmpar
+17       radar_cv7                   GENBE|3DVAR      8    16      dmpar
+18       radar_meixu                 3DVAR            8    16      serial|dmpar
+19       rainfall_outerloops         4DVAR           32    16      dmpar
+20       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
+21       seviri_varbc                VARBC|3DVAR     16    16      dmpar
+22       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+23       t44_liuz                    3DVAR            2    16      serial|dmpar
+24       t44_prepbufr                3DVAR            8    16      serial|dmpar
+25       tut_xinzhang_4dvar          OBSPROC|4DVAR   32    16      dmpar
+26       tut_xinzhang_fgat           OBSPROC|FGAT    16    16      dmpar
+27       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
+28       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
+29       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
 Linux    x86_64    yellowstone    pgi       P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.7.1.tar
@@ -82,21 +84,22 @@ Linux    x86_64    yellowstone    pgi       P64000510 caldera   WRFDA-data-EM  B
 11       cycle_ne_blizzard           CYCLING         16    16      dmpar
 12       iasi_kavulich               3DVAR           16    16      dmpar
 13       lat_lon_outerloops          3DVAR           16    16      dmpar
-14       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-15       radar_4dvar_cv7             GENBE|4DVAR     16    16      dmpar
-16       radar_cv7                   GENBE|3DVAR      8    16      dmpar
-17       radar_meixu                 3DVAR            8    16      serial|dmpar
-18       rainfall_outerloops         4DVAR           32    16      dmpar
-19       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
-20       seviri_varbc                VARBC|3DVAR     16    16      dmpar
-21       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
-22       t44_liuz                    3DVAR            2    16      serial|dmpar
-23       t44_prepbufr                3DVAR            8    16      serial|dmpar
-24       tut_xinzhang_4dvar          OBSPROC|4DVAR   32    16      dmpar
-25       tut_xinzhang_fgat           OBSPROC|FGAT    16    16      dmpar
-26       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
-27       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
-28       wind_sd                     3DVAR           16    16      serial|dmpar
+14       multirad_pacific            3DVAR           16    16      dmpar
+15       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+16       radar_4dvar_cv7             GENBE|4DVAR     16    16      dmpar
+17       radar_cv7                   GENBE|3DVAR      8    16      dmpar
+18       radar_meixu                 3DVAR            8    16      serial|dmpar
+19       rainfall_outerloops         4DVAR           32    16      dmpar
+20       rttov_4dvar_madagascar      4DVAR           32    16      dmpar
+21       seviri_varbc                VARBC|3DVAR     16    16      dmpar
+22       sfc_assi_2_outerloop_guo    3DVAR           16    16      serial|dmpar
+23       t44_liuz                    3DVAR            2    16      serial|dmpar
+24       t44_prepbufr                3DVAR            8    16      serial|dmpar
+25       tut_xinzhang_4dvar          4DVAR           32    16      dmpar
+26       tut_xinzhang_fgat           FGAT            16    16      dmpar
+27       tut_xinzhang_obsproc        OBSPROC|3DVAR   16    16      dmpar
+28       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10    16      dmpar
+29       wind_sd                     3DVAR           16    16      serial|dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
 Linux    x86_64    loblolly       gfortran  NA        NA        WRFDA-data-EM  BASELINE.LOBLOLLY   WRFDA_V3.7.1.tar
@@ -115,21 +118,22 @@ Linux    x86_64    loblolly       gfortran  NA        NA        WRFDA-data-EM  B
 11       cycle_ne_blizzard           CYCLING          6    16      dmpar
 12       iasi_kavulich               3DVAR            6    16      dmpar
 13       lat_lon_outerloops          3DVAR            6    16      dmpar
-14       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-15       radar_4dvar_cv7             GENBE|4DVAR      6    16      dmpar
-16       radar_cv7                   GENBE|3DVAR      6    16      dmpar
-17       radar_meixu                 3DVAR            6    16      serial|dmpar
-18       rainfall_outerloops         4DVAR            6    16      dmpar
-19       rttov_4dvar_madagascar      4DVAR            6    16      dmpar
-20       seviri_varbc                VARBC|3DVAR      6    16      dmpar
-21       sfc_assi_2_outerloop_guo    3DVAR            6    16      serial|dmpar
-22       t44_liuz                    3DVAR            2    16      serial|dmpar
-23       t44_prepbufr                3DVAR            6    16      serial|dmpar
-24       tut_xinzhang_4dvar          OBSPROC|4DVAR    6    16      dmpar
-25       tut_xinzhang_fgat           OBSPROC|FGAT     6    16      dmpar
-26       tut_xinzhang_obsproc        OBSPROC|3DVAR    6    16      dmpar
-27       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
-28       wind_sd                     3DVAR            6    16      serial|dmpar
+14       multirad_pacific            3DVAR            6    16      dmpar
+15       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+16       radar_4dvar_cv7             GENBE|4DVAR      6    16      dmpar
+17       radar_cv7                   GENBE|3DVAR      6    16      dmpar
+18       radar_meixu                 3DVAR            6    16      serial|dmpar
+19       rainfall_outerloops         4DVAR            6    16      dmpar
+20       rttov_4dvar_madagascar      4DVAR            6    16      dmpar
+21       seviri_varbc                VARBC|3DVAR      6    16      dmpar
+22       sfc_assi_2_outerloop_guo    3DVAR            6    16      serial|dmpar
+23       t44_liuz                    3DVAR            2    16      serial|dmpar
+24       t44_prepbufr                3DVAR            6    16      serial|dmpar
+25       tut_xinzhang_4dvar          4DVAR            6    16      dmpar
+26       tut_xinzhang_fgat           FGAT             6    16      dmpar
+27       tut_xinzhang_obsproc        OBSPROC|3DVAR    6    16      dmpar
+28       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
+29       wind_sd                     3DVAR            6    16      serial|dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
 Linux    x86_64    loblolly       ifort     NA        NA        WRFDA-data-EM  BASELINE.LOBLOLLY   WRFDA_V3.7.1.tar
@@ -148,21 +152,22 @@ Linux    x86_64    loblolly       ifort     NA        NA        WRFDA-data-EM  B
 11       cycle_ne_blizzard           CYCLING          6    16      dmpar
 12       iasi_kavulich               3DVAR            6    16      dmpar
 13       lat_lon_outerloops          3DVAR            6    16      dmpar
-14       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-15       radar_4dvar_cv7             GENBE|4DVAR      6    16      dmpar
-16       radar_cv7                   GENBE|3DVAR      6    16      dmpar
-17       radar_meixu                 3DVAR            6    16      serial|dmpar
-18       rainfall_outerloops         4DVAR            6    16      dmpar
-19       rttov_4dvar_madagascar      4DVAR            6    16      dmpar
-20       seviri_varbc                VARBC|3DVAR      6    16      dmpar
-21       sfc_assi_2_outerloop_guo    3DVAR            6    16      serial|dmpar
-22       t44_liuz                    3DVAR            2    16      serial|dmpar
-23       t44_prepbufr                3DVAR            6    16      serial|dmpar
-24       tut_xinzhang_4dvar          OBSPROC|4DVAR    6    16      dmpar
-25       tut_xinzhang_fgat           OBSPROC|FGAT     6    16      dmpar
-26       tut_xinzhang_obsproc        OBSPROC|3DVAR    6    16      dmpar
-27       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
-28       wind_sd                     3DVAR            6    16      serial|dmpar
+14       multirad_pacific            3DVAR            6    16      dmpar
+15       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+16       radar_4dvar_cv7             GENBE|4DVAR      6    16      dmpar
+17       radar_cv7                   GENBE|3DVAR      6    16      dmpar
+18       radar_meixu                 3DVAR            6    16      serial|dmpar
+19       rainfall_outerloops         4DVAR            6    16      dmpar
+20       rttov_4dvar_madagascar      4DVAR            6    16      dmpar
+21       seviri_varbc                VARBC|3DVAR      6    16      dmpar
+22       sfc_assi_2_outerloop_guo    3DVAR            6    16      serial|dmpar
+23       t44_liuz                    3DVAR            2    16      serial|dmpar
+24       t44_prepbufr                3DVAR            6    16      serial|dmpar
+25       tut_xinzhang_4dvar          4DVAR            6    16      dmpar
+26       tut_xinzhang_fgat           FGAT             6    16      dmpar
+27       tut_xinzhang_obsproc        OBSPROC|3DVAR    6    16      dmpar
+28       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
+29       wind_sd                     3DVAR            6    16      serial|dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
 Darwin   x86_64    visit-a05      gfortran  NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.7.1.tar
@@ -177,25 +182,26 @@ Darwin   x86_64    visit-a05      gfortran  NA        NA        WRFDA-data-EM  B
 7        cwb_ascii                   3DVAR            4    16      serial|dmpar
 8        cwb_ascii_outerloop_rizvi   3DVAR            4    16      serial|dmpar
 9        cwb_ascii_thinning          3DVAR            4    16      serial|dmpar
-10       cycle_sene_hires            CYCLING         16    16      dmpar
-11       cycle_ne_blizzard           CYCLING         16    16      dmpar
+10       cycle_sene_hires            CYCLING          6    16      dmpar
+11       cycle_ne_blizzard           CYCLING          6    16      dmpar
 12       iasi_kavulich               3DVAR            6    16      dmpar
 13       lat_lon_outerloops          3DVAR            6    16      dmpar
-14       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-15       radar_4dvar_cv7             GENBE|4DVAR      6    16      dmpar
-16       radar_cv7                   GENBE|3DVAR      6    16      dmpar
-17       radar_meixu                 3DVAR            6    16      serial|dmpar
-18       rainfall_outerloops         4DVAR            6    16      dmpar
-19       rttov_4dvar_madagascar      4DVAR            6    16      dmpar
-10       seviri_varbc                VARBC|3DVAR      6    16      dmpar
-11       sfc_assi_2_outerloop_guo    3DVAR            6    16      serial|dmpar
-22       t44_liuz                    3DVAR            2    16      serial|dmpar
-23       t44_prepbufr                3DVAR            6    16      serial|dmpar
-24       tut_xinzhang_4dvar          OBSPROC|4DVAR    6    16      dmpar
-25       tut_xinzhang_fgat           OBSPROC|FGAT     6    16      dmpar
-26       tut_xinzhang_obsproc        OBSPROC|3DVAR    6    16      dmpar
-27       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
-28       wind_sd                     3DVAR            6    16      serial|dmpar
+14       multirad_pacific            3DVAR            6    16      dmpar
+15       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+16       radar_4dvar_cv7             GENBE|4DVAR      6    16      dmpar
+17       radar_cv7                   GENBE|3DVAR      6    16      dmpar
+18       radar_meixu                 3DVAR            6    16      serial|dmpar
+19       rainfall_outerloops         4DVAR            6    16      dmpar
+20       rttov_4dvar_madagascar      4DVAR            6    16      dmpar
+21       seviri_varbc                VARBC|3DVAR      6    16      dmpar
+22       sfc_assi_2_outerloop_guo    3DVAR            6    16      serial|dmpar
+23       t44_liuz                    3DVAR            2    16      serial|dmpar
+24       t44_prepbufr                3DVAR            6    16      serial|dmpar
+25       tut_xinzhang_4dvar          4DVAR            6    16      dmpar
+26       tut_xinzhang_fgat           FGAT             6    16      dmpar
+27       tut_xinzhang_obsproc        OBSPROC|3DVAR    6    16      dmpar
+28       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
+29       wind_sd                     3DVAR            6    16      serial|dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
 Darwin   x86_64    visit-a05      ifort     NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.7.1.tar
@@ -210,24 +216,25 @@ Darwin   x86_64    visit-a05      ifort     NA        NA        WRFDA-data-EM  B
 7        cwb_ascii                   3DVAR            4    16      serial|dmpar
 8        cwb_ascii_outerloop_rizvi   3DVAR            4    16      serial|dmpar
 9        cwb_ascii_thinning          3DVAR            4    16      serial|dmpar
-10       cycle_sene_hires            CYCLING         16    16      dmpar
-11       cycle_ne_blizzard           CYCLING         16    16      dmpar
+10       cycle_sene_hires            CYCLING          6    16      dmpar
+11       cycle_ne_blizzard           CYCLING          6    16      dmpar
 12       iasi_kavulich               3DVAR            6    16      dmpar
 13       lat_lon_outerloops          3DVAR            6    16      dmpar
-14       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
-15       radar_4dvar_cv7             GENBE|4DVAR      6    16      dmpar
-16       radar_cv7                   GENBE|3DVAR      6    16      dmpar
-17       radar_meixu                 3DVAR            6    16      serial|dmpar
-18       rainfall_outerloops         4DVAR            6    16      dmpar
-19       rttov_4dvar_madagascar      4DVAR            6    16      dmpar
-10       seviri_varbc                VARBC|3DVAR      6    16      dmpar
-11       sfc_assi_2_outerloop_guo    3DVAR            6    16      serial|dmpar
-22       t44_liuz                    3DVAR            2    16      serial|dmpar
-23       t44_prepbufr                3DVAR            6    16      serial|dmpar
-24       tut_xinzhang_4dvar          OBSPROC|4DVAR    6    16      dmpar
-25       tut_xinzhang_fgat           OBSPROC|FGAT     6    16      dmpar
-26       tut_xinzhang_obsproc        OBSPROC|3DVAR    6    16      dmpar
-27       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
-28       wind_sd                     3DVAR            6    16      serial|dmpar
+14       multirad_pacific            3DVAR            6    16      dmpar
+15       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
+16       radar_4dvar_cv7             GENBE|4DVAR      6    16      dmpar
+17       radar_cv7                   GENBE|3DVAR      6    16      dmpar
+18       radar_meixu                 3DVAR            6    16      serial|dmpar
+19       rainfall_outerloops         4DVAR            6    16      dmpar
+20       rttov_4dvar_madagascar      4DVAR            6    16      dmpar
+21       seviri_varbc                VARBC|3DVAR      6    16      dmpar
+22       sfc_assi_2_outerloop_guo    3DVAR            6    16      serial|dmpar
+23       t44_liuz                    3DVAR            2    16      serial|dmpar
+24       t44_prepbufr                3DVAR            6    16      serial|dmpar
+25       tut_xinzhang_4dvar          4DVAR            6    16      dmpar
+26       tut_xinzhang_fgat           FGAT             6    16      dmpar
+27       tut_xinzhang_obsproc        OBSPROC|3DVAR    6    16      dmpar
+28       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
+29       wind_sd                     3DVAR            6    16      serial|dmpar
 ###########################################################################################
 

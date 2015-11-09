@@ -380,6 +380,12 @@ if ( !($Baseline =~ /^\//) ) {
     $Baseline = $MainDir."/".$Baseline;
 }
 
+# If the test database doesn't exist, quit right away
+unless ( -e "$Database" ) {
+   die "DATABASE NOT FOUND: '$Database'\nQuitting $0...\n";
+}
+
+
 printf "Finished parsing the table, the experiments are : \n";
 printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
 printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n", 
