@@ -341,12 +341,16 @@ if ($Par_4dvar =~ /serial/i) {
 $Par_4dvar =~ s/^\|//g;
 $Par =~ s/^\|//g;
 
+#Create $Type variable to keep track of which code needs to be compiled/checked 
 foreach my $name (keys %Experiments) {
     unless ( $Type =~ $Experiments{$name}{test_type}) {
         $Type = join('|',$Type,$Experiments{$name}{test_type});
     }
 
 }
+$Type =~ s/CYCLING/3DVAR/g;
+$Type =~ s/FGAT/3DVAR/g;
+$Type =~ s/HYBRID/3DVAR/g;
 
 # If source specified on command line, use it
 $Source = $Source_defined if defined $Source_defined;
@@ -2068,6 +2072,7 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit GENBE job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
             return undef;
          }
 
@@ -2137,7 +2142,8 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit OBSPROC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-           return undef;
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            return undef;
          }
 
          # Return to the upper directory
@@ -2191,7 +2197,8 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VARBC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-           return undef;
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            return undef;
          }
 
          # Return to the upper directory
@@ -2237,7 +2244,8 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit FGAT job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-           return undef;
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            return undef;
          }
 
          # Return to the upper directory
@@ -2258,7 +2266,7 @@ sub new_job_ys {
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @_3dvar_commands;
          $_3dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par')\n;" :
+             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
              "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
@@ -2283,7 +2291,8 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit 3DVAR job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-           return undef;
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            return undef;
          }
 
          chdir ".." or die "Cannot chdir to .. : $!\n";
@@ -2313,6 +2322,7 @@ sub new_job_ys {
          my $tarstatus = system("tar", "xf", "cycle_data.tar");
          unless ($tarstatus == 0) {
             print "Problem opening cycle_data.tar; $!\nTest probably not set up correctly\n";
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
             return undef;
          }
 
@@ -2351,6 +2361,7 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_init job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            chdir "../.." or die "Cannot chdir to '../..' : $!\n";
             return undef;
          }
 
@@ -2381,6 +2392,7 @@ sub new_job_ys {
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LAT job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            chdir "../.." or die "Cannot chdir to '../..' : $!\n";
             return undef;
          }
          # Third: Use our updated wrfinput and wrfbdy to run a forecast
@@ -2413,6 +2425,7 @@ sub new_job_ys {
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRF job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            chdir "../.." or die "Cannot chdir to '../..' : $!\n";
             return undef;
          }
 
@@ -2456,6 +2469,7 @@ sub new_job_ys {
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LOW job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
             return undef;
          }
 
@@ -2486,6 +2500,7 @@ sub new_job_ys {
             }
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_final job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
             return undef;
          }
 
@@ -2497,6 +2512,233 @@ sub new_job_ys {
          # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
          return 1;
 
+     }
+
+     if ($types =~ /HYBRID/i) {
+         $types =~ s/HYBRID//i;
+         $Experiments{$nam}{paropt}{$par}{todo} = $types;
+
+         # Hybrid jobs also need some extra variables
+         my $job_feedback;
+         my $wrfdate;
+         my $date;
+         my $ens_num;
+         my $vertlevs;
+         my $ens_filename;
+
+         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
+         while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+            $i ++;
+         }
+
+         # For Hybrid jobs, we can either run the whole process, or start with pre-calculated perturbations
+         if (-e "ep.tar") {
+
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UNTAR_ENS_DATA";
+
+            my @untar_commands;
+            $untar_commands[0] = "system('tar -xf ep.tar');\n";
+            $untar_commands[1] = 'if ( ! -d "ep") {'."\n";
+            $untar_commands[2] = '   open FH,">../FAIL";'."\n";
+            $untar_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $untar_commands[4] = "   close FH;\n";
+            $untar_commands[5] = "}\n";
+
+            $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+
+            if ($job_feedback =~ m/.*<(\d+)>/) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+               if ($i == 1) {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+               } else {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+               }
+               $h = $i;
+               $i ++;
+            } else {
+               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UNTAR_ENS_DATA job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               return undef;
+            }
+
+         } else {
+            # To make tests easier, the test directory should have a file "ens.info" that contains the wrf-formatted date
+            # on the first line, the base filename should appear on the second line, and the number of vertical levels on 
+            # the third line. No characters should appear before this info on each line
+
+            my $openstatus = open(INFO, "<","ens.info");
+            print "openstatus = $openstatus\n";
+            unless ($openstatus) {
+               print "Problem opening ens.info; $!\nTest probably not set up correctly\n";
+               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               return undef;
+            }
+
+            while (<INFO>) {
+               chomp($_);
+               if ($. == 4) {
+                  $ens_num = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+                  last;
+               } elsif ($. == 3) {
+                  $vertlevs = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+               } elsif ($. == 2) {
+                  $ens_filename = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+               } elsif ($. == 1) {
+                  #Only read the first 19 characters of the first line, since this is the length of a WRF-format date
+                  $wrfdate = substr($_, 0, 19) or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+               }
+
+            }
+
+            close INFO;
+            $ens_filename =~ s/\s.*//;         # Remove trailing characters from filename
+            $ens_num =~ s/\D.*//;              # Remove trailing characters from ensemble number line
+            $vertlevs =~ s/\D.*//;             # Remove trailing characters from vertical level line
+
+            $date = substr($wrfdate,0,13);     # Remove minute, second, and non-numeric characters
+            $date =~ s/\D//g;                  # from $wrfdate to make $date
+
+            # Step 1: Run gen_be_ensmean.exe to calculate the mean and variance fields
+
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_MEAN_VARI";
+            my @ensmean_commands;
+            $ensmean_commands[0] = "copy('$ens_filename.e001','$ens_filename.mean');\n";
+            $ensmean_commands[1] = "copy('$ens_filename.e001','$ens_filename.vari');\n";
+            $ensmean_commands[2] = "system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ensmean.exe >& ensmean.out');\n";
+
+            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+                                 'caldera', $Project, @ensmean_commands );
+
+            $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+
+            if ($job_feedback =~ m/.*<(\d+)>/) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+               if ($i == 1) {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+               } else {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+               }
+               $h = $i;
+               $i ++;
+            } else {
+               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit ENS_MEAN_VARI job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               return undef;
+            }
+
+            # Step 2: Calculate ensemble perturbations
+
+            mkpath('ep') or die "mkdir failed: $!";
+            chdir("ep");
+
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
+            my @enspert_commands;
+            $enspert_commands[0] = "system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out');\n";
+            $enspert_commands[1] = 'if ( ! -e "ps.e001") {'."\n";
+            $enspert_commands[2] = '   open FH,">../FAIL";'."\n";
+            $enspert_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $enspert_commands[4] = "   close FH;\n";
+            $enspert_commands[5] = "}\n";
+
+            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+                                 'caldera', $Project, @enspert_commands );
+
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+
+            if ($job_feedback =~ m/.*<(\d+)>/) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+               if ($i == 1) {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+               } else {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+               }
+               $h ++;$i ++;
+            } else {
+               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit ENS_PERT job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+               chdir "../.." or die "Cannot chdir to '../..' : $!\n";
+               return undef;
+            }
+
+            # Step 3: Create vertical localization file
+            chdir("..");
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VERT_LOC";
+            my @vertloc_commands;
+            $vertloc_commands[0] = "system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_vertloc.exe $vertlevs >& vertlevs.out');\n";
+            $vertloc_commands[1] = 'if ( ! -e "be.vertloc.dat") {'."\n";
+            $vertloc_commands[2] = '   open FH,">FAIL";'."\n";
+            $vertloc_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $vertloc_commands[4] = "   close FH;\n";
+            $vertloc_commands[5] = "}\n";
+
+            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+                                 'caldera', $Project, @vertloc_commands );
+
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+
+            if ($job_feedback =~ m/.*<(\d+)>/) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+               if ($i == 1) {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+               } else {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+               }
+               $h ++;$i ++;
+            } else {
+               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VERT_LOC job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               return undef;
+            }
+
+         }
+
+         # Finally, run WRFDA
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
+         my @hybrid_commands;
+         $hybrid_commands[0] = "use File::Basename;\n";
+         $hybrid_commands[1] = 'my @pertfiles = glob("'."ep/*\");\n";
+         $hybrid_commands[2] = 'foreach (@pertfiles){ symlink($_,basename($_))};'."\n";
+         $hybrid_commands[3] = 'if ( ! -e "fg") {'."\n";
+         $hybrid_commands[4] = "   symlink('$ens_filename.mean','fg');\n";
+         $hybrid_commands[5] = '}'."\n";
+         $hybrid_commands[6] = ($par eq 'serial' || $par eq 'smpar') ?
+             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par')\n" :
+             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+         $hybrid_commands[7] = 'if ( ! -e "wrfvar_output") {'."\n";
+         $hybrid_commands[8] = '   open FH,">FAIL";'."\n";
+         $hybrid_commands[9] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+         $hybrid_commands[10] = "   close FH;\n";
+         $hybrid_commands[11] = "}\n";
+
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+                                 $Queue, $Project, @hybrid_commands );
+
+         $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+
+         if ($job_feedback =~ m/.*<(\d+)>/) {
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+            if ($i == 1) {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+            }
+         } else {
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_HYBRID job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            return undef;
+         }
+
+         # Return to the upper directory
+         chdir ".." or die "Cannot chdir to .. : $!\n";
+
+         # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
+         return 1;
      }
 
      if ($types =~ /4DVAR/i) {
