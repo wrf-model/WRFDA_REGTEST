@@ -37,9 +37,11 @@ my $Revision = 'HEAD'; # Revision Number
 my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision Number
 my $Testfile = 'testdata.txt';
 my $CLOUDCV_defined;
+my $NETCDF4_defined;
 my $REPO_defined;
 my $RTTOV_dir;
-my @valid_options = ("compiler","source","revision","upload","exec","debug","j","cloudcv","testfile","repo");
+my $HDF5_dir;
+my @valid_options = ("compiler","source","revision","upload","exec","debug","j","cloudcv","netcdf4","testfile","repo");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -73,6 +75,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "debug:s" => \$Debug_defined,
             "j:s" => \$Parallel_compile_num,
             "cloudcv:s" => \$CLOUDCV_defined,
+            "netcdf4:s" => \$NETCDF4_defined,
             "testfile:s" => \$Testfile,
             "repo:s" => \$REPO_defined ) or &print_help_and_die;
 
@@ -84,16 +87,18 @@ unless ( defined $Compiler_defined ) {
 
 sub print_help_and_die {
   print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes\n";
-  print "                   --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS --cloudcv=[no]/yes\n";
+  print "                   --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS --netcdf4=[no]/yes --cloudcv=[no]/yes\n";
   print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n\n";
   print "        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)\n";
   print "        source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)\n";
   print "        revision: Specify code revision to retrieve (only works when '--source=REPO' specified)\n";
-  print "        upload:   Uploads summary to web (default is 'yes' iff source=REPO and revision=HEAD)\n";
+  print "                  Use any number to specify that revision number; specify 'HEAD' to use the latest revision\n";
+  print "        upload:   Uploads summary to web (default is 'yes' iff source==REPO and revision==HEAD)\n";
   print "        exec:     Execute only; skips compile, utilizes existing executables\n";
   print "        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well\n";
   print "        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)\n";
   print "        cloudcv:  Compile for CLOUD_CV options\n";
+  print "        netcdf4:  Compile for NETCDF4 options\n";
   print "        testfile: Name of test data file (default: testdata.txt)\n";
   print "        repo:     Location of code repository\n";
   die "\n";
@@ -271,7 +276,8 @@ if ($Compiler_defined eq "gfortran") {
 } elsif ($Compiler_defined eq "ifort") {
     $CCompiler = "icc";
 } else {
-    die "\n ERROR ASSIGNING C COMPILER\n";
+    print "\n ERROR ASSIGNING C COMPILER\n";
+    &print_help_and_die;
 }
 
 
@@ -447,6 +453,10 @@ if ($Exec) {
 
 $ENV{J}="-j $Parallel_compile_num";
 
+if (defined $NETCDF4_defined && $NETCDF4_defined ne 'no') {
+   $ENV{NETCDF4}='1';
+   print "\nWill compile with NETCDF4 features turned on\n\n";
+}
 if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
    $ENV{CLOUD_CV}='1';
    print "\nWill compile for CLOUD_CV option\n\n";
@@ -455,6 +465,13 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
 
 $ENV{CRTM}='1'; #These are not necessary since V3.6, but will not hurt
 $ENV{BUFR}='1';
+
+  if (-d "$MainDir/HDF5_$Compiler") {
+      $ENV{HDF5}="$MainDir/HDF5_$Compiler";
+      print "Found HDF5 in directory $MainDir/HDF5_$Compiler\n";
+  } else {
+      print "Not using HDF5\n";
+  }
 
   if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
@@ -504,7 +521,7 @@ $ENV{BUFR}='1';
       }
   }
 
-#For cycle jobs, WRF must exist. Will add capability to compile WRF in the near future
+#For cycle jobs, WRF must exist. Will add capability to compile WRF in the (near?) future
   if ($Type =~ /CYCLING/i) {
      if (-d "$MainDir/WRFV3_$Compiler") {
         print "Will use WRF code in $MainDir/WRFV3_$Compiler for CYCLING test\n";
@@ -2569,7 +2586,6 @@ sub new_job_ys {
             # the third line. No characters should appear before this info on each line
 
             my $openstatus = open(INFO, "<","ens.info");
-            print "openstatus = $openstatus\n";
             unless ($openstatus) {
                print "Problem opening ens.info; $!\nTest probably not set up correctly\n";
                chdir ".." or die "Cannot chdir to '..' : $!\n";
@@ -2820,6 +2836,14 @@ sub compare_output {
      my $found = 0;
      my $sumfound = 0;
      $missvars = 0 ;
+
+     my $diff_file = "$name.diff";
+
+     #If we've gotten this far, print the output of diffwrf to a file
+     
+     open (FILE, ">> $diff_file") || die "problem opening $diff_file: $!\n";
+     print FILE @output;
+     close(FILE);
 
      foreach (@output) {
          
