@@ -104,7 +104,6 @@ sub print_help_and_die {
   die "\n";
 }
 
-
 my $Exec;
 if (defined $Exec_defined && $Exec_defined ne 'no') {
    $Exec = 1;
@@ -259,8 +258,17 @@ my %convert_compiler = (
     intel       => "ifort",
     ifort       => "ifort",
 );
+my %convert_module = (
+    gfortran    => "gnu",
+    gnu         => "gnu",
+    pgf90       => "pgi",
+    pgi         => "pgi",
+    intel       => "intel",
+    ifort       => "intel",
+);
 
 my $Compiler_defined_conv .= $convert_compiler{$Compiler_defined};
+my $module_loaded .= $convert_module{$Compiler_defined};
 
 printf "NOTE: You specified '$Compiler_defined' as your compiler.\n Interpreting this as '$Compiler_defined_conv'.\n" unless ( $Compiler_defined eq $Compiler_defined_conv );
 
@@ -279,7 +287,6 @@ if ($Compiler_defined eq "gfortran") {
     print "\n ERROR ASSIGNING C COMPILER\n";
     &print_help_and_die;
 }
-
 
 my $Compiler_version = "";
 if (defined $ENV{'COMPILER_VERSION'} ) {
@@ -406,6 +413,16 @@ die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_mach
 
 sleep 2; #Pause to let user see list
 
+if ($Arch eq "Linux") { #If on Yellowstone, make sure we have the right modules loaded
+   if ($Machine_name =~ /yellowstone/i) {
+      if ( !( $ENV{TACC_FAMILY_COMPILER} =~ m/$module_loaded/) ) {; # Check Yellowstone ENV variable for current module
+         print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
+         print "You have specified the $module_loaded compiler, but the $ENV{TACC_FAMILY_COMPILER} module is loaded!";
+         print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
+         &print_help_and_die;
+      }
+   }
+}
 
 # Set paths to necessary utilities, set BUFR read ENV variables if needed
 
@@ -646,13 +663,15 @@ if ($Type =~ /4DVAR/i) {
       foreach (@output) {
          my $config_line = $_ ;
 
-         if (($config_line=~ m/(\d+)\.\s\($par_type\) .* $CCompiler\/$Compiler .*/ix) &&
+         if (($config_line=~ m/(\d+)\.\s\($par_type\) .* $Compiler\/$CCompiler .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
              ! ($config_line=~/-f90/i) &&
              ! ($config_line=~/POE/) &&
              ! ($config_line=~/Xeon/) &&
-             ! ($config_line=~/SGI MPT/i) ) {
+             ! ($config_line=~/SGI MPT/i) &&
+             ! ($config_line=~/MIC/) &&
+             ! ($config_line=~/HSW/) ) {
             $Compile_options_4dvar{$1} = $par_type;
             $option = $1;
             $count++;
@@ -662,7 +681,9 @@ if ($Type =~ /4DVAR/i) {
              ! ($config_line=~/-f90/i) &&
              ! ($config_line=~/POE/) &&
              ! ($config_line=~/Xeon/) &&
-             ! ($config_line=~/SGI MPT/i) ) {
+             ! ($config_line=~/SGI MPT/i) &&
+             ! ($config_line=~/MIC/) &&
+             ! ($config_line=~/HSW/) ) {
             $Compile_options_4dvar{$1} = $par_type;
             $option = $1;
             $count++;
@@ -899,13 +920,15 @@ if ($Type =~ /3DVAR/i) {
       $count = 0;
       foreach (@output) {
          my $config_line = $_ ;
-         if (($config_line=~ m/(\d+)\.\s\($par_type\) .* $CCompiler\/$Compiler .*/ix) &&
+         if (($config_line=~ m/(\d+)\.\s\($par_type\) .* $Compiler\/$CCompiler .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
              ! ($config_line=~/-f90/i) &&
              ! ($config_line=~/POE/) &&
              ! ($config_line=~/Xeon/) &&
-             ! ($config_line=~/SGI MPT/i) ) {
+             ! ($config_line=~/SGI MPT/i) &&
+             ! ($config_line=~/MIC/) &&
+             ! ($config_line=~/HSW/) ) {
             $Compile_options{$1} = $par_type;
             $option = $1;
             $count++;
@@ -915,7 +938,9 @@ if ($Type =~ /3DVAR/i) {
              ! ($config_line=~/-f90/i) &&
              ! ($config_line=~/POE/) &&
              ! ($config_line=~/Xeon/) &&
-             ! ($config_line=~/SGI MPT/i)  ) {
+             ! ($config_line=~/SGI MPT/i) &&
+             ! ($config_line=~/MIC/) &&
+             ! ($config_line=~/HSW/) ) {
             $Compile_options{$1} = $par_type;
             $option = $1;
             $count++;
@@ -3336,5 +3361,4 @@ sub get_repo_revision {
    }
 
 }
-
 
