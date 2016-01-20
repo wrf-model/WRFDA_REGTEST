@@ -40,8 +40,8 @@ my $CLOUDCV_defined;
 my $NETCDF4_defined;
 my $REPO_defined;
 my $RTTOV_dir;
-my $HDF5_dir;
-my @valid_options = ("compiler","source","revision","upload","exec","debug","j","cloudcv","netcdf4","testfile","repo");
+my $use_HDF5 = "yes";
+my @valid_options = ("compiler","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -76,6 +76,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "j:s" => \$Parallel_compile_num,
             "cloudcv:s" => \$CLOUDCV_defined,
             "netcdf4:s" => \$NETCDF4_defined,
+            "hdf5:s" => \$use_HDF5,
             "testfile:s" => \$Testfile,
             "repo:s" => \$REPO_defined ) or &print_help_and_die;
 
@@ -86,8 +87,8 @@ unless ( defined $Compiler_defined ) {
 
 
 sub print_help_and_die {
-  print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes\n";
-  print "                   --exec=[no]/yes --debug=[no]/yes/super --j=NUM_PROCS --netcdf4=[no]/yes --cloudcv=[no]/yes\n";
+  print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes --exec=[no]/yes\n";
+  print "                   --debug=[no]/yes/super --j=NUM_PROCS --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes\n";
   print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n\n";
   print "        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)\n";
   print "        source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)\n";
@@ -99,6 +100,7 @@ sub print_help_and_die {
   print "        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)\n";
   print "        cloudcv:  Compile for CLOUD_CV options\n";
   print "        netcdf4:  Compile for NETCDF4 options\n";
+  print "        hdf5:     Compile for HDF5 options\n";
   print "        testfile: Name of test data file (default: testdata.txt)\n";
   print "        repo:     Location of code repository\n";
   die "\n";
@@ -153,6 +155,7 @@ my @childs;
 my @exefiles;
 my %Experiments ;
 my $cmd='';
+my $HDF5_dir;
 #   Sample %Experiments Structure: #####################
 #   
 #   %Experiments (
@@ -483,7 +486,7 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
 $ENV{CRTM}='1'; #These are not necessary since V3.6, but will not hurt
 $ENV{BUFR}='1';
 
-  if (-d "$MainDir/HDF5_$Compiler") {
+  if ( (-d "$MainDir/HDF5_$Compiler") && ($use_HDF5 eq "yes")) {
       $ENV{HDF5}="$MainDir/HDF5_$Compiler";
       print "Found HDF5 in directory $MainDir/HDF5_$Compiler\n";
   } else {
