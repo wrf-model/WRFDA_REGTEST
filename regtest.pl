@@ -486,14 +486,14 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
 $ENV{CRTM}='1'; #These are not necessary since V3.6, but will not hurt
 $ENV{BUFR}='1';
 
-  if ( (-d "$MainDir/HDF5_$Compiler") && ($use_HDF5 eq "yes")) {
+   if ( (-d "$MainDir/HDF5_$Compiler") && ($use_HDF5 eq "yes")) {
       $ENV{HDF5}="$MainDir/HDF5_$Compiler";
       print "Found HDF5 in directory $MainDir/HDF5_$Compiler\n";
-  } else {
+   } else {
       print "Not using HDF5\n";
-  }
+   }
 
-  if ($Arch eq "Linux") {
+   if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
           $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_$Compiler\_$Compiler_version";
           if (-d $RTTOV_dir) {
@@ -529,7 +529,7 @@ $ENV{BUFR}='1';
               delete $Compile_options{$key};
           }
       }
-  } elsif ($Arch eq "Darwin") {   # Darwin
+   } elsif ($Arch eq "Darwin") {   # Darwin
       $RTTOV_dir = "/sysdisk1/$ThisGuy/libs/rttov_$Compiler";
       if (-d $RTTOV_dir) {
           $ENV{RTTOV} = $RTTOV_dir;
@@ -539,7 +539,7 @@ $ENV{BUFR}='1';
           print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
           $RTTOV_dir = undef;
       }
-  }
+   }
 
 #For cycle jobs, WRF must exist. Will add capability to compile WRF in the (near?) future
   if ($Type =~ /CYCLING/i) {
@@ -1192,6 +1192,12 @@ if ($Type =~ /4DVAR/i) {
 }
 
 
+
+# Hack to find correct dynamic libraries for HDF5 with gfortran:
+if ( (-d "$MainDir/HDF5_$Compiler") && ($use_HDF5 eq "yes") && ($Compiler eq "gfortran")) {
+   $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$MainDir/HDF5_$Compiler/lib";
+   print "Adding $ENV{HDF5}/lib to \$LD_LIBRARY_PATH \n";
+}
 
 
 # Make working directory for each Experiments:
