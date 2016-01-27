@@ -3,7 +3,17 @@
 # Updates : March 2013, adapted for Loblolly (PC) and Yellowstone (Mike Kavulich) 
 #           August 2013, added 4DVAR test capability (Mike Kavulich)
 #           December 2013, added parallel/batch build capability (Mike Kavulich)
-#
+#           May 2014, added new platform (Mac), improved summary upload, added OBSPROC, 4DVAR, and VARBC test capabilities
+#           June 2014, added FGAT test capability
+#           August 2014, added GENBE test capability (for yellowstone)
+#           January 2015, added GENBE test capability for PC and Mac, update for CV7 tests, several other updates and fixes
+#           March 2015, added CLOUD_CV compilation option, adding 4DVAR GENBE capability, updates to web summary upload
+#           April 2015, different compiler versions now have different BASELINE files, generalize yellowstone job scripts
+#           May 2015, added CYCLING job capability for yellowstone, overhauled job hash structure for better summary reports
+#           September 2015, added CYCLING capability and track sub-job info for local machines
+#           November 2015, added HYBRID job capability
+#           December 2015, added HDF5 and NETCDF4 capabilities
+#           January 2016, added 4DVAR serial test capability
 #
 
 use strict;
@@ -344,13 +354,13 @@ while (<DATA>) {
 }
 
 
-if ($Par_4dvar =~ /serial/i) {
-    print "\nNOTE: 4DVAR serial builds not supported. Will not compile 4DVAR for serial.\n\n";
-    $Par_4dvar =~ s/serial\|//g;
-    $Par_4dvar =~ s/\|serial//g;
-    $Par_4dvar =~ s/serial//g;
-    sleep 1;
-}
+#if ($Par_4dvar =~ /serial/i) {
+#    print "\nNOTE: 4DVAR serial builds not supported. Will not compile 4DVAR for serial.\n\n";
+#    $Par_4dvar =~ s/serial\|//g;
+#    $Par_4dvar =~ s/\|serial//g;
+#    $Par_4dvar =~ s/serial//g;
+#    sleep 1;
+#}
 
 
 #Remove "|" from the start of parallelism strings
@@ -454,10 +464,35 @@ if ($Exec) {
          my $Revision3 = &get_repo_revision("WRFDA_3DVAR_dmpar");
          my $Revision4 = &get_repo_revision("WRFDA_4DVAR_dmpar");
          die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
-         $Revision = &get_repo_revision("WRFDA_3DVAR_dmpar");
+         $Revision = $Revision3;
+      } elsif ( ($Par =~ /serial/i) && ($Par_4dvar =~ /serial/i) ) {
+         my $Revision3 = &get_repo_revision("WRFDA_3DVAR_serial");
+         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_serial");
+         die "Check your existing code: WRFDA_3DVAR_serial and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
+         $Revision = $Revision3;
+      } elsif ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /serial/i) ) {
+         my $Revision3 = &get_repo_revision("WRFDA_3DVAR_dmpar");
+         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_serial");
+         die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
+         $Revision = $Revision3;
+      } else {
+         my $Revision3 = &get_repo_revision("WRFDA_3DVAR_dmpar");
+         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_serial");
+         die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
+         $Revision = $Revision3;
       }
    } elsif ($Type =~ /4DVAR/i) {
-      $Revision = &get_repo_revision("WRFDA_4DVAR_dmpar");
+      if ( ($Par_4dvar =~ /serial/i) && ($Par_4dvar =~ /dmpar/i) ) {
+         print "Ensuring that all compiled code is the same version\n";
+         my $Revision3 = &get_repo_revision("WRFDA_4DVAR_serial");
+         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_dmpar");
+         die "Check your existing code: WRFDA_4DVAR_serial and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
+         $Revision = $Revision3;
+      } elsif ($Par_4dvar =~ /serial/i) {
+         $Revision = &get_repo_revision("WRFDA_4DVAR_serial");
+      } else {
+         $Revision = &get_repo_revision("WRFDA_4DVAR_dmpar");
+      }
    } else {
       if ( $Par =~ /dmpar/i ) {
          $Revision = &get_repo_revision("WRFDA_3DVAR_dmpar");
@@ -571,26 +606,72 @@ $ENV{BUFR}='1';
 
 #######################  BEGIN COMPILE 4DVAR  ########################
 
-if ($Type =~ /4DVAR/i) {
-  # Set WRFPLUS_DIR Environment variable
-    my $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
+# Set WRFPLUSDIR (for 4DVAR dmpar tests) and/or WRFPLUSDIR_serial (for 4dvar serial tests)
+my $WRFPLUSDIR;
+my $WRFPLUSDIR_serial;
+if ($Par_4dvar =~ /dmpar/i) {
+    # Set WRFPLUS_DIR Environment variable
+    $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
     chomp($WRFPLUSDIR);
-    print "4DVAR tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR.\n";
+    print "4DVAR dmpar tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR.\n";
     if (-d $WRFPLUSDIR) {
         $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
         print "Checking WRFPLUS revision ...\n";
         $WRFPLUS_Revision = &get_repo_revision("$WRFPLUSDIR");
     } else {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
-        print "\nNOT COMPILING FOR 4DVAR!\n";
-        $Type =~ s/4DVAR//gi;
+        print "\nNOT COMPILING FOR 4DVAR DMPAR!\n";
 
         foreach my $name (keys %Experiments) {
-            foreach my $type ($Experiments{$name}{test_type}) {
-                if ($type =~ /4DVAR/i) {
-                   delete $Experiments{$name};
-                   print "\nDeleting 4DVAR experiment $name from test list.\n";
-                   next ;
+            if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
+               foreach my $par ($Experiments{$name}{paropt}) {
+                   delete $Experiments{$name}{paropt}{$par} if ($par =~ /dmpar/i) ;
+                   if ((keys %{$Experiments{$name}{paropt}}) > 0) {
+                      print "\nDeleting 4DVAR dmpar experiment $name from test list.\n";
+                   } else {
+                      delete $Experiments{$name};
+                      $Type =~ s/4DVAR//gi;
+                      print "\nDeleting 4DVAR experiment $name from test list.\n";
+                      next ;
+                   }
+                }
+            }
+        }
+    printf "\nNew list of experiments : \n";
+    printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
+    printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
+         $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
+             keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
+    sleep 2; #Pause to let user see new list
+    }
+}
+
+if ($Par_4dvar =~ /serial/i) {
+    # Set WRFPLUS_DIR Environment variable
+    $WRFPLUSDIR_serial = $MainDir."/WRFPLUSV3_$Compiler\_serial";
+    chomp($WRFPLUSDIR_serial);
+    print "4DVAR serial tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR_serial.\n";
+    if (-d $WRFPLUSDIR_serial) {
+        if ($WRFPLUS_Revision eq "NONE") {
+           print "Checking WRFPLUS revision ...\n";
+           $WRFPLUS_Revision = &get_repo_revision("$WRFPLUSDIR_serial");
+        }
+    } else {
+        print "\n$WRFPLUSDIR_serial DOES NOT EXIST\n";
+        print "\nNOT COMPILING FOR 4DVAR SERIAL!\n";
+
+        foreach my $name (keys %Experiments) {
+            if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
+               foreach my $par ($Experiments{$name}{paropt}) {
+                   delete $Experiments{$name}{paropt}{$par} if ($par =~ /serial/i) ;
+                   if ((keys %{$Experiments{$name}{paropt}}) > 0) {
+                      print "\nDeleting 4DVAR serial experiment $name from test list.\n";
+                   } else {
+                      delete $Experiments{$name};
+                      $Type =~ s/4DVAR//gi;
+                      print "\nDeleting 4DVAR experiment $name from test list.\n";
+                      next ;
+                   }
                 }
             }
         }
@@ -609,7 +690,12 @@ if ($Type =~ /4DVAR/i) {
    foreach (split /\|/, $Par_4dvar) { #foreach1
       my $par_type = $_;
 
-
+      # Set WRFPLUS_DIR for this build
+      if ($par_type eq "dmpar") {
+         $ENV{WRFPLUS_DIR} = "$WRFPLUSDIR";
+      } elsif ($par_type eq "serial") {
+         $ENV{WRFPLUS_DIR} = $WRFPLUSDIR_serial;
+      }
 
       # Get WRFDA code
 
