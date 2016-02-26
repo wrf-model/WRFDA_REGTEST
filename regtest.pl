@@ -14,7 +14,7 @@
 #           November 2015, added HYBRID job capability
 #           December 2015, added HDF5 and NETCDF4 capabilities
 #           January 2016, added 4DVAR serial test capability
-#
+#           February 2016, Added HYBRID test capabilities for local machines, cleaned up library link system
 
 use strict;
 use Term::ANSIColor;
@@ -165,7 +165,6 @@ my @childs;
 my @exefiles;
 my %Experiments ;
 my $cmd='';
-my $HDF5_dir;
 #   Sample %Experiments Structure: #####################
 #   
 #   %Experiments (
@@ -501,6 +500,7 @@ if ($Exec) {
       }
    }
    chomp($Revision);
+   print "All code checks out; revision is $Revision\n";
    goto "SKIP_COMPILE";
 }
 
@@ -521,10 +521,11 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
 $ENV{CRTM}='1'; #These are not necessary since V3.6, but will not hurt
 $ENV{BUFR}='1';
 
-   if ( (-d "$MainDir/HDF5_$Compiler") && ($use_HDF5 eq "yes")) {
-      $ENV{HDF5}="$MainDir/HDF5_$Compiler";
-      print "Found HDF5 in directory $MainDir/HDF5_$Compiler\n";
+   if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes")) {
+      $ENV{HDF5}="$MainDir/libs/HDF5_$Compiler\_$Compiler_version";
+      print "Found HDF5 in directory $MainDir/libs/HDF5_$Compiler\_$Compiler_version\n";
    } else {
+      print "Directory $MainDir/libs/HDF5_$Compiler\_$Compiler_version DOES NOT EXIST!\n";
       print "Not using HDF5\n";
    }
 
@@ -565,7 +566,7 @@ $ENV{BUFR}='1';
           }
       }
    } elsif ($Arch eq "Darwin") {   # Darwin
-      $RTTOV_dir = "/sysdisk1/$ThisGuy/libs/rttov_$Compiler";
+      $RTTOV_dir = "$MainDir/libs/rttov_$Compiler\_$Compiler_version";
       if (-d $RTTOV_dir) {
           $ENV{RTTOV} = $RTTOV_dir;
           print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -1280,8 +1281,8 @@ if ($Type =~ /4DVAR/i) {
 
 
 # Hack to find correct dynamic libraries for HDF5 with gfortran:
-if ( (-d "$MainDir/HDF5_$Compiler") && ($use_HDF5 eq "yes") && ($Compiler eq "gfortran")) {
-   $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$MainDir/HDF5_$Compiler/lib";
+if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes") && ($Compiler eq "gfortran")) {
+   $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib";
    print "Adding $ENV{HDF5}/lib to \$LD_LIBRARY_PATH \n";
 }
 
@@ -1876,6 +1877,7 @@ sub new_job {
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "FGAT";
 
+         print "Starting FGAT $par job '$nam'\n";
          $starttime = gettimeofday();
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          if ($par=~/dm/i) {
@@ -1907,6 +1909,8 @@ sub new_job {
 
          # Cycling jobs need some extra variables. You'll see why if you read on
          my $job_feedback;
+
+         print "Starting CYCLING $par job '$nam'\n";
 
          # For cycling jobs, after first 3DVAR run, we run UPDATEBC for lateral BC, then WRF,
          # then UPDATEBC for lower BC, then 3DVAR again at next time.
@@ -2062,10 +2066,152 @@ sub new_job {
          return 1;
 
 
+     } elsif ($types =~ /HYBRID/i) {
+         $types =~ s/HYBRID//i;
+
+         print "Starting HYBRID $par job '$nam'\n";
+
+         # Hybrid jobs need some extra variables
+         my $job_feedback;
+         my $wrfdate;
+         my $date;
+         my $ens_num;
+         my $vertlevs;
+         my $ens_filename;
+
+
+         while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+            $i ++;
+         }
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "4DVAR";
+
+         # To make tests easier, the test directory should have a file "ens.info" that contains the wrf-formatted date
+         # on the first line, the base filename should appear on the second line, and the number of vertical levels on
+         # the third line. No characters should appear before this info on each line
+
+         my $openstatus = open(INFO, "<","ens.info");
+         unless ($openstatus) {
+            print "Problem opening ens.info; $!\nTest probably not set up correctly\n";
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            return undef;
+         }
+
+         while (<INFO>) {
+            chomp($_);
+            if ($. == 4) {
+               $ens_num = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+               last;
+            } elsif ($. == 3) {
+               $vertlevs = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+            } elsif ($. == 2) {
+               $ens_filename = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+            } elsif ($. == 1) {
+               #Only read the first 19 characters of the first line, since this is the length of a WRF-format date
+               $wrfdate = substr($_, 0, 19) or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+            }
+
+         }
+
+         close INFO;
+         $ens_filename =~ s/\s.*//;         # Remove trailing characters from filename
+         $ens_num =~ s/\D.*//;              # Remove trailing characters from ensemble number line
+         $vertlevs =~ s/\D.*//;             # Remove trailing characters from vertical level line
+
+         $date = substr($wrfdate,0,13);     # Remove minute, second, and non-numeric characters
+         $date =~ s/\D//g;                  # from $wrfdate to make $date
+
+
+         # Step 1: Run gen_be_ensmean.exe to calculate the mean and variance fields
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_MEAN_VARI";
+
+         $starttime = gettimeofday();
+         copy('$ens_filename.e001','$ens_filename.mean');
+         copy('$ens_filename.e001','$ens_filename.vari');
+         if ($par=~/dm/i) {
+            $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+            system($cmd);
+         } else {
+            $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+            system($cmd);
+         }
+         $endtime = gettimeofday();
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         $i++;
+
+         # Step 2: Calculate ensemble perturbations
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
+         mkpath('ep') or die "mkdir failed: $!";
+         chdir("ep");
+         $starttime = gettimeofday();
+         system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out');
+         $endtime = gettimeofday();
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         if ( ! -e "ps.e001") {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+             chdir "../.." or die "Cannot chdir to .. : $!\n";
+             return 1;
+         }
+         $i++;
+
+
+         # Step 3: Create vertical localization file
+         chdir("..");
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VERT_LOC";
+         system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_vertloc.exe $vertlevs >& vertlevs.out');
+         $endtime = gettimeofday();
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         if ( ! -e "be.vertloc.dat") {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+             chdir ".." or die "Cannot chdir to .. : $!\n";
+             return 1;
+         }
+         $i++;
+
+
+         # Step 4: Finally, run WRFDA
+
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
+
+         my @pertfiles = glob("ep/*");
+         foreach (@pertfiles){ symlink($_,basename($_))}; # link all perturbation files to base directory
+         if ( ! -e "fg") {
+            symlink('$ens_filename.mean','fg');
+         }
+         if ($par=~/dm/i) {
+            $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+            system($cmd);
+         } else {
+            $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+            system($cmd);
+         }
+
+         if ( -e "wrfvar_output") {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         } else {
+             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+             chdir ".." or die "Cannot chdir to .. : $!\n";
+             return 1;
+         }
+
+
+         # Return to the upper directory
+         chdir ".." or die "Cannot chdir to .. : $!\n";
+
+         # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
+         return 1;
+
      } elsif ($types =~ /4DVAR/i) {
          $types =~ s/4DVAR//i;
-         print "Starting 4DVAR $par job '$nam'\n";
 
+         print "Starting 4DVAR $par job '$nam'\n";
 
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
@@ -2074,11 +2220,11 @@ sub new_job {
 
          $starttime = gettimeofday();
          if ($par=~/dm/i) {
-             $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
-             system($cmd);
+            $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+            system($cmd);
          } else {
-             $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
-             system($cmd);
+            $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+            system($cmd);
          }
          $endtime = gettimeofday();
          rename "statistics", "statistics.$Arch.$nam.$par.$Compiler" if ( -e "statistics" );
@@ -2087,9 +2233,9 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          if ( -e "wrfvar_output") {
-             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
-             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
          }
 
          # Back to the upper directory:
@@ -2097,6 +2243,11 @@ sub new_job {
 
          return 1;
 
+     } else {
+         print "\nERROR:\nINVALID JOB TYPE $types FOR JOB '$nam'\n";
+         chdir ".." or die "Cannot chdir to .. : $!\n";
+
+         return undef;
      }
 }
 
@@ -3031,6 +3182,7 @@ sub submit_job {
             my $rc = &new_job ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
                                 $Experiments{$name}{cpu_openmp},$Experiments{$name}{test_type} );
 
+print "2 submit job test, rc = $rc\n";
             #Set the end time for this job
             $Experiments{$name}{paropt}{$par}{endtime} = gettimeofday();
             $Experiments{$name}{paropt}{$par}{walltime} =

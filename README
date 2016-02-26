@@ -52,6 +52,7 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
     - a text file containing test information (testdata.txt)
     - a directory containing a few helpful scripts (scripts/)
     - a text file containing data about compile times (compile_baseline.txt)
+    - an empty directory which will contain libraries you provide (libs/)
     - this README file
 
   In addition to the files found in the above repository, you must download two data sets for the regression testing to 
@@ -66,6 +67,14 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
   compile the appropriate code separately. The testing suite will look for the WRFPLUS code in the test's working directory,
   in a sub-directory named 'WRFPLUSV3_compiler', where "compiler" is gnu, intel, pgi, etc.
 
+  Certain tests require external libraries, such as RTTOV and HDF5. You should link/copy the full installation of these 
+  libraries into the provided blank 'libs/' directory. These directories should follow the same compiler-specific naming 
+  conventions as WRFPLUS; for example, RTTOV compiled with gfortran should be found in the directory 'libs/RTTOV_gfortran', 
+  and HDF5 libraries in the directory 'libs/HDF5_gfortran'. These directories should contain the full library installation, 
+  so the command `ls libs/HDF5_gfortran` in the above example should show the following subdirectories:
+
+     bin     include lib     share
+
 4. Running WRFDA RTS
 
   The RTS can be run by executing the main script: 'regtest.pl'
@@ -74,17 +83,27 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
 
   However, without any input arguments, the script will fail with the following helpful message:
 
-    Usage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
-                                  --exec=[no]/yes --debug=[no]/yes --j=NUM_PROCS
-            compiler: Compiler name (supported options: xlf, pgi, g95, ifort, gfortran)
-            source:   Specify location of source code .tar file (use 'SVN' to retrieve from repository
-            revision: Specify code revision to retrieve (only works when '--source=SVN' specified
-            upload:   Uploads summary to web
-            exec:     Execute only; skips compile, utilizes existing executables
-            debug:    Compile with minimal optimization
-            j:        Number of processors to use in parallel compile (default 2)
-    Please note:
-    A compiler MUST be specified to run this script. Other options are optional.
+A compiler must be specified!
+
+Aborting the script with dignity.
+
+Usage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes --exec=[no]/yes
+                   --debug=[no]/yes/super --j=NUM_PROCS --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes
+                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk
+
+        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)
+        source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)
+        revision: Specify code revision to retrieve (only works when '--source=REPO' specified)
+                  Use any number to specify that revision number; specify 'HEAD' to use the latest revision
+        upload:   Uploads summary to web (default is 'yes' iff source==REPO and revision==HEAD)
+        exec:     Execute only; skips compile, utilizes existing executables
+        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well
+        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)
+        cloudcv:  Compile for CLOUD_CV options
+        netcdf4:  Compile for NETCDF4 options
+        hdf5:     Compile for HDF5 options
+        testfile: Name of test data file (default: testdata.txt)
+        repo:     Location of code repository
 
   As should be obvious from the above message, there are a number of command-line options you can provide to the script to 
   run the RTS in different ways. Let's examine these options in detail:
@@ -95,29 +114,42 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
     This is the only mandatory command-line argument for regtest.pl
   source:
     This is the source of the code you will be testing. You can enter one of two options:
-      --source=SVN will check out a version of the code from the WRF code repository at 
-                   https://svn-wrf-model.cgd.ucar.edu/trunk/. By default, the most recent (HEAD) repository will be checked 
-                   out, but you can use the "revision" option (explained later) to change this
+      --source=REPO will check out a version of the code from the WRF code repository at 
+                   https://svn-wrf-model.cgd.ucar.edu/trunk/ (or specifies by the "repo" option). By default, the most 
+                   recent (HEAD) repository will be checked out, but you can use the "revision" option to change this
       --source=SOURCE_CODE.tar will use a tar file that you specify which contains the WRFDA source code. It must be a tar 
                    file which only contains the WRFDA code in a directory named "WRFDA". You can specify a tar file in a 
                    different directory with either a full path or a relative path.
   revision:
-    If you specify "--source=SVN", you can use "--revision=####" to specify a specific revision number to check out of the 
+    If you specify "--source=REPO", you can use "--revision=####" to specify a specific revision number to check out of the 
     repository
+  repo:
+    The default repository when you specify "--source=REPO" is "https://svn-wrf-model.cgd.ucar.edu/trunk/". You can specify
+    a different repository with this option.
   upload:
-    Will upload a summary of the test to the web (found at http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html). 
+    Will upload a summary of the test to the web (found at http://www2.mmm.ucar.edu/wrf/users/wrfda/regression/index.html). 
     You must have write permission on the MMM "nebula" machine to successfully use this option, as you will be prompted for 
     your password to upload the summary files
   exec:
     If you have run a previous test and do not wish to delete that code and re-compile, you can use "--exec=yes" to re-run 
     the tests on existing code
   debug:
-    This option should be used with caution, as WRFDA typically can not compile with debugging options due to poorly-written 
-    legacy code in external libraries such as BUFR
+    Allows you to compile WRFDA without optimization (--debug=yes) or with debug flags and no optimization (--debug=super).
+    Results will likely differ from normal files, but these options can help trap errors not caught by the standard tests. 
   j:
     Specify the number of cores to be used with parallel make to speed up compilation. The default is 4, and 16 is the 
     maximum possible value, though values greater than 6 are not recommended, as there is minimal speedup beyond this
-
+  cloudcv:
+    Compiles WRFDA with the "CLOUDCV=1" environment variable set, which compiles a lot of if-deffed code for moisture
+    control variables that is normally not compiled. There are currently no tests for this option, and it will cause CV3
+    tests to dail
+  netcdf4:
+    Compile for NETCDF4 options.
+  hdf5:
+    Compile using HDF5 libraries. On by default if the libraries are found in 'libs/HDF5_compiler', but setting this to
+    --hdf5=no will disable this option. Required for amsr2 test(s).
+  testfile:
+    You can read a different test file than the default 'testdata.txt' with this option.
 
 5. Output
 
@@ -128,7 +160,8 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
   match  The output of the test is a bit-for-bit match with the baseline. Excellent news!
   ok     The output of the test is not a bit-for-bit match with the baseline, but the fields are exactly the same. This can 
          result from a change in the variables stored in output, for instance. This is a perfectly acceptable result, but 
-         you should update the baseline using the quickcopy.pl script.
+         you should update the baseline using the quickcopy.pl script. NOTE: Tests using NETCDF4 files will always report 
+         'ok' due to limitations of the testing routines that have not yet been resolved.
   diff   This means that the output of the test is different than the baseline. This often means there is a problem, though 
          if you expect your updates to change the output this may be an acceptable result. Check the output thoroughly!
 
