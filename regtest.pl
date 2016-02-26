@@ -1679,6 +1679,12 @@ sub new_job {
      
      my ($nam, $com, $par, $cpun, $cpum, $types) = @_;
 
+print "nam = $nam\n";
+print "com = $com\n";
+print "par = $par\n";
+print "cpun = $cpun\n";
+print "cpum = $cpum\n";
+print "types = $types\n";
      my $feedback;
      my $starttime;
      my $endtime;
@@ -2079,11 +2085,11 @@ sub new_job {
          my $vertlevs;
          my $ens_filename;
 
-
+print "1 test HYBRID\n";
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "4DVAR";
+#         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "HYBRID";
 
          # To make tests easier, the test directory should have a file "ens.info" that contains the wrf-formatted date
          # on the first line, the base filename should appear on the second line, and the number of vertical levels on
@@ -2095,6 +2101,7 @@ sub new_job {
             chdir ".." or die "Cannot chdir to '..' : $!\n";
             return undef;
          }
+print "2 test HYBRID\n";
 
          while (<INFO>) {
             chomp($_);
@@ -2121,33 +2128,29 @@ sub new_job {
          $date =~ s/\D//g;                  # from $wrfdate to make $date
 
 
+print "3 test HYBRID\n";
          # Step 1: Run gen_be_ensmean.exe to calculate the mean and variance fields
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_MEAN_VARI";
 
          $starttime = gettimeofday();
-         copy('$ens_filename.e001','$ens_filename.mean');
-         copy('$ens_filename.e001','$ens_filename.vari');
-         if ($par=~/dm/i) {
-            $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
-            system($cmd);
-         } else {
-            $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
-            system($cmd);
-         }
+         copy("$ens_filename.e001","$ens_filename.mean");
+         copy("$ens_filename.e001","$ens_filename.vari");
+         system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ensmean.exe >& ensmean.out");
          $endtime = gettimeofday();
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          $i++;
 
+print "4 test HYBRID\n";
          # Step 2: Calculate ensemble perturbations
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
          mkpath('ep') or die "mkdir failed: $!";
          chdir("ep");
          $starttime = gettimeofday();
-         system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out');
+         system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out");
          $endtime = gettimeofday();
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
@@ -2160,10 +2163,11 @@ sub new_job {
          $i++;
 
 
+print "5 test HYBRID\n";
          # Step 3: Create vertical localization file
          chdir("..");
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VERT_LOC";
-         system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_vertloc.exe $vertlevs >& vertlevs.out');
+         system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_vertloc.exe $vertlevs >& vertlevs.out");
          $endtime = gettimeofday();
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
@@ -2176,6 +2180,7 @@ sub new_job {
          $i++;
 
 
+print "6 test HYBRID\n";
          # Step 4: Finally, run WRFDA
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
@@ -2183,7 +2188,7 @@ sub new_job {
          my @pertfiles = glob("ep/*");
          foreach (@pertfiles){ symlink($_,basename($_))}; # link all perturbation files to base directory
          if ( ! -e "fg") {
-            symlink('$ens_filename.mean','fg');
+            symlink("$ens_filename.mean",'fg');
          }
          if ($par=~/dm/i) {
             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
@@ -2202,6 +2207,7 @@ sub new_job {
          }
 
 
+print "7 test HYBRID\n";
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
