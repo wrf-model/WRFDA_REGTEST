@@ -14,7 +14,7 @@
 #           November 2015, added HYBRID job capability
 #           December 2015, added HDF5 and NETCDF4 capabilities
 #           January 2016, added 4DVAR serial test capability
-#           February 2016, Added HYBRID test capabilities for local machines, cleaned up library link system
+#           February 2016, Added HYBRID capabilities for local machines, enabled sm tests, cleaned up library link system
 
 use strict;
 use Term::ANSIColor;
@@ -342,8 +342,10 @@ while (<DATA>) {
                         $Par_4dvar = join('|',$Par_4dvar,$_) unless ($Par_4dvar =~ /$_/);
                     }
                 } else {
-                    foreach (@tasks) {
-                        $Par = join('|',$Par,$_) unless ($Par =~ /$_/);
+                    foreach my $task (@tasks) {
+                        my $task_noplus = $task;
+                        $task_noplus =~ s/\+/\\+/g; # Need to escape "+" sign from "dm+sm" in the unless check
+                        $Par = join('|',$Par,$task) unless ($Par =~ /$task_noplus/);
                     }
                 }
               };
@@ -353,13 +355,17 @@ while (<DATA>) {
 }
 
 
-#if ($Par_4dvar =~ /serial/i) {
-#    print "\nNOTE: 4DVAR serial builds not supported. Will not compile 4DVAR for serial.\n\n";
-#    $Par_4dvar =~ s/serial\|//g;
-#    $Par_4dvar =~ s/\|serial//g;
-#    $Par_4dvar =~ s/serial//g;
-#    sleep 1;
-#}
+# NOTE: FOR SOME REASON THIS DOESN'T DO ANYTHING RIGHT NOW. NEEDS FURTHER CHECKING
+if ($Par_4dvar =~ /sm/i) {
+    print "\nNOTE: 4DVAR shared memory builds not supported. Will not compile 4DVAR for smpar; sm+dm.\n\n";
+    $Par_4dvar =~ s/smpar\|//g;
+    $Par_4dvar =~ s/\|smpar//g;
+    $Par_4dvar =~ s/smpar//g;
+    $Par_4dvar =~ s/dm\+sm\|//g;
+    $Par_4dvar =~ s/\|dm\+sm//g;
+    $Par_4dvar =~ s/dm\+sm//g;
+    sleep 1;
+}
 
 
 #Remove "|" from the start of parallelism strings
@@ -1002,15 +1008,16 @@ if ($Type =~ /3DVAR/i) {
        close ($writeme);
 
 
-#       # Add a slash before + in $Par !!! Needed if we support dm+sm in the future !!!
-#       $Par =~ s/\+/\\+/g;
+#       # Add a slash before '+' in $par_type. Needed for dm+sm support!
+       my $par_type_noplus = $par_type;
+       $par_type_noplus =~ s/\+/\\+/g;
 
        my $option;
 
       $count = 0;
       foreach (@output) {
          my $config_line = $_ ;
-         if (($config_line=~ m/(\d+)\.\s\($par_type\) .* $Compiler\/$CCompiler .*/ix) &&
+         if (($config_line=~ m/(\d+)\.\s\($par_type_noplus\) .* $Compiler\/$CCompiler .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
              ! ($config_line=~/-f90/i) &&
@@ -1022,7 +1029,7 @@ if ($Type =~ /3DVAR/i) {
             $Compile_options{$1} = $par_type;
             $option = $1;
             $count++;
-         } elsif ( ($config_line=~ m/(\d+)\.\s\($par_type\) .* $Compiler .* $CCompiler .*/ix) &&
+         } elsif ( ($config_line=~ m/(\d+)\.\s\($par_type_noplus\) .* $Compiler .* $CCompiler .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
              ! ($config_line=~/-f90/i) &&
@@ -1034,7 +1041,7 @@ if ($Type =~ /3DVAR/i) {
             $Compile_options{$1} = $par_type;
             $option = $1;
             $count++;
-         } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
+         } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type_noplus) .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
              ! ($config_line=~/-f90/i) &&
@@ -1280,8 +1287,8 @@ if ($Type =~ /4DVAR/i) {
 
 
 
-# Hack to find correct dynamic libraries for HDF5 with gfortran:
-if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes") && ($Compiler eq "gfortran")) {
+# Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
+if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes") && ( ($Compiler eq "gfortran") || ($Compiler eq "pgi") ) ) {
    $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib";
    print "Adding $ENV{HDF5}/lib to \$LD_LIBRARY_PATH \n";
 }
@@ -1825,13 +1832,13 @@ print "types = $types\n";
              $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
              $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                            + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
-             mkpath('varbc_run_1') or die "mkdir failed: $!";
+             mkpath("varbc_run_1_$par") or die "mkdir failed: $!";
              unless ( -e "wrfvar_output") {
                  chdir "..";
                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
                  return "VARBC_FAIL";
              }
-             system('mv statistics rsl* wrfvar_output varbc_run_1/');
+             system("mv statistics rsl* wrfvar_output varbc_run_1_$par/");
              unlink 'VARBC.in';
              move('VARBC.out','VARBC.in') or die "Move failed: $!";
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
@@ -2459,8 +2466,8 @@ sub new_job_ys {
          $varbc_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
              "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
-         $varbc_commands[1] = "mkdir('varbc_run_1');\n";
-         $varbc_commands[2] = "system('mv rsl* varbc_run_1/');\n";
+         $varbc_commands[1] = "mkdir(\"varbc_run_1_$par\");\n";
+         $varbc_commands[2] = "system(\"mv rsl* varbc_run_1_$par/\");\n";
          $varbc_commands[3] = "unlink('VARBC.in');\n";
          $varbc_commands[4] = "rename('VARBC.out','VARBC.in');\n";
          $varbc_commands[5] = 'if ( ! -e "wrfvar_output") {'."\n";
@@ -2924,7 +2931,7 @@ sub new_job_ys {
 
             # Step 2: Calculate ensemble perturbations
 
-            mkpath('ep') or die "mkdir failed: $!";
+            mkpath("ep") or die "mkdir failed: $!";
             chdir("ep");
 
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
@@ -3002,11 +3009,12 @@ sub new_job_ys {
          $hybrid_commands[6] = ($par eq 'serial' || $par eq 'smpar') ?
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par')\n" :
              "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
-         $hybrid_commands[7] = 'if ( ! -e "wrfvar_output") {'."\n";
-         $hybrid_commands[8] = '   open FH,">FAIL";'."\n";
-         $hybrid_commands[9] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
-         $hybrid_commands[10] = "   close FH;\n";
-         $hybrid_commands[11] = "}\n";
+         $hybrid_commands[7] = "rename(\"ep/\",\"ep_$par/\");\n";
+         $hybrid_commands[8] = 'if ( ! -e "wrfvar_output") {'."\n";
+         $hybrid_commands[9] = '   open FH,">FAIL";'."\n";
+         $hybrid_commands[10] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+         $hybrid_commands[11] = "   close FH;\n";
+         $hybrid_commands[12] = "}\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
                                  $Queue, $Project, @hybrid_commands );
