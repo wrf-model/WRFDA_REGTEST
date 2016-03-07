@@ -110,7 +110,7 @@ sub print_help_and_die {
   print "        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)\n";
   print "        cloudcv:  Compile for CLOUD_CV options\n";
   print "        netcdf4:  Compile for NETCDF4 options\n";
-  print "        hdf5:     Compile for HDF5 options\n";
+  print "        hdf5:     Compile for HDF5 options (note that the default value is 'yes')\n";
   print "        testfile: Name of test data file (default: testdata.txt)\n";
   print "        repo:     Location of code repository\n";
   die "\n";
@@ -1372,6 +1372,21 @@ foreach my $name (keys %Experiments) {
        $Experiments{$name}{paropt}{$par}{started} = 0;
        $Experiments{$name}{paropt}{$par}{cpu_mpi} = ( ($par eq 'serial') || ($par eq 'smpar') ) ? 1 : $Experiments{$name}{cpu_mpi};
        $Experiments{$name}{paropt}{$par}{cpu_openmp} = ( ($par eq 'serial') || ($par eq 'dmpar') ) ? 1 : $Experiments{$name}{cpu_openmp};
+#       ( ($par eq 'serial') || ($par eq 'smpar') ) ? $Experiments{$name}{paropt}{$par}{cpu_mpi} = 1 : 
+#                                                     $Experiments{$name}{paropt}{$par}{cpu_mpi} = $Experiments{$name}{cpu_mpi};
+#       ( ($par eq 'serial') || ($par eq 'dmpar') ) ? $Experiments{$name}{paropt}{$par}{cpu_openmp} = 1 :
+#                                                     $Experiments{$name}{paropt}{$par}{cpu_openmp} = $Experiments{$name}{cpu_openmp};
+       #We want to avoid the possibility of accidentally submitting absurdly large processor requests for dm+sm
+#       while ( ($par eq 'dm+sm') && ($Experiments{$name}{paropt}{$par}{cpu_mpi}*$Experiments{$name}{paropt}{$par}{cpu_openmp} > 64) ) {
+#           print "\n RESULT IS \n";
+#           print floor($Experiments{$name}{paropt}{$par}{cpu_mpi} / 2 );
+#           print "\n";
+#          $Experiments{$name}{paropt}{$par}{cpu_mpi} = floor($Experiments{$name}{paropt}{$par}{cpu_mpi} / 2 ); 
+#          $Experiments{$name}{paropt}{$par}{cpu_openmp} = floor($Experiments{$name}{paropt}{$par}{cpu_openmp} / 2 );
+#       }
+    print "\nFOR THIS $par JOB\n";
+    print "cpu_mpi = $Experiments{$name}{paropt}{$par}{cpu_mpi}\n";
+    print "cpu_openmp = $Experiments{$name}{paropt}{$par}{cpu_openmp}\n";
     } 
  } 
 
@@ -1514,7 +1529,6 @@ if ( $Machine_name eq "yellowstone" ) {
                 print WEBH '<tr>'."\n";
                 print WEBH '<td colspan=3> </td>'."\n";
                 print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{job}{$job}{jobname}.'</td>'."\n";
-#                print WEBH '<td>'.$Experiments{$name}{cpu_openmp}.'</td>'."\n";
                 print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{job}{$job}{status}.'</td>'."\n";
                 printf WEBH '<td>'."%5d".'</td>'."\n",
                              $Experiments{$name}{paropt}{$par}{job}{$job}{walltime};
@@ -2285,7 +2299,6 @@ sub create_ys_job_script {
     # jobcpus:     number of OPENMP threads to run with
     # jobqueue
 
-
     printf "Creating $jobtype job: $jobname, $jobpar\n";
 
     # Generate the LSF job script
@@ -2849,6 +2862,7 @@ sub new_job_ys {
          my $ens_num;
          my $vertlevs;
          my $ens_filename;
+         my @hybrid_commands;
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
@@ -2856,38 +2870,60 @@ sub new_job_ys {
             $i ++;
          }
 
+         $h = $i-1;
+
          # For Hybrid jobs, we can either run the whole process, or start with pre-calculated perturbations
-         if (-e "ep.tar") {
+         if ( -e "ep.tar" ) {
 
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UNTAR_ENS_DATA";
+            if ( not -d "ep" ) { #No need to untar again if we're running multiple parallelisms
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UNTAR_ENS_DATA";
 
-            my @untar_commands;
-            $untar_commands[0] = "system('tar -xf ep.tar');\n";
-            $untar_commands[1] = 'if ( ! -d "ep") {'."\n";
-            $untar_commands[2] = '   open FH,">../FAIL";'."\n";
-            $untar_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
-            $untar_commands[4] = "   close FH;\n";
-            $untar_commands[5] = "}\n";
+               my @untar_commands;
+               $untar_commands[0] = "system('tar -xf ep.tar');\n";
+               $untar_commands[1] = 'if ( ! -d "ep") {'."\n";
+               $untar_commands[2] = '   open FH,">../FAIL";'."\n";
+               $untar_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+               $untar_commands[4] = "   close FH;\n";
+               $untar_commands[5] = "}\n";
 
-            $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+               &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
+                                    'caldera', $Project, @untar_commands );
+   
+               $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
 
-            if ($job_feedback =~ m/.*<(\d+)>/) {
-               $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
-               $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
-               if ($i == 1) {
-                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+               if ($job_feedback =~ m/.*<(\d+)>/) {
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
+                  $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
+                  if ($i == 1) {
+                     $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "pending";
+                  } else {
+                     $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+                  }
+                  $h = $i;
+                  $i ++;
                } else {
-                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
+                  print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UNTAR_ENS_DATA job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+                  chdir ".." or die "Cannot chdir to '..' : $!\n";
+                  return undef;
                }
-               $h = $i;
-               $i ++;
-            } else {
-               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UNTAR_ENS_DATA job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-               chdir ".." or die "Cannot chdir to '..' : $!\n";
-               return undef;
             }
 
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
+            $hybrid_commands[0] = "use File::Basename;\n";
+            $hybrid_commands[1] = 'my @pertfiles = glob("'."ep/*\");\n";
+            $hybrid_commands[2] = 'foreach (@pertfiles){ symlink($_,basename($_))};'."\n";
+            $hybrid_commands[3] = ($par eq 'serial' || $par eq 'smpar') ?
+                "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
+                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+            $hybrid_commands[4] = 'if ( ! -e "wrfvar_output") {'."\n";
+            $hybrid_commands[5] = '   open FH,">FAIL";'."\n";
+            $hybrid_commands[6] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $hybrid_commands[7] = "   close FH;\n";
+            $hybrid_commands[8] = "}\n";
+
+
          } else {
+
             # To make tests easier, the test directory should have a file "ens.info" that contains the wrf-formatted date
             # on the first line, the base filename should appear on the second line, and the number of vertical levels on 
             # the third line. No characters should appear before this info on each line
@@ -3017,32 +3053,37 @@ sub new_job_ys {
                return undef;
             }
 
+
+
+            # Finally, create job to run WRFDA
+
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
+            $hybrid_commands[0] = "use File::Basename;\n";
+            $hybrid_commands[1] = 'my @pertfiles = glob("'."ep/*\");\n";
+            $hybrid_commands[2] = 'foreach (@pertfiles){ symlink($_,basename($_))};'."\n";
+            $hybrid_commands[3] = 'if ( ! -e "fg") {'."\n";
+            $hybrid_commands[4] = "   symlink('$ens_filename.mean','fg');\n";
+            $hybrid_commands[5] = '}'."\n";
+            $hybrid_commands[6] = ($par eq 'serial' || $par eq 'smpar') ?
+                "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
+                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+            $hybrid_commands[7] = "rename(\"ep/\",\"ep_$par/\");\n";
+            $hybrid_commands[8] = 'if ( ! -e "wrfvar_output") {'."\n";
+            $hybrid_commands[9] = '   open FH,">FAIL";'."\n";
+            $hybrid_commands[10] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $hybrid_commands[11] = "   close FH;\n";
+            $hybrid_commands[12] = "}\n";
+
          }
-
-         # Finally, run WRFDA
-
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
-         my @hybrid_commands;
-         $hybrid_commands[0] = "use File::Basename;\n";
-         $hybrid_commands[1] = 'my @pertfiles = glob("'."ep/*\");\n";
-         $hybrid_commands[2] = 'foreach (@pertfiles){ symlink($_,basename($_))};'."\n";
-         $hybrid_commands[3] = 'if ( ! -e "fg") {'."\n";
-         $hybrid_commands[4] = "   symlink('$ens_filename.mean','fg');\n";
-         $hybrid_commands[5] = '}'."\n";
-         $hybrid_commands[6] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par')\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
-         $hybrid_commands[7] = "rename(\"ep/\",\"ep_$par/\");\n";
-         $hybrid_commands[8] = 'if ( ! -e "wrfvar_output") {'."\n";
-         $hybrid_commands[9] = '   open FH,">FAIL";'."\n";
-         $hybrid_commands[10] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
-         $hybrid_commands[11] = "   close FH;\n";
-         $hybrid_commands[12] = "}\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @hybrid_commands );
 
-         $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+         if ( exists $Experiments{$nam}{paropt}{$par}{job}{$h} ) { # There is a possibility this is the first job, need to check
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+         } else {
+            $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+         }
 
          if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
