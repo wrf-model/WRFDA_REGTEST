@@ -357,7 +357,7 @@ while (<DATA>) {
 
 # NOTE: FOR SOME REASON THIS DOESN'T DO ANYTHING RIGHT NOW. NEEDS FURTHER CHECKING
 if ($Par_4dvar =~ /sm/i) {
-    print "\nNOTE: 4DVAR shared memory builds not supported. Will not compile 4DVAR for smpar; sm+dm.\n\n";
+    print "\nNOTE: 4DVAR shared memory builds not supported. Will not compile 4DVAR for smpar; dm+sm.\n\n";
     $Par_4dvar =~ s/smpar\|//g;
     $Par_4dvar =~ s/\|smpar//g;
     $Par_4dvar =~ s/smpar//g;
@@ -531,8 +531,8 @@ $ENV{BUFR}='1';
       $ENV{HDF5}="$MainDir/libs/HDF5_$Compiler\_$Compiler_version";
       print "Found HDF5 in directory $MainDir/libs/HDF5_$Compiler\_$Compiler_version\n";
    } else {
-      print "Directory $MainDir/libs/HDF5_$Compiler\_$Compiler_version DOES NOT EXIST!\n";
-      print "Not using HDF5\n";
+      unless (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") {print "\nDirectory $MainDir/libs/HDF5_$Compiler\_$Compiler_version DOES NOT EXIST!\n"};
+      print "\nNot using HDF5\n";
    }
 
    if ($Arch eq "Linux") {
@@ -1009,15 +1009,15 @@ if ($Type =~ /3DVAR/i) {
 
 
 #       # Add a slash before '+' in $par_type. Needed for dm+sm support!
-       my $par_type_noplus = $par_type;
-       $par_type_noplus =~ s/\+/\\+/g;
+       my $par_type_configure = $par_type;
+       $par_type_configure =~ s/\+/\\+/g;
 
        my $option;
 
       $count = 0;
       foreach (@output) {
          my $config_line = $_ ;
-         if (($config_line=~ m/(\d+)\.\s\($par_type_noplus\) .* $Compiler\/$CCompiler .*/ix) &&
+         if (($config_line=~ m/(\d+)\.\s\($par_type_configure\) .* $Compiler\/$CCompiler .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
              ! ($config_line=~/-f90/i) &&
@@ -1029,7 +1029,7 @@ if ($Type =~ /3DVAR/i) {
             $Compile_options{$1} = $par_type;
             $option = $1;
             $count++;
-         } elsif ( ($config_line=~ m/(\d+)\.\s\($par_type_noplus\) .* $Compiler .* $CCompiler .*/ix) &&
+         } elsif ( ($config_line=~ m/(\d+)\.\s\($par_type_configure\) .* $Compiler .* $CCompiler .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
              ! ($config_line=~/-f90/i) &&
@@ -1041,7 +1041,7 @@ if ($Type =~ /3DVAR/i) {
             $Compile_options{$1} = $par_type;
             $option = $1;
             $count++;
-         } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type_noplus) .*/ix) &&
+         } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type_configure) .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
              ! ($config_line=~/-f90/i) &&
