@@ -318,11 +318,8 @@ while (<DATA>) {
      }
 
      if ( /^(\d)+/ && ($System =~ /$Arch/i) ) {
-#       printf "Local_machine=$Local_machine Machine=$Machine \n";
        if ( ($Local_machine =~ /$Machine/i) ) {
-#         printf "SUCCESS1 \n Compiler=$Compiler Compiler_defined=$Compiler_defined \n";
          if ( ($Compiler =~ /$Compiler_defined/i) ) {
-#              printf "SUCCESS2 \n Machine_name=$Machine_name Name=$Name \n";
               if ( ($Name =~ /$Machine_name/i) ) {
                 $_=~ m/(\d+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+)/x;
                 my @tasks = split /\|/, $6;
@@ -521,7 +518,6 @@ if (defined $NETCDF4_defined && $NETCDF4_defined ne 'no') {
 if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
    $ENV{CLOUD_CV}='1';
    print "\nWill compile for CLOUD_CV option\n\n";
-#   die "CLOUD_CV option is not fully implemented yet. Exiting...";
 }
 
 $ENV{CRTM}='1'; #These are not necessary since V3.6, but will not hurt
@@ -1008,7 +1004,7 @@ if ($Type =~ /3DVAR/i) {
        close ($writeme);
 
 
-#       # Add a slash before '+' in $par_type. Needed for dm+sm support!
+       # Add a slash before '+' in $par_type. Needed for dm+sm support!
        my $par_type_configure = $par_type;
        $par_type_configure =~ s/\+/\\+/g;
 
@@ -1117,8 +1113,6 @@ if ($Type =~ /3DVAR/i) {
             print FH "./compile all_wrfvar >& compile.log.$Compile_options{$option}\n";
             print FH "\n";
             close (FH);
-
- #           my $BSUB="bsub -K -q $Compile_queue -P $Project -n $Parallel_compile_num -a poe -W 100 -J compile_3dvar_$Compile_options{$option}_opt${option} -o job_compile_3dvar_$Compile_options{$option}_opt${option}.out -e job_compile_3dvar_$Compile_options{$option}_opt${option}.err";
 
             # Submit the job
  
@@ -1372,18 +1366,6 @@ foreach my $name (keys %Experiments) {
        $Experiments{$name}{paropt}{$par}{started} = 0;
        $Experiments{$name}{paropt}{$par}{cpu_mpi} = ( ($par eq 'serial') || ($par eq 'smpar') ) ? 1 : $Experiments{$name}{cpu_mpi};
        $Experiments{$name}{paropt}{$par}{cpu_openmp} = ( ($par eq 'serial') || ($par eq 'dmpar') ) ? 1 : $Experiments{$name}{cpu_openmp};
-#       ( ($par eq 'serial') || ($par eq 'smpar') ) ? $Experiments{$name}{paropt}{$par}{cpu_mpi} = 1 : 
-#                                                     $Experiments{$name}{paropt}{$par}{cpu_mpi} = $Experiments{$name}{cpu_mpi};
-#       ( ($par eq 'serial') || ($par eq 'dmpar') ) ? $Experiments{$name}{paropt}{$par}{cpu_openmp} = 1 :
-#                                                     $Experiments{$name}{paropt}{$par}{cpu_openmp} = $Experiments{$name}{cpu_openmp};
-       #We want to avoid the possibility of accidentally submitting absurdly large processor requests for dm+sm
-#       while ( ($par eq 'dm+sm') && ($Experiments{$name}{paropt}{$par}{cpu_mpi}*$Experiments{$name}{paropt}{$par}{cpu_openmp} > 64) ) {
-#           print "\n RESULT IS \n";
-#           print floor($Experiments{$name}{paropt}{$par}{cpu_mpi} / 2 );
-#           print "\n";
-#          $Experiments{$name}{paropt}{$par}{cpu_mpi} = floor($Experiments{$name}{paropt}{$par}{cpu_mpi} / 2 ); 
-#          $Experiments{$name}{paropt}{$par}{cpu_openmp} = floor($Experiments{$name}{paropt}{$par}{cpu_openmp} / 2 );
-#       }
     print "\nFOR THIS $par JOB\n";
     print "cpu_mpi = $Experiments{$name}{paropt}{$par}{cpu_mpi}\n";
     print "cpu_openmp = $Experiments{$name}{paropt}{$par}{cpu_openmp}\n";
@@ -1492,7 +1474,6 @@ if ( $Machine_name eq "yellowstone" ) {
 }
 
     print WEBH '<table border="1">'."\n";
-#   print WEBH '<caption>Regression Test Summary</caption>'."\n";
     print WEBH '<tr>'."\n";
     print WEBH '<th>EXPERIMENT</th>'."\n";
     print WEBH '<th>PAROPT</th>'."\n";
@@ -1710,12 +1691,6 @@ sub new_job {
      
      my ($nam, $com, $par, $cpun, $cpum, $types) = @_;
 
-print "nam = $nam\n";
-print "com = $com\n";
-print "par = $par\n";
-print "cpun = $cpun\n";
-print "cpum = $cpum\n";
-print "types = $types\n";
      my $feedback;
      my $starttime;
      my $endtime;
@@ -2116,11 +2091,9 @@ print "types = $types\n";
          my $vertlevs;
          my $ens_filename;
 
-print "1 test HYBRID\n";
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
-#         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "HYBRID";
 
          # To make tests easier, the test directory should have a file "ens.info" that contains the wrf-formatted date
          # on the first line, the base filename should appear on the second line, and the number of vertical levels on
@@ -2132,7 +2105,6 @@ print "1 test HYBRID\n";
             chdir ".." or die "Cannot chdir to '..' : $!\n";
             return undef;
          }
-print "2 test HYBRID\n";
 
          while (<INFO>) {
             chomp($_);
@@ -2159,7 +2131,6 @@ print "2 test HYBRID\n";
          $date =~ s/\D//g;                  # from $wrfdate to make $date
 
 
-print "3 test HYBRID\n";
          # Step 1: Run gen_be_ensmean.exe to calculate the mean and variance fields
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_MEAN_VARI";
@@ -2174,7 +2145,6 @@ print "3 test HYBRID\n";
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          $i++;
 
-print "4 test HYBRID\n";
          # Step 2: Calculate ensemble perturbations
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
@@ -2194,7 +2164,6 @@ print "4 test HYBRID\n";
          $i++;
 
 
-print "5 test HYBRID\n";
          # Step 3: Create vertical localization file
          chdir("..");
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VERT_LOC";
@@ -2211,7 +2180,6 @@ print "5 test HYBRID\n";
          $i++;
 
 
-print "6 test HYBRID\n";
          # Step 4: Finally, run WRFDA
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
@@ -2238,7 +2206,6 @@ print "6 test HYBRID\n";
          }
 
 
-print "7 test HYBRID\n";
          # Return to the upper directory
          chdir ".." or die "Cannot chdir to .. : $!\n";
 
@@ -2323,9 +2290,6 @@ sub create_ys_job_script {
     printf FH "#BSUB -R span[ptile=%d]"."\n", ($jobpar eq 'serial' || $jobpar eq 'smpar') ? 1 : (($jobcores < 16 ) ? $jobcores : 16);
     print FH "\n"; #End of BSUB commands; add newline for readability
 
-    # Comment this out for now; this line will be needed if smpar functionality is ever added (also will need new variable passed, cpum)
-    #print FH ( $par eq 'smpar' || $par eq 'dm+sm') ? "setenv OMP_NUM_THREADS $cpum\n" :"\n";
-
     # OpenMP stuff
     print FH 'delete $ENV{MP_PE_AFFINITY};'."\n";
     if ( ($jobpar eq 'smpar' || $jobpar eq 'dm+sm') && ( $jobcpus > 1 ) ) {
@@ -2358,12 +2322,10 @@ sub new_job_ys {
 
      if ($types =~ /GENBE/i) {
          $types =~ s/GENBE//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "GENBE";
-#         $Experiments{$nam}{paropt}{$par}{currjobname} = "GENBE";
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
 
@@ -2420,12 +2382,10 @@ sub new_job_ys {
 
      if ($types =~ /OBSPROC/i) {
          $types =~ s/OBSPROC//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "OBSPROC";
-#         $Experiments{$nam}{paropt}{$par}{currjobname} = "OBSPROC";
 
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
@@ -2489,7 +2449,6 @@ sub new_job_ys {
 
      if ($types =~ /VARBC/i) {
          $types =~ s/VARBC//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
@@ -2545,7 +2504,6 @@ sub new_job_ys {
 
      if ($types =~ /FGAT/i) {
          $types =~ s/FGAT//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
@@ -2592,7 +2550,6 @@ sub new_job_ys {
 
      if ($types =~ /3DVAR/i) {
          $types =~ s/3DVAR//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
@@ -2637,7 +2594,6 @@ sub new_job_ys {
 
      if ($types =~ /CYCLING/i) {
          $types =~ s/CYCLING//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
          # Cycling jobs need some extra variables. You'll see why if you read on
          my $job_feedback;
@@ -2770,16 +2726,6 @@ sub new_job_ys {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UPDATE_BC_LOW";
          chdir ".." or warn "Cannot chdir to '..': $!\n";
 
-#         # Because of limitations in how csh can link files, we need to create a perl script to be called to link the wrfout as fg
-#         open FH, ">link_new_fg.pl" or die "Can not open link_new_fg.pl to write. $! \n";
-#         print FH '#!/usr/bin/perl -w'."\n";
-#         print FH "use strict;";
-#         print FH 'my @wrfout = glob("wrfout*");'."\n";
-#         print FH 'symlink ($wrfout[-1],"fg");'."\n";
-#         close FH;
-#
-#         chmod(0755,"link_new_fg.pl");
-
          my @low_bc_commands;
          $low_bc_commands[0] = 'my @wrfout = glob("WRF/wrfout*");'."\n";
          $low_bc_commands[1] = 'symlink ($wrfout[-1],"fg");'."\n";
@@ -2853,7 +2799,6 @@ sub new_job_ys {
 
      if ($types =~ /HYBRID/i) {
          $types =~ s/HYBRID//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
          # Hybrid jobs also need some extra variables
          my $job_feedback;
@@ -3108,7 +3053,6 @@ sub new_job_ys {
 
      if ($types =~ /4DVAR/i) {
          $types =~ s/4DVAR//i;
-         $Experiments{$nam}{paropt}{$par}{todo} = $types;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
@@ -3153,7 +3097,6 @@ sub new_job_ys {
      # Update the job list
      $types =~ s/^\|//;
      $types =~ s/\|$//;
-     $Experiments{$nam}{paropt}{$par}{todo} = $types;
 
      # Pick the job id
 
@@ -3254,13 +3197,10 @@ sub submit_job {
             &flush_status (); # refresh the status
 
 
-#print "\nDumper check 1\n";
-#print Dumper($Experiments{$name});
             #Submit job
             my $rc = &new_job ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
                                 $Experiments{$name}{cpu_openmp},$Experiments{$name}{test_type} );
 
-print "2 submit job test, rc = $rc\n";
             #Set the end time for this job
             $Experiments{$name}{paropt}{$par}{endtime} = gettimeofday();
             $Experiments{$name}{paropt}{$par}{walltime} =
@@ -3291,8 +3231,6 @@ print "2 submit job test, rc = $rc\n";
                 next;   # Can not submit this job.
             }
 
-#print "\nDumper check 2\n";
-#print Dumper($Experiments{$name});
             $Experiments{$name}{paropt}{$par}{status} = "done";
 
             # Wrap-up this job:
@@ -3306,8 +3244,6 @@ print "2 submit job test, rc = $rc\n";
             }
         }
 
-#print "\nDumper check 3\n";
-#print Dumper($Experiments{$name});
     }
 
     &flush_status (); # refresh the status
@@ -3459,8 +3395,6 @@ $count = 0;
                     next;
                  } else {
                     unless ($Experiments{$name}{paropt}{$par}{status} eq "error") { #These steps are unnecessary if we've already determined there's an error
-#                       next if ($Experiments{$name}{paropt}{$par}{todo}); #If there is more to do, need to call &new_job_ys again
-                                                                          # THIS SHOULD BE DEPRECIATED, the current system should not need "todo"
                        $remain_par{$name} -- ;                            # If we got to this point, this parallelism for this test is done
                        $Experiments{$name}{paropt}{$par}{status} = "done";
 
