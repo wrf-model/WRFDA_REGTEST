@@ -1272,8 +1272,14 @@ if ($Type =~ /3DVAR/i) {
    if ( $Par =~ /serial/i ) {
       die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in serial in directory tree named 'WRFDA_3DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_serial");
    }
+   if ( $Par =~ /smpar/i ) {
+      die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in serial in directory tree named 'WRFDA_3DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_smpar");
+   }
    if ( $Par =~ /dmpar/i ) {
       die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in parallel in directory tree named 'WRFDA_3DVAR_dmpar' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_dmpar");
+   }
+   if ( $Par =~ /dm\+sm/i ) {
+      die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in parallel in directory tree named 'WRFDA_3DVAR_dmpar' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_dm+sm");
    }
 }
 if ($Type =~ /4DVAR/i) {
@@ -1364,6 +1370,8 @@ foreach my $name (keys %Experiments) {
        $Experiments{$name}{paropt}{$par}{result} = "--";
        $Experiments{$name}{paropt}{$par}{walltime} = 0;
        $Experiments{$name}{paropt}{$par}{started} = 0;
+       $Experiments{$name}{paropt}{$par}{cpu_mpi} = ( ($par eq 'serial') || ($par eq 'smpar') ) ? 1 : $Experiments{$name}{cpu_mpi};
+       $Experiments{$name}{paropt}{$par}{cpu_openmp} = ( ($par eq 'serial') || ($par eq 'dmpar') ) ? 1 : $Experiments{$name}{cpu_openmp};
     } 
  } 
 
@@ -1474,8 +1482,8 @@ if ( $Machine_name eq "yellowstone" ) {
     print WEBH '<th>EXPERIMENT</th>'."\n";
     print WEBH '<th>PAROPT</th>'."\n";
     print WEBH '<th>CPU_MPI</th>'."\n";
+    print WEBH '<th>CPU_OMP</th>'."\n";
     print WEBH '<th>JOB</th>'."\n";
-#    print WEBH '<th>CPU_OMP</th>'."\n";
     print WEBH '<th>STATUS</th>'."\n";
     print WEBH '<th>WALLTIME(S)</th>'."\n";
     print WEBH '<th>RESULT</th>'."\n";
@@ -1493,7 +1501,8 @@ if ( $Machine_name eq "yellowstone" ) {
             printf WEBH ' rowspan="%1d" >'."\n",scalar keys %{$Experiments{$name}{paropt}{$par}{job}};
             print WEBH '<td>'.$name.'</td>'."\n";
             print WEBH '<td>'.$par.'</td>'."\n";
-            print WEBH '<td>'.$Experiments{$name}{cpu_mpi}.'</td>'."\n";
+            print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{cpu_mpi}.'</td>'."\n";
+            print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{cpu_openmp}.'</td>'."\n";
             print WEBH '<td> </td>'."\n";
             print WEBH '<td>'.$Experiments{$name}{paropt}{$par}{status}.'</td>'."\n";
             printf WEBH '<td>'."%5d".'</td>'."\n",
@@ -1664,21 +1673,22 @@ sub refresh_status {
 
     my @mes; 
 
-    push @mes, "Experiment                  Paropt      Job type        CPU_MPI  Status    Walltime (s)   Result\n";
-    push @mes, "=================================================================================================\n";
+    push @mes, "Experiment                  Paropt      Job type        CPU_MPI  CPU_OMP  Status    Walltime (s)   Result\n";
+    push @mes, "=============================================================================================================\n";
 
     foreach my $name (sort keys %Experiments) {
         foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
-            push @mes, sprintf "%-28s%-12s%-16s%-9d%-10s%-15d%-7s\n", 
+            push @mes, sprintf "%-28s%-12s%-16s%-9d%-9d%-10s%-15d%-7s\n",
                     $name, $par, $Experiments{$name}{test_type},
-                    $Experiments{$name}{cpu_mpi},
+                    $Experiments{$name}{paropt}{$par}{cpu_mpi},
+                    $Experiments{$name}{paropt}{$par}{cpu_openmp},
                     $Experiments{$name}{paropt}{$par}{status},
                     $Experiments{$name}{paropt}{$par}{walltime},
                     $Experiments{$name}{paropt}{$par}{result};
         }
     }
 
-    push @mes, "=================================================================================================\n";
+    push @mes, "=============================================================================================================\n";
     return @mes;
 }
 
@@ -2266,7 +2276,14 @@ print "7 test HYBRID\n";
 
 sub create_ys_job_script {
 
-    my ($jobname, $jobtype, $jobpar, $jobcompiler, $jobcores, $jobqueue, $jobproj, @stufftodo) = @_;
+    my ($jobname, $jobtype, $jobpar, $jobcompiler, $jobcores, $jobcpus, $jobqueue, $jobproj, @stufftodo) = @_;
+    # jobname:     name of the test (e.g. ASR_AIRS, realtime_hybrid, etc.)
+    # jobtype:     brief descriptive type of submitted job (e.g. 3DVAR, UPDATE_LOW_BC, GENBE, FGAT, OBSPROC, etc.)
+    # jobpar:      parallelization; one of serial, smpar, dmpar, or dm+sm
+    # jobcompiler: name of compiler (not currently used, but might be useful in the future)
+    # jobcores:    number of MPI tasks to run with
+    # jobcpus:     number of OPENMP threads to run with
+    # jobqueue
 
 
     printf "Creating $jobtype job: $jobname, $jobpar\n";
@@ -2296,8 +2313,12 @@ sub create_ys_job_script {
     # Comment this out for now; this line will be needed if smpar functionality is ever added (also will need new variable passed, cpum)
     #print FH ( $par eq 'smpar' || $par eq 'dm+sm') ? "setenv OMP_NUM_THREADS $cpum\n" :"\n";
 
-    # Include this line to avoid caldera problems. CISL-recommended kludge *sigh*
+    # OpenMP stuff
     print FH 'delete $ENV{MP_PE_AFFINITY};'."\n";
+    if ( ($jobpar eq 'smpar' || $jobpar eq 'dm+sm') && ( $jobcpus > 1 ) ) {
+       print FH '$ENV{OMP_NUM_THREADS} = '."$jobcpus;\n";
+       print FH '$ENV{MP_TASK_AFFINITY} = "core:$ENV{OMP_NUM_THREADS}";'."\n";
+    }
 
     # Finally, let's print all the commands that will be needed for this job. 
     # Array @stufftodo should be provided as strings WITH ANY NEEDED NEWLINES
@@ -2335,23 +2356,25 @@ sub new_job_ys {
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @genbe_commands;
-         $genbe_commands[0] = 'my $tarstatus = system("tar", "xf", "forecasts.tar");'."\n";
+         $genbe_commands[0] = "if( -e 'be.dat' ) {unlink 'be.dat'};\n";
+         $genbe_commands[1] = 'my $tarstatus = system("tar", "xf", "forecasts.tar");'."\n";
          # We need the script to see where the WRFDA directory is. See 'gen_be_wrapper.ksh' in test directory
          if ($types =~ /4DVAR/i) {
-            $genbe_commands[1] = '$ENV{REGTEST_WRFDA_DIR}='."'$MainDir/WRFDA_4DVAR_$par';\n";
+            $genbe_commands[2] = '$ENV{REGTEST_WRFDA_DIR}='."'$MainDir/WRFDA_4DVAR_$par';\n";
          } else {
-            $genbe_commands[1] = '$ENV{REGTEST_WRFDA_DIR}='."'$MainDir/WRFDA_3DVAR_$par';\n";
+            $genbe_commands[2] = '$ENV{REGTEST_WRFDA_DIR}='."'$MainDir/WRFDA_3DVAR_$par';\n";
          }
-         $genbe_commands[2] = "`./gen_be_wrapper.ksh > gen_be.out`;\n";
-         $genbe_commands[3] = "if( -e 'gen_be_run/SUCCESS' ) {\n";
-         $genbe_commands[4] = "   copy('gen_be_run/be.dat','./be.dat');\n";
-         $genbe_commands[5] = "} else {\n";
-         $genbe_commands[6] = '   open FH,">FAIL";'."\n";
-         $genbe_commands[7] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
-         $genbe_commands[8] = "   close FH;\n";
-         $genbe_commands[9] = "}\n";
+         $genbe_commands[3] = "`./gen_be_wrapper.ksh > gen_be.out`;\n";
+         $genbe_commands[4] = "if( -e 'gen_be_run/SUCCESS' ) {\n";
+         $genbe_commands[5] = "   copy('gen_be_run/be.dat','./be.dat');\n";
+         $genbe_commands[6] = "} else {\n";
+         $genbe_commands[7] = '   open FH,">FAIL_'."$par\";"."\n";
+         $genbe_commands[8] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+         $genbe_commands[9] = "   close FH;\n";
+         $genbe_commands[10] = "}\n";
+         $genbe_commands[11] = "move('gen_be_run','gen_be_run_$par');\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, $cpum,
                                  $Queue, $Project, @genbe_commands );
 
          # Submit the job
@@ -2421,7 +2444,7 @@ sub new_job_ys {
             $obsproc_commands[11] = "}\n";
          }
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
                                  $Queue, $Project, @obsproc_commands );
 
          # Submit the job
@@ -2476,7 +2499,7 @@ sub new_job_ys {
          $varbc_commands[8] = "   close FH;\n";
          $varbc_commands[9] = "}\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @varbc_commands );
 
          # Submit the job
@@ -2524,7 +2547,7 @@ sub new_job_ys {
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
              "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @fgat_commands );
 
          # Submit the job
@@ -2570,7 +2593,7 @@ sub new_job_ys {
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
              "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_3dvar_commands );
 
          # Submit the job
@@ -2641,7 +2664,7 @@ sub new_job_ys {
          $_3dvar_init_commands[4] = "   close FH;\n";
          $_3dvar_init_commands[5] = "}\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{1}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{1}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_3dvar_init_commands );
 
          # Submit initial 3DVAR job
@@ -2675,7 +2698,7 @@ sub new_job_ys {
          $lat_bc_commands[2] = "copy('wrfbdy_d01','../WRF/wrfbdy_d01');\n";
          $lat_bc_commands[3] = "copy('wrfvar_output','../WRF/wrfinput_d01');\n";
 
-         &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+         &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
                                  'caldera', $Project, @lat_bc_commands );
          
          # Here's the finagling I was talking about. Since these jobs all require input from the previous job,
@@ -2710,7 +2733,7 @@ sub new_job_ys {
          $wrf_commands[6] = 'foreach (@wrffiles){ symlink($_,basename($_))};'."\n";
          $wrf_commands[7] = ($par eq 'serial' || $par eq 'smpar') ? "system('$MainDir/WRFV3_$com/main/wrf.exe');\n" : "system('mpirun.lsf $MainDir/WRFV3_$com/main/wrf.exe');\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @wrf_commands );
 
          $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
@@ -2754,7 +2777,7 @@ sub new_job_ys {
          $low_bc_commands[6] = "   close FH;\n";
          $low_bc_commands[7] = "}\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
                                  'caldera', $Project, @low_bc_commands );
 
          $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
@@ -2786,7 +2809,7 @@ sub new_job_ys {
          $_3dvar_final_commands[4] = "   close FH;\n";
          $_3dvar_final_commands[5] = "}\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_3dvar_final_commands );
 
          $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
@@ -2908,7 +2931,7 @@ sub new_job_ys {
             $ensmean_commands[1] = "copy('$ens_filename.e001','$ens_filename.vari');\n";
             $ensmean_commands[2] = "system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ensmean.exe >& ensmean.out');\n";
 
-            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
                                  'caldera', $Project, @ensmean_commands );
 
             $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
@@ -2943,7 +2966,7 @@ sub new_job_ys {
             $enspert_commands[4] = "   close FH;\n";
             $enspert_commands[5] = "}\n";
 
-            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
                                  'caldera', $Project, @enspert_commands );
 
             $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
@@ -2974,7 +2997,7 @@ sub new_job_ys {
             $vertloc_commands[4] = "   close FH;\n";
             $vertloc_commands[5] = "}\n";
 
-            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1,
+            &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
                                  'caldera', $Project, @vertloc_commands );
 
             $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
@@ -3016,7 +3039,7 @@ sub new_job_ys {
          $hybrid_commands[11] = "   close FH;\n";
          $hybrid_commands[12] = "}\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @hybrid_commands );
 
          $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
@@ -3056,7 +3079,7 @@ sub new_job_ys {
              "system('$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
              "system('mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
 
-         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi},
+         &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_4dvar_commands );
 
          # Submit the job
