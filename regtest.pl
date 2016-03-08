@@ -614,7 +614,7 @@ my $WRFPLUSDIR;
 my $WRFPLUSDIR_serial;
 if ($Par_4dvar =~ /dmpar/i) {
     # Set WRFPLUS_DIR Environment variable
-    $WRFPLUSDIR = $MainDir."/WRFPLUSV3_$Compiler";
+    $WRFPLUSDIR = $MainDir."/libs/WRFPLUSV3_$Compiler\_$Compiler_version";
     chomp($WRFPLUSDIR);
     print "4DVAR dmpar tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR.\n";
     if (-d $WRFPLUSDIR) {
@@ -651,7 +651,7 @@ if ($Par_4dvar =~ /dmpar/i) {
 
 if ($Par_4dvar =~ /serial/i) {
     # Set WRFPLUS_DIR Environment variable
-    $WRFPLUSDIR_serial = $MainDir."/WRFPLUSV3_$Compiler\_serial";
+    $WRFPLUSDIR_serial = $MainDir."/libs/WRFPLUSV3_$Compiler\_$Compiler_version\_serial";
     chomp($WRFPLUSDIR_serial);
     print "4DVAR serial tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR_serial.\n";
     if (-d $WRFPLUSDIR_serial) {

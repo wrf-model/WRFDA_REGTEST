@@ -16,7 +16,7 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 11       cwb_ascii_thinning          3DVAR            4    16      serial|dmpar
 12       cycle_sene_hires            CYCLING         16    16      dmpar
 13       cycle_ne_blizzard           CYCLING         16    16      dmpar
-14       dual_res_hybrid             HYBRID          16    16      serial|dmpar
+14       dual_res_hybrid             HYBRID          16    16      dmpar
 15       iasi_kavulich               3DVAR           16    16      dmpar
 16       lat_lon_outerloops          3DVAR           16    16      dmpar
 17       multirad_pacific            3DVAR           32    16      dmpar
@@ -55,7 +55,7 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 11       cwb_ascii_thinning          3DVAR            4    16      serial|dmpar
 12       cycle_sene_hires            CYCLING         16    16      dmpar
 13       cycle_ne_blizzard           CYCLING         32    16      dmpar
-14       dual_res_hybrid             HYBRID          16    16      serial
+14       dual_res_hybrid             HYBRID           4     4      dmpar
 15       iasi_kavulich               3DVAR           16    16      dmpar
 16       lat_lon_outerloops          3DVAR           16    16      dmpar
 17       multirad_pacific            3DVAR           32    16      dmpar
@@ -94,7 +94,7 @@ Linux    x86_64    yellowstone    pgi       P64000510 caldera   WRFDA-data-EM  B
 11       cwb_ascii_thinning          3DVAR            4    16      serial|dmpar
 12       cycle_sene_hires            CYCLING         16    16      dmpar
 13       cycle_ne_blizzard           CYCLING         32    16      dmpar
-14       dual_res_hybrid             HYBRID          16    16      serial
+14       dual_res_hybrid             HYBRID          16    16      dmpar
 15       iasi_kavulich               3DVAR           16    16      dmpar
 16       lat_lon_outerloops          3DVAR           16    16      dmpar
 17       multirad_pacific            3DVAR           32    16      dmpar

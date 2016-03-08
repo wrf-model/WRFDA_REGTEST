@@ -64,10 +64,10 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
   These data sets can be found at the WRFDA website: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html
 
   This system is not yet set up to automatically compile WRFPLUS for 4DVAR tests. Therefore, to run 4DVAR tests, you must
-  compile the appropriate code separately. The testing suite will look for the WRFPLUS code in the test's working directory,
+  compile the appropriate code separately. The testing suite will look for the WRFPLUS code in the test's 'libs' directory,
   in a sub-directory named 'WRFPLUSV3_compiler', where "compiler" is gnu, intel, pgi, etc. For serial 4DVAR tests, you'll
   need to compile WRFPLUS for serial runs as well, and the testing suite will look for the WRFPLUS code in a sub-directory 
-  named 'WRFPLUSV3_compiler_serial'.
+  of 'libs' named 'WRFPLUSV3_compiler_serial'.
 
   Certain tests require external libraries, such as RTTOV and HDF5. You should link/copy the full installation of these 
   libraries into the provided blank 'libs/' directory. These directories should follow the same compiler-specific naming 
