@@ -140,26 +140,16 @@ if ( $Parallel_compile_num > 16 ) {die "Can not parallel compile using more than
 my $Tester = getlogin();
 
 # Local variables
-my $Arch;
-my $Machine;
-my $Name;
-my $Compiler;
-my $CCompiler;
-my $Project;
-my $Source;
-my $Queue;
+my ($Arch, $Machine, $Name, $Compiler, $CCompiler, $Project, $Source, $Queue, $Database, $Baseline, $MainDir, $missvars);
 my $Compile_queue = 'caldera';
 my @compile_job_list;
-my $Database;
-my $Baseline;
-my $MainDir;
 my @Message;
 my $Par="";
 my $Par_4dvar="";
 my $Type="";
+my $Compile_type="";
 my $Clear = `clear`;
 my $diffwrfdir = "";
-my $missvars;
 my @gtsfiles;
 my @childs;
 my @exefiles;
@@ -369,16 +359,17 @@ if ($Par_4dvar =~ /sm/i) {
 $Par_4dvar =~ s/^\|//g;
 $Par =~ s/^\|//g;
 
-#Create $Type variable to keep track of which code needs to be compiled/checked 
+#Create $Type and $Compile_type variables to keep track of which code needs to be compiled/checked 
 foreach my $name (keys %Experiments) {
     unless ( $Type =~ $Experiments{$name}{test_type}) {
         $Type = join('|',$Type,$Experiments{$name}{test_type});
     }
 
 }
-$Type =~ s/CYCLING/3DVAR/g;
-$Type =~ s/FGAT/3DVAR/g;
-$Type =~ s/HYBRID/3DVAR/g;
+$Compile_type = $Type;
+$Compile_type =~ s/CYCLING/3DVAR/g;
+$Compile_type =~ s/FGAT/3DVAR/g;
+$Compile_type =~ s/HYBRID/3DVAR/g;
 
 # If source specified on command line, use it
 $Source = $Source_defined if defined $Source_defined;
@@ -460,7 +451,7 @@ if ($Arch eq "Linux") {
 # If exec=yes, collect version info and skip compilation
 if ($Exec) {
    print "Option exec=yes specified; checking previously built code for revision number\n";
-   if ( ($Type =~ /4DVAR/i) && ($Type =~ /3DVAR/i) ) {
+   if ( ($Compile_type =~ /4DVAR/i) && ($Compile_type =~ /3DVAR/i) ) {
       print "Ensuring that all compiled code is the same version\n";
       if ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /dmpar/i) ) {
          my $Revision3 = &get_repo_revision("WRFDA_3DVAR_dmpar");
@@ -483,7 +474,7 @@ if ($Exec) {
          die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
          $Revision = $Revision3;
       }
-   } elsif ($Type =~ /4DVAR/i) {
+   } elsif ($Compile_type =~ /4DVAR/i) {
       if ( ($Par_4dvar =~ /serial/i) && ($Par_4dvar =~ /dmpar/i) ) {
          print "Ensuring that all compiled code is the same version\n";
          my $Revision3 = &get_repo_revision("WRFDA_4DVAR_serial");
@@ -618,13 +609,12 @@ if ($Par_4dvar =~ /dmpar/i) {
     chomp($WRFPLUSDIR);
     print "4DVAR dmpar tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR.\n";
     if (-d $WRFPLUSDIR) {
-        $ENV{WRFPLUS_DIR} = $WRFPLUSDIR;
         print "Checking WRFPLUS revision ...\n";
         $WRFPLUS_Revision = &get_repo_revision("$WRFPLUSDIR");
     } else {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR DMPAR!\n";
-
+        $Par_4dvar =~ s/dmpar//gi;
         foreach my $name (keys %Experiments) {
             if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
                foreach my $par ($Experiments{$name}{paropt}) {
@@ -633,7 +623,6 @@ if ($Par_4dvar =~ /dmpar/i) {
                       print "\nDeleting 4DVAR dmpar experiment $name from test list.\n";
                    } else {
                       delete $Experiments{$name};
-                      $Type =~ s/4DVAR//gi;
                       print "\nDeleting 4DVAR experiment $name from test list.\n";
                       next ;
                    }
@@ -662,7 +651,7 @@ if ($Par_4dvar =~ /serial/i) {
     } else {
         print "\n$WRFPLUSDIR_serial DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR SERIAL!\n";
-
+        $Par_4dvar =~ s/serial//gi;
         foreach my $name (keys %Experiments) {
             if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
                foreach my $par ($Experiments{$name}{paropt}) {
@@ -671,7 +660,6 @@ if ($Par_4dvar =~ /serial/i) {
                       print "\nDeleting 4DVAR serial experiment $name from test list.\n";
                    } else {
                       delete $Experiments{$name};
-                      $Type =~ s/4DVAR//gi;
                       print "\nDeleting 4DVAR experiment $name from test list.\n";
                       next ;
                    }
@@ -687,8 +675,19 @@ if ($Par_4dvar =~ /serial/i) {
     }
 }
 
+# Since we may have deleted some or all 4DVAR options above, check to make sure we should still compile 4DVAR
 
-if ($Type =~ /4DVAR/i) {
+if ($Compile_type =~ /4DVAR/i) {
+   if ( ( not $Par_4dvar =~ /serial/i ) and ( not $Par_4dvar =~ /dmpar/i ) ) {
+      print "\nNo 4DVAR parallelism options left;\n";
+      print "\nNot compiling for 4DVAR!\n";
+      $Compile_type =~ s/4DVAR//gi;
+      $Type =~ s/4DVAR//gi;
+   }
+}
+
+
+if ($Compile_type =~ /4DVAR/i) {
 
    foreach (split /\|/, $Par_4dvar) { #foreach1
       my $par_type = $_;
@@ -949,7 +948,7 @@ if ($Type =~ /4DVAR/i) {
 
 
 #######################  BEGIN COMPILE 3DVAR  ########################
-if ($Type =~ /3DVAR/i) {
+if ($Compile_type =~ /3DVAR/i) {
 #  my @par_type = split /\|/, $Par;
 
   foreach (split /\|/, $Par) { #foreach1
@@ -1262,7 +1261,7 @@ while ( @compile_job_list ) {
 
 SKIP_COMPILE:
 
-if ($Type =~ /3DVAR/i) {
+if ($Compile_type =~ /3DVAR/i) {
    if ( $Par =~ /serial/i ) {
       die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in serial in directory tree named 'WRFDA_3DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_serial");
    }
@@ -1276,7 +1275,7 @@ if ($Type =~ /3DVAR/i) {
       die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in parallel in directory tree named 'WRFDA_3DVAR_dmpar' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_dm+sm");
    }
 }
-if ($Type =~ /4DVAR/i) {
+if ($Compile_type =~ /4DVAR/i) {
    if ( $Par_4dvar =~ /serial/i ) {
       die "\nSTOPPING SCRIPT\n4DVAR code must be compiled to run in serial in directory tree named 'WRFDA_4DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_4DVAR_serial");
    }
@@ -2096,95 +2095,112 @@ sub new_job {
             $i ++;
          }
 
-         # To make tests easier, the test directory should have a file "ens.info" that contains the wrf-formatted date
-         # on the first line, the base filename should appear on the second line, and the number of vertical levels on
-         # the third line. No characters should appear before this info on each line
+         if ( -e "ep.tar" ) {
 
-         my $openstatus = open(INFO, "<","ens.info");
-         unless ($openstatus) {
-            print "Problem opening ens.info; $!\nTest probably not set up correctly\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
-            return undef;
-         }
+            ! system("tar -xf ep.tar")or die "Can't untar ensemble perturbations file: $!\n";
 
-         while (<INFO>) {
-            chomp($_);
-            if ($. == 4) {
-               $ens_num = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
-               last;
-            } elsif ($. == 3) {
-               $vertlevs = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
-            } elsif ($. == 2) {
-               $ens_filename = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
-            } elsif ($. == 1) {
-               #Only read the first 19 characters of the first line, since this is the length of a WRF-format date
-               $wrfdate = substr($_, 0, 19) or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+         } else {
+
+            # To make tests easier, the test directory should have a file "ens.info" that contains the wrf-formatted date
+            # on the first line, the base filename should appear on the second line, and the number of vertical levels on
+            # the third line. No characters should appear before this info on each line
+
+            my $openstatus = open(INFO, "<","ens.info");
+            unless ($openstatus) {
+               print "Problem opening ens.info; $!\nTest probably not set up correctly\n";
+               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               return undef;
             }
 
+            while (<INFO>) {
+               chomp($_);
+               if ($. == 4) {
+                  $ens_num = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+                  last;
+               } elsif ($. == 3) {
+                  $vertlevs = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+               } elsif ($. == 2) {
+                  $ens_filename = $_ or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+               } elsif ($. == 1) {
+                  #Only read the first 19 characters of the first line, since this is the length of a WRF-format date
+                  $wrfdate = substr($_, 0, 19) or die "\n\nERROR: YOUR ens.info FILE IS MALFORMATTED\n\n";
+               }
+
+            }
+
+            close INFO;
+            $ens_filename =~ s/\s.*//;         # Remove trailing characters from filename
+            $ens_num =~ s/\D.*//;              # Remove trailing characters from ensemble number line
+            $vertlevs =~ s/\D.*//;             # Remove trailing characters from vertical level line
+
+            $date = substr($wrfdate,0,13);     # Remove minute, second, and non-numeric characters
+            $date =~ s/\D//g;                  # from $wrfdate to make $date
+
+
+            # Step 1: Run gen_be_ensmean.exe to calculate the mean and variance fields
+
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_MEAN_VARI";
+
+            print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+            $starttime = gettimeofday();
+            copy("$ens_filename.e001","$ens_filename.mean");
+            copy("$ens_filename.e001","$ens_filename.vari");
+            system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ensmean.exe >& ensmean.out");
+            $endtime = gettimeofday();
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+            $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                          + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+            print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+            print "It took $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} seconds\n";
+            $i++;
+
+            # Step 2: Calculate ensemble perturbations
+
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
+            mkpath('ep') or die "mkdir failed: $!";
+            chdir("ep");
+            print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+            $starttime = gettimeofday();
+            system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out");
+            $endtime = gettimeofday();
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+            $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                          + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+            if ( ! -e "ps.e001") {
+                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+                chdir "../.." or die "Cannot chdir to .. : $!\n";
+                return 1;
+            }
+            print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+            print "It took $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} seconds\n";
+            $i++;
+            chdir("..");
+
+            # Step 3: Create vertical localization file
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VERT_LOC";
+            print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+            $starttime = gettimeofday();
+            system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_vertloc.exe $vertlevs >& vertlevs.out");
+            $endtime = gettimeofday();
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+            $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                          + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+            if ( ! -e "be.vertloc.dat") {
+                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+                chdir ".." or die "Cannot chdir to .. : $!\n";
+                return 1;
+            }
+            print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+            print "It took $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} seconds\n";
+            $i++;
+
          }
-
-         close INFO;
-         $ens_filename =~ s/\s.*//;         # Remove trailing characters from filename
-         $ens_num =~ s/\D.*//;              # Remove trailing characters from ensemble number line
-         $vertlevs =~ s/\D.*//;             # Remove trailing characters from vertical level line
-
-         $date = substr($wrfdate,0,13);     # Remove minute, second, and non-numeric characters
-         $date =~ s/\D//g;                  # from $wrfdate to make $date
-
-
-         # Step 1: Run gen_be_ensmean.exe to calculate the mean and variance fields
-
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_MEAN_VARI";
-
-         $starttime = gettimeofday();
-         copy("$ens_filename.e001","$ens_filename.mean");
-         copy("$ens_filename.e001","$ens_filename.vari");
-         system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ensmean.exe >& ensmean.out");
-         $endtime = gettimeofday();
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
-         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
-                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
-         $i++;
-
-         # Step 2: Calculate ensemble perturbations
-
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
-         mkpath('ep') or die "mkdir failed: $!";
-         chdir("ep");
-         $starttime = gettimeofday();
-         system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out");
-         $endtime = gettimeofday();
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
-         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
-                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
-         if ( ! -e "ps.e001") {
-             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-             chdir "../.." or die "Cannot chdir to .. : $!\n";
-             return 1;
-         }
-         $i++;
-
-
-         # Step 3: Create vertical localization file
-         chdir("..");
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VERT_LOC";
-         system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_vertloc.exe $vertlevs >& vertlevs.out");
-         $endtime = gettimeofday();
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
-         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
-                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
-         if ( ! -e "be.vertloc.dat") {
-             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-             chdir ".." or die "Cannot chdir to .. : $!\n";
-             return 1;
-         }
-         $i++;
-
-
          # Step 4: Finally, run WRFDA
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
 
+         print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         $starttime = gettimeofday();
          my @pertfiles = glob("ep/*");
          foreach (@pertfiles){ symlink($_,basename($_))}; # link all perturbation files to base directory
          if ( ! -e "fg") {
@@ -2197,6 +2213,10 @@ sub new_job {
             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
             system($cmd);
          }
+         $endtime = gettimeofday();
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+         $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                       + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
 
          if ( -e "wrfvar_output") {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
@@ -2205,6 +2225,8 @@ sub new_job {
              chdir ".." or die "Cannot chdir to .. : $!\n";
              return 1;
          }
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         print "It took $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} seconds\n";
 
 
          # Return to the upper directory
