@@ -18,7 +18,7 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 13       cycle_ne_blizzard           CYCLING         16    16      dmpar
 14       dual_res_hybrid             HYBRID          16    16      dmpar
 15       iasi_kavulich               3DVAR           16    16      dmpar
-16       lat_lon_outerloops          3DVAR           16    16      dmpar
+16       lat_lon_outerloops          OBSPROC|3DVAR   16    16      dmpar
 17       multirad_pacific            3DVAR           32    16      dmpar
 18       multirad_pacific_nc4        3DVAR           32    16      dmpar
 19       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
@@ -57,7 +57,7 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 13       cycle_ne_blizzard           CYCLING         32    16      dmpar
 14       dual_res_hybrid             HYBRID           4     4      dmpar
 15       iasi_kavulich               3DVAR           16    16      dmpar
-16       lat_lon_outerloops          3DVAR           16    16      dmpar
+16       lat_lon_outerloops          OBSPROC|3DVAR   16    16      dmpar
 17       multirad_pacific            3DVAR           32    16      dmpar
 18       multirad_pacific_nc4        3DVAR           32    16      dmpar
 19       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
@@ -96,7 +96,7 @@ Linux    x86_64    yellowstone    pgi       P64000510 caldera   WRFDA-data-EM  B
 13       cycle_ne_blizzard           CYCLING         32    16      dmpar
 14       dual_res_hybrid             HYBRID          16    16      dmpar
 15       iasi_kavulich               3DVAR           16    16      dmpar
-16       lat_lon_outerloops          3DVAR           16    16      dmpar
+16       lat_lon_outerloops          OBSPROC|3DVAR   16    16      dmpar
 17       multirad_pacific            3DVAR           32    16      dmpar
 18       multirad_pacific_nc4        3DVAR           32    16      dmpar
 19       outerloop_ztd_bench_guo     3DVAR            1    16      serial|dmpar
