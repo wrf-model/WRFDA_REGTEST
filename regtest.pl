@@ -544,7 +544,7 @@ $ENV{BUFR}='1';
           }
 
       } else { # Loblolly
-          $RTTOV_dir = "/loblolly/kavulich/libs/rttov/$Compiler";
+         $RTTOV_dir = "$MainDir/libs/rttov_$Compiler\_$Compiler_version";
           if (-d $RTTOV_dir) {
               $ENV{RTTOV} = $RTTOV_dir;
               print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -1457,6 +1457,7 @@ sub create_webpage {
 if ( $Source eq "REPO" ) {
     print WEBH '<li>'."Repository location : $CODE_REPO".'</li>'."\n";
 }
+    print WEBH '<li>'."Revision : $Revision".'</li>'."\n";
 if ( $WRFPLUS_Revision ne "NONE" ) {
     print WEBH '<li>'."WRFPLUS Revision : $WRFPLUS_Revision".'</li>'."\n";
 }
