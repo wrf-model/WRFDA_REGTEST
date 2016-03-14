@@ -420,13 +420,11 @@ die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_mach
 sleep 2; #Pause to let user see list
 
 if ($Arch eq "Linux") { #If on Yellowstone, make sure we have the right modules loaded
-   if ($Machine_name =~ /yellowstone/i) {
-      if ( !( $ENV{TACC_FAMILY_COMPILER} =~ m/$module_loaded/) ) {; # Check Yellowstone ENV variable for current module
-         print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
-         print "You have specified the $module_loaded compiler, but the $ENV{TACC_FAMILY_COMPILER} module is loaded!";
-         print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
-         &print_help_and_die;
-      }
+   if ( !( $ENV{TACC_FAMILY_COMPILER} =~ m/$module_loaded/) ) {; # Check Yellowstone ENV variable for current module
+      print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
+      print "You have specified the $module_loaded compiler, but the $ENV{TACC_FAMILY_COMPILER} module is loaded!";
+      print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
+      &print_help_and_die;
    }
 }
 
@@ -694,8 +692,10 @@ if ($Compile_type =~ /4DVAR/i) {
 
       # Set WRFPLUS_DIR for this build
       if ($par_type eq "dmpar") {
+         print "Will use WRFPLUS code in $WRFPLUSDIR for 4DVAR $par_type compilation\n";
          $ENV{WRFPLUS_DIR} = "$WRFPLUSDIR";
       } elsif ($par_type eq "serial") {
+         print "Will use WRFPLUS code in $WRFPLUSDIR_serial for 4DVAR $par_type compilation\n";
          $ENV{WRFPLUS_DIR} = $WRFPLUSDIR_serial;
       }
 
@@ -1287,9 +1287,9 @@ if ($Compile_type =~ /4DVAR/i) {
 
 
 # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
-if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes") && ( ($Compiler eq "gfortran") || ($Compiler eq "pgi") ) ) {
+if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes") ) {
    $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib";
-   print "Adding $ENV{HDF5}/lib to \$LD_LIBRARY_PATH \n";
+   print "Adding $MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
 }
 
 
@@ -1365,9 +1365,6 @@ foreach my $name (keys %Experiments) {
        $Experiments{$name}{paropt}{$par}{started} = 0;
        $Experiments{$name}{paropt}{$par}{cpu_mpi} = ( ($par eq 'serial') || ($par eq 'smpar') ) ? 1 : $Experiments{$name}{cpu_mpi};
        $Experiments{$name}{paropt}{$par}{cpu_openmp} = ( ($par eq 'serial') || ($par eq 'dmpar') ) ? 1 : $Experiments{$name}{cpu_openmp};
-    print "\nFOR THIS $par JOB\n";
-    print "cpu_mpi = $Experiments{$name}{paropt}{$par}{cpu_mpi}\n";
-    print "cpu_openmp = $Experiments{$name}{paropt}{$par}{cpu_openmp}\n";
     } 
  } 
 
