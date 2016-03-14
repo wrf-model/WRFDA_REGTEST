@@ -1763,6 +1763,8 @@ sub new_job {
             }
 
          }
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
 
      }
 
@@ -1791,6 +1793,8 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          if (-e "gen_be_run/SUCCESS") {
             copy("gen_be_run/be.dat","be.dat") or die "Cannot copy be.dat: $!";
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
@@ -1828,6 +1832,8 @@ sub new_job {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
              $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                            + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+            print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+            printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
              mkpath("varbc_run_1_$par") or die "mkdir failed: $!";
              unless ( -e "wrfvar_output") {
                  chdir "..";
@@ -1866,6 +1872,8 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          if ( -e "wrfvar_output") {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
@@ -1902,6 +1910,8 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          if ( -e "wrfvar_output") {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
@@ -1943,6 +1953,7 @@ sub new_job {
 
          chdir "WRFDA_init" or warn "Cannot chdir to 'WRFDA_init': $!\n";
 
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          $starttime = gettimeofday();
          if ($par=~/dm/i) {
              $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
@@ -1957,6 +1968,8 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          if ( -e "wrfvar_output") {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
@@ -1970,6 +1983,7 @@ sub new_job {
 
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UPDATE_BC_LAT";
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          $starttime = gettimeofday();
          copy( "wrfbdy_d01.orig", "wrfbdy_d01" );
          $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_update_bc.exe 1>update_bc.out.$nam.$par 2>update_bc.out.$nam.$par";
@@ -1982,12 +1996,15 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          $i++;
 
          # Third: Use our updated wrfinput and wrfbdy to run a forecast
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRF";
          chdir "../WRF" or warn "Cannot chdir to '../WRF': $!\n";
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          $starttime = gettimeofday();
          system("ln -sf $MainDir/WRFV3_$com/run/*.TBL .");      #Linking the necessary WRF accessory files
          system("ln -sf $MainDir/WRFV3_$com/run/RRTM*DATA .");
@@ -2018,6 +2035,8 @@ sub new_job {
              print "\nWD: $wd\n";
              return 1;
          }
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          $i++;
          
          #Link new fg file
@@ -2026,6 +2045,7 @@ sub new_job {
          # Fourth: run da_update_bc.exe to update lower boundary conditions before 2nd WRFDA run
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UPDATE_BC_LOW";
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          chdir ".." or warn "Cannot chdir to '..': $!\n";
 
          #Link new fg file
@@ -2040,6 +2060,8 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          $i++;
 
 
@@ -2047,6 +2069,7 @@ sub new_job {
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_final";
 
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          $starttime = gettimeofday();
          if ($par=~/dm/i) {
              $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
@@ -2060,6 +2083,8 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          if ( -e "wrfvar_output") {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
@@ -2137,6 +2162,7 @@ sub new_job {
             # Step 1: Run gen_be_ensmean.exe to calculate the mean and variance fields
 
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_MEAN_VARI";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
 
             print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
             $starttime = gettimeofday();
@@ -2148,12 +2174,14 @@ sub new_job {
             $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                           + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
             print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
-            print "It took $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} seconds\n";
+            printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
             $i++;
 
             # Step 2: Calculate ensemble perturbations
 
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
             mkpath('ep') or die "mkdir failed: $!";
             chdir("ep");
             print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
@@ -2163,18 +2191,21 @@ sub new_job {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
             $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                           + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
-            if ( ! -e "ps.e001") {
-                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-                chdir "../.." or die "Cannot chdir to .. : $!\n";
-                return 1;
+            if ( -e "ps.e001") {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+               chdir "../.." or die "Cannot chdir to .. : $!\n";
+               return 1;
             }
             print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
-            print "It took $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} seconds\n";
+            printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
             $i++;
             chdir("..");
 
             # Step 3: Create vertical localization file
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VERT_LOC";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
             print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
             $starttime = gettimeofday();
             system("$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_vertloc.exe $vertlevs >& vertlevs.out");
@@ -2182,19 +2213,22 @@ sub new_job {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
             $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                           + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
-            if ( ! -e "be.vertloc.dat") {
-                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-                chdir ".." or die "Cannot chdir to .. : $!\n";
-                return 1;
+            if ( -e "be.vertloc.dat") {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+            } else {
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+               chdir ".." or die "Cannot chdir to .. : $!\n";
+               return 1;
             }
             print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
-            print "It took $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} seconds\n";
+            printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
             $i++;
 
          }
          # Step 4: Finally, run WRFDA
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
 
          print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
          $starttime = gettimeofday();
@@ -2223,7 +2257,7 @@ sub new_job {
              return 1;
          }
          print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
-         print "It took $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} seconds\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
 
 
          # Return to the upper directory
@@ -2256,6 +2290,8 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
          $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                        + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+         print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+         printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
          if ( -e "wrfvar_output") {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
