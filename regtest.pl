@@ -598,10 +598,10 @@ $ENV{BUFR}='1';
 
 #######################  BEGIN COMPILE 4DVAR  ########################
 
-# Set WRFPLUSDIR (for 4DVAR dmpar tests) and/or WRFPLUSDIR_serial (for 4dvar serial tests)
-my $WRFPLUSDIR;
-my $WRFPLUSDIR_serial;
-if ($Par_4dvar =~ /dmpar/i) {
+ # Set WRFPLUSDIR (for 4DVAR dmpar tests) and/or WRFPLUSDIR_serial (for 4dvar serial tests)
+ my $WRFPLUSDIR;
+ my $WRFPLUSDIR_serial;
+ if ($Par_4dvar =~ /dmpar/i) {
     # Set WRFPLUS_DIR Environment variable
     $WRFPLUSDIR = $MainDir."/libs/WRFPLUSV3_$Compiler\_$Compiler_version";
     chomp($WRFPLUSDIR);
@@ -615,18 +615,21 @@ if ($Par_4dvar =~ /dmpar/i) {
         $Par_4dvar =~ s/dmpar//gi;
         foreach my $name (keys %Experiments) {
             if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
-               foreach my $par ($Experiments{$name}{paropt}) {
-                   delete $Experiments{$name}{paropt}{$par} if ($par =~ /dmpar/i) ;
-                   if ((keys %{$Experiments{$name}{paropt}}) > 0) {
-                      print "\nDeleting 4DVAR dmpar experiment $name from test list.\n";
-                   } else {
-                      delete $Experiments{$name};
-                      print "\nDeleting 4DVAR experiment $name from test list.\n";
-                      next ;
+               foreach my $par (keys %{$Experiments{$name}{paropt}}) {
+                   if ($par =~ /dmpar/i) {
+                      delete $Experiments{$name}{paropt}{$par};
+                      if ((keys %{$Experiments{$name}{paropt}}) > 0) {
+                         print "\nDeleting 4DVAR dmpar experiment $name from test list.\n";
+                      } else {
+                         delete $Experiments{$name};
+                         print "\nDeleting 4DVAR experiment $name from test list.\n";
+                         next ;
+                      }
                    }
                 }
             }
         }
+
     printf "\nNew list of experiments : \n";
     printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
     printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
@@ -634,7 +637,7 @@ if ($Par_4dvar =~ /dmpar/i) {
              keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
     sleep 2; #Pause to let user see new list
     }
-}
+ }
 
 if ($Par_4dvar =~ /serial/i) {
     # Set WRFPLUS_DIR Environment variable
@@ -652,14 +655,16 @@ if ($Par_4dvar =~ /serial/i) {
         $Par_4dvar =~ s/serial//gi;
         foreach my $name (keys %Experiments) {
             if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
-               foreach my $par ($Experiments{$name}{paropt}) {
-                   delete $Experiments{$name}{paropt}{$par} if ($par =~ /serial/i) ;
-                   if ((keys %{$Experiments{$name}{paropt}}) > 0) {
-                      print "\nDeleting 4DVAR serial experiment $name from test list.\n";
-                   } else {
-                      delete $Experiments{$name};
-                      print "\nDeleting 4DVAR experiment $name from test list.\n";
-                      next ;
+               foreach my $par (keys %{$Experiments{$name}{paropt}}) {
+                   if ($par =~ /serial/i) {
+                      delete $Experiments{$name}{paropt}{$par};
+                      if ((keys %{$Experiments{$name}{paropt}}) > 0) {
+                         print "\nDeleting 4DVAR dmpar experiment $name from test list.\n";
+                      } else {
+                         delete $Experiments{$name};
+                         print "\nDeleting 4DVAR experiment $name from test list.\n";
+                         next ;
+                      }
                    }
                 }
             }
@@ -1287,7 +1292,7 @@ if ($Compile_type =~ /4DVAR/i) {
 
 
 # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
-if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes") ) {
+if ( ((-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes")) && ($Compiler ne "ifort") ) {
    $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib";
    print "Adding $MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
 }
