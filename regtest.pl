@@ -50,8 +50,9 @@ my $CLOUDCV_defined;
 my $NETCDF4_defined;
 my $REPO_defined;
 my $RTTOV_dir;
+my $test_list_string = '';
 my $use_HDF5 = "yes";
-my @valid_options = ("compiler","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo");
+my @valid_options = ("compiler","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo","tests");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -88,7 +89,8 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "netcdf4:s" => \$NETCDF4_defined,
             "hdf5:s" => \$use_HDF5,
             "testfile:s" => \$Testfile,
-            "repo:s" => \$REPO_defined ) or &print_help_and_die;
+            "repo:s" => \$REPO_defined,
+            "tests:s" => \$test_list_string ) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
   print "\nA compiler must be specified!\n\nAborting the script with dignity.\n";
@@ -99,7 +101,8 @@ unless ( defined $Compiler_defined ) {
 sub print_help_and_die {
   print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes --exec=[no]/yes\n";
   print "                   --debug=[no]/yes/super --j=NUM_PROCS --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes\n";
-  print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n\n";
+  print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n";
+  print "                   --tests='testname1 testname2'\n\n";
   print "        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)\n";
   print "        source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)\n";
   print "        revision: Specify code revision to retrieve (only works when '--source=REPO' specified)\n";
@@ -113,6 +116,7 @@ sub print_help_and_die {
   print "        hdf5:     Compile for HDF5 options (note that the default value is 'yes')\n";
   print "        testfile: Name of test data file (default: testdata.txt)\n";
   print "        repo:     Location of code repository\n";
+  print "        tests:    Test names to run (prunes test list taken from testfile; test specs must exist there!)\n";
   die "\n";
 }
 
@@ -427,6 +431,33 @@ if ($Arch eq "Linux") { #If on Yellowstone, make sure we have the right modules 
       &print_help_and_die;
    }
 }
+
+ # If a command-line test list was specified, remove other tests
+ if ( $test_list_string ) {
+    my @tests = split(/ /,$test_list_string);
+    my %New_Experiments ;
+    print "\nTest list was specified on the command line.\n";
+    print "Removing all but specified tests.\n";
+    my $testfound = 0;
+    foreach my $testname (@tests) {
+       foreach my $name (keys %Experiments) {
+          if ($name eq $testname) {
+             $New_Experiments{$name} = $Experiments{$name};
+             $testfound = 1;
+          }
+       }
+       printf "\nWARNING : Test $testname not found!\n" unless ($testfound > 0);
+       $testfound = 0;
+    }
+    die "\n\nNO VALID TESTS MATCH FROM tests= OPTION AND $Testfile\n\nQUITTING TEST SCRIPT\n\n" unless (%New_Experiments);
+    %Experiments = %New_Experiments;
+    printf "\nNew list of experiments : \n";
+    printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
+    printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
+         $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
+             keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
+    sleep 2; #Pause to let user see new list
+ }
 
 # Set paths to necessary utilities, set BUFR read ENV variables if needed
 
