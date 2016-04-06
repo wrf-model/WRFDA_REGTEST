@@ -2,6 +2,7 @@
 # Created March 27, 2013, Mike Kavulich. 
 # Edited  April 03, 2014, Mike Kavulich: unchanged files as list rather than messy output
 #         April 16, 2014, Mike Kavulich: Clarify input arguments and errors
+#         April 05, 2016, Mike Kavulich: Added "version" option to make sure you copy only the files of interest
 # No rights reserved, user is free to modify and distribute as they wish.
 
 # Usage: Copies wrfvar_output files to baseline directory, and copies the existing baseline to backup directory
@@ -10,6 +11,8 @@
 #                 (other directories will be ignored in this case). Wildcards (*) will work.
 #        By default, baseline directory name is "BASELINE.NEW", backup directory is "BASELINE.NEW.BACKUP. These can be
 #                 changed by specifying the '--baseline=YOUR_NAME_HERE' command option,
+#        You can also specify a version number to make sure you copy only the files you're interested; this is optional
+#                 and can be specified with '--version=#.#' (different compilers have different number formats)
 
 use File::Compare;
 use File::Copy;
@@ -23,10 +26,12 @@ my @unchanged;
 my $uncopied_num = 0; #Note: uncopied_num will actually be the size of @unchanged, but @unchanged is indexed from 0
 my @opts;
 my $baseline_dir = 'BASELINE.NEW';
+my $version = '';
 
 print "\nChecking files, please wait...\n";
 
-GetOptions ('baseline=s' => \$baseline_dir);
+GetOptions ('baseline=s' => \$baseline_dir,
+            'version=s' => \$version);
 foreach $arg (@ARGV) {
 #    my $first_two = substr($arg, 0, 2);
 #    if ($first_two eq "--") {
@@ -44,7 +49,7 @@ unless (-e "$baseline_dir") {
 }
 my $q = (@ARGV);
 
-my @files = `find . -maxdepth 2 -follow -name "wrfvar_output.*"`;
+my @files = `find . -maxdepth 2 -follow -name "wrfvar_output.*$version"`;
 
 my $copied_num = 0; #Note: copied_num will actually be the size of @changed, but @changed is indexed from 0
 foreach $filename (@files) {
