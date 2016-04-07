@@ -553,7 +553,7 @@ $ENV{BUFR}='1';
 
    if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
-          $RTTOV_dir = "/glade/u/home/$ThisGuy/libs/rttov_$Compiler\_$Compiler_version";
+          $RTTOV_dir = "$MainDir/libs/rttov_$Compiler\_$Compiler_version";
           if (-d $RTTOV_dir) {
               $ENV{RTTOV} = $RTTOV_dir;
               print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -1323,7 +1323,7 @@ if ($Compile_type =~ /4DVAR/i) {
 
 
 # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
-if ( ((-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes")) && ($Compiler ne "ifort") ) {
+if ( ((-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
    $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib";
    print "Adding $MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
 }
@@ -1745,6 +1745,8 @@ sub new_job {
          print "Running OBSPROC for $par job '$nam'\n";
          $starttime = gettimeofday();
          if ($types =~ /3DVAR/i) {
+            copy("$MainDir/WRFDA_3DVAR_$par/var/obsproc/obserr.txt","obserr.txt");
+            copy("$MainDir/WRFDA_3DVAR_$par/var/obsproc/msfc.tbl","msfc.tbl");
             $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
             ! system($cmd) or die "Execution of obsproc failed: $!";
             @gtsfiles = glob ("obs_gts_*.3DVAR");
@@ -1765,10 +1767,14 @@ sub new_job {
             }
          } else {
             if ($types =~ /FGAT/i) {
+               copy("$MainDir/WRFDA_3DVAR_$par/var/obsproc/msfc.tbl","msfc.tbl");
+               copy("$MainDir/WRFDA_3DVAR_$par/var/obsproc/obserr.txt","obserr.txt");
                $cmd="$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
                ! system($cmd) or die "Execution of obsproc failed: $!";
                @gtsfiles = glob ("obs_gts_*.FGAT");
             } elsif ($types =~ /4DVAR/i) {
+               copy("$MainDir/WRFDA_4DVAR_$par/var/obsproc/msfc.tbl","msfc.tbl");
+               copy("$MainDir/WRFDA_4DVAR_$par/var/obsproc/obserr.txt","obserr.txt");
                $cmd="$MainDir/WRFDA_4DVAR_$par/var/obsproc/src/obsproc.exe 1>obsproc.out  2>obsproc.out";
                ! system($cmd) or die "Execution of obsproc failed: $!";
                @gtsfiles = glob ("obs_gts_*.4DVAR");
@@ -2483,30 +2489,38 @@ sub new_job_ys {
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @obsproc_commands;
-         $obsproc_commands[0] = "system('$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe');\n";
          if ($types =~ /3DVAR/i) {
-            $obsproc_commands[1] = "system('cp -f obs_gts_*.3DVAR ob.ascii');\n";
-            $obsproc_commands[2] = 'if ( ! -e "ob.ascii") {'."\n";
-            $obsproc_commands[3] = '   open FH,">FAIL";'."\n";
-            $obsproc_commands[4] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
-            $obsproc_commands[5] = "   close FH;\n";
-            $obsproc_commands[6] = "}\n";
+            $obsproc_commands[0] = "copy('$MainDir/WRFDA_3DVAR_$par/var/obsproc/obserr.txt','obserr.txt');\n";
+            $obsproc_commands[1] = "copy('$MainDir/WRFDA_3DVAR_$par/var/obsproc/msfc.tbl','msfc.tbl');\n";
+            $obsproc_commands[2] = "system('$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe');\n";
+            $obsproc_commands[3] = "system('cp -f obs_gts_*.3DVAR ob.ascii');\n";
+            $obsproc_commands[4] = 'if ( ! -e "ob.ascii") {'."\n";
+            $obsproc_commands[5] = '   open FH,">FAIL";'."\n";
+            $obsproc_commands[6] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $obsproc_commands[7] = "   close FH;\n";
+            $obsproc_commands[8] = "}\n";
          } else {
             if ($types =~ /FGAT/i) {
-               $obsproc_commands[1] = 'my @obsfiles = glob("obs_gts*.FGAT");'."\n"; 
+               $obsproc_commands[0] = "copy('$MainDir/WRFDA_3DVAR_$par/var/obsproc/obserr.txt','obserr.txt');\n";
+               $obsproc_commands[1] = "copy('$MainDir/WRFDA_3DVAR_$par/var/obsproc/msfc.tbl','msfc.tbl');\n";
+               $obsproc_commands[2] = "system('$MainDir/WRFDA_3DVAR_$par/var/obsproc/src/obsproc.exe');\n";
+               $obsproc_commands[3] = 'my @obsfiles = glob("obs_gts*.FGAT");'."\n"; 
             } elsif ($types =~ /4DVAR/i) {
-               $obsproc_commands[1] = 'my @obsfiles = glob("obs_gts*.4DVAR");'."\n";
+               $obsproc_commands[0] = "copy('$MainDir/WRFDA_4DVAR_$par/var/obsproc/obserr.txt','obserr.txt');\n";
+               $obsproc_commands[1] = "copy('$MainDir/WRFDA_4DVAR_$par/var/obsproc/msfc.tbl','msfc.tbl');\n";
+               $obsproc_commands[2] = "system('$MainDir/WRFDA_4DVAR_$par/var/obsproc/src/obsproc.exe');\n";
+               $obsproc_commands[3] = 'my @obsfiles = glob("obs_gts*.4DVAR");'."\n";
             }
-            $obsproc_commands[2] = 'my $index = 1;'."\n";
-            $obsproc_commands[3] = 'foreach my $obfile (@obsfiles){'."\n";
-            $obsproc_commands[4] = '   ($index < 10) ? symlink($obfile,"ob0$index.ascii") : symlink($obfile,"ob$index.ascii");'."\n";
-            $obsproc_commands[5] = '   $index ++;'."\n";
-            $obsproc_commands[6] = '}'."\n";
-            $obsproc_commands[7] = 'if ( ! -e "ob01.ascii") {'."\n";
-            $obsproc_commands[8] = '   open FH,">FAIL";'."\n";
-            $obsproc_commands[9] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
-            $obsproc_commands[10] = "   close FH;\n";
-            $obsproc_commands[11] = "}\n";
+            $obsproc_commands[4] = 'my $index = 1;'."\n";
+            $obsproc_commands[5] = 'foreach my $obfile (@obsfiles){'."\n";
+            $obsproc_commands[6] = '   ($index < 10) ? symlink($obfile,"ob0$index.ascii") : symlink($obfile,"ob$index.ascii");'."\n";
+            $obsproc_commands[7] = '   $index ++;'."\n";
+            $obsproc_commands[8] = '}'."\n";
+            $obsproc_commands[9] = 'if ( ! -e "ob01.ascii") {'."\n";
+            $obsproc_commands[10] = '   open FH,">FAIL";'."\n";
+            $obsproc_commands[11] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $obsproc_commands[12] = "   close FH;\n";
+            $obsproc_commands[13] = "}\n";
          }
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
