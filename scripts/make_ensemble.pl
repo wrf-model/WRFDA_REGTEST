@@ -17,9 +17,7 @@ use Sys::Hostname;
 use File::Copy;
 use File::Path;
 use File::Basename;
-use File::Compare;
 use IPC::Open2;
-use Net::FTP;
 use Getopt::Long;
 
 #Set needed variables
@@ -32,12 +30,12 @@ use Getopt::Long;
  print "Start time: $Start_time\n";
 
 # Location of necessary executables and data
- my $Main_dir = "/glade/p/work/kavulich/V371";
+ my $Main_dir = "/glade/p/work/kavulich/V38";
  my $WRF_dir="$Main_dir/WRFV3";
  my $WPS_dir="$Main_dir/WPS";
  my $geog_dir="/glade/p/work/wrfhelp/WPS_GEOG/";
  my $WRFDA_dir="$Main_dir/WRFDA_3DVAR_dmpar";
- my $BE_file="/glade/p/work/kavulich/GEN_BE/new_hybrid_regtest_BE/gen_be_cv5_d01/be.dat";
+ my $BE_file="/glade/p/work/kavulich/GEN_BE/hybrid_etkf_tutorial_case_new/gen_be_cv5_d01/working/be.dat";
 
  my @GRIB_dir;
  $GRIB_dir[0]="/glade/p/rda/data/ds083.2/grib2/2015/2015.10";   #Where to find grib input data
@@ -48,7 +46,7 @@ use Getopt::Long;
  my $Script_dir = `pwd`;
  chomp $Script_dir;
  my $WORKDIR="/glade/scratch/kavulich/ENSEMBLE_FORECASTS";
- my $Case_name="new_hybrid_regtest";
+ my $Case_name="hybrid_etkf_tutorial_case_new";
  my $Run_dir="$WORKDIR/$Case_name";
  my $Out_dir="$Script_dir/Output/$Case_name";
 
@@ -66,7 +64,7 @@ use Getopt::Long;
  my $run_forecast = 1; # 0 to just create the perturbed wrfinput files, 1 to run ensemble forecasts
 
 # Start date
- my $initial_date="2015-10-18_00:00:00"; #Initial time for first forecast
+ my $initial_date="2015-10-26_12:00:00"; #Initial time for first forecast
 
 # Set number of WPS time stamps for each cycle
  my $WPS_times=5;  # Set to "1" if you don't want to run a forecast
@@ -85,18 +83,18 @@ use Getopt::Long;
 
 # Domain parameters
  my $NUM_DOMAINS = 1; #For NUM_DOMAINS > 1, be sure that the appropriate variables are all set for all domains below!
- my @DX = ( 15000, 30000 );
- my @WEST_EAST_GRID = ( 131, 181 );
- my @SOUTH_NORTH_GRID = ( 91, 121 );
- my @VERTICAL_GRID = ( 41, 41 );
+ my @DX = ( 36000, 30000 );
+ my @WEST_EAST_GRID = ( 120, 181 );
+ my @SOUTH_NORTH_GRID = ( 100, 121 );
+ my @VERTICAL_GRID = ( 42, 41 );
  my @PARENT_GRID_RATIO = ( 1, 2 );
  my @I_PARENT_START = ( 1, 21 );
  my @J_PARENT_START = ( 1, 11 );
 # my $NL_ETA_LEVELS="1.000000,0.998000,0.996000,0.994000,0.992000,0.990000,0.988100,0.981800,0.974000,0.966000,0.958000,0.952000,0.943400,0.920000,0.880000,0.840000,0.800000,0.760000,0.720000,0.680000,0.640000,0.600000,0.560000,0.520000,0.480000,0.440000,0.400000,0.360000,0.320000,0.280000,0.240000,0.200000,0.160000,0.140000,0.120000,0.100000,0.080000,0.060000,0.040000,0.020000,0.00000";
  my $MAP_PROJ="lambert";
- my $REF_LAT=45.;    #AKA PHIC AKA CEN_LAT
- my $REF_LON=-80.;     #AKA XLONC AKA CEN_LON
- my $STAND_LON=-80.;
+ my $REF_LAT=33.;    #AKA PHIC AKA CEN_LAT
+ my $REF_LON=137.;     #AKA XLONC AKA CEN_LON
+ my $STAND_LON=130.;
  my $TRUELAT1=30.;
  my $TRUELAT2=60.;
  my $POLE_LAT=90.;
@@ -108,14 +106,16 @@ use Getopt::Long;
 
 # WRF options
 
- my $WRF_DT = 60;
- my @MP_PHYSICS = ( 2, 4 );
+ my $WRF_DT = 180;
+ my @MP_PHYSICS = ( 6, 4 );
  my @RA_LW_PHYSICS = ( 4, 4 );
  my @RA_SW_PHYSICS = ( 4, 24 );
- my $RADT = 15;
- my @SF_SFCLAY_PHYSICS = ( 2, 1);
+ my $RADT = 9;
+ my @SF_SFCLAY_PHYSICS = ( 1, 1);
  my @SF_SURFACE_PHYSICS = ( 2, 2);
- my @BL_PBL_PHYSICS = ( 2, 2);
+ my @BL_PBL_PHYSICS = ( 1, 2);
+ my @CU_PHYSICS = ( 6, 99);
+ my $PTOP = 2000;
 
 
 ############################################
@@ -232,6 +232,7 @@ use Getopt::Long;
 
  rmtree("$Run_dir/$initial_date");
  mkpath("$Run_dir/$initial_date");
+ mkpath("$Out_dir/$workdirname");
 
  chdir "$Run_dir/$initial_date";
     # Get WPS files
@@ -384,7 +385,7 @@ use Getopt::Long;
  print NL " dy                       = $DX[0],$DX[1],\n";
 #    print NL " eta_levels               = $NL_ETA_LEVELS\n";
  print NL " smooth_option            = 1,\n";
- print NL " p_top_requested          = 5000,\n";
+ print NL " p_top_requested          = $PTOP,\n";
  print NL " num_metgrid_levels       = 27,\n";
  print NL " num_metgrid_soil_levels  = $NUM_METGRID_SOIL_LEVELS,\n";
  print NL " grid_id                  = 1, 2,\n";
@@ -403,7 +404,7 @@ use Getopt::Long;
  print NL " sf_surface_physics       = $SF_SURFACE_PHYSICS[0], $SF_SURFACE_PHYSICS[1],\n";
  print NL " bl_pbl_physics           = $BL_PBL_PHYSICS[0], $BL_PBL_PHYSICS[1]\n";
  print NL " bldt                     = 0,\n";
- print NL " cu_physics               = 1,\n";
+ print NL " cu_physics               = $CU_PHYSICS[0], $CU_PHYSICS[1],\n";
  print NL " cudt                     = 5,\n";
  print NL " isfflx                   = 1,\n";
  print NL " ifsnow                   = 1,\n";
@@ -583,9 +584,9 @@ use Getopt::Long;
           print FH "unsetenv MP_PE_AFFINITY\n";  # Include this line to avoid caldera problems. CISL-recommended kludge *sigh*
        }
        print FH "\\cp ../wrfinput_d01 .\n";
-       print FH "rm -rf $Out_dir/$workdirname/ens_$i\n";
-       print FH "mkdir  $Out_dir/$workdirname/ens_$i\n";
-       print FH "\\cp $Run_dir/$initial_date/ens_$i/wrfinput_d0* $Out_dir/$workdirname/ens_$i\n";
+       print FH "rm -rf $Out_dir/$workdirname/ens_CONTROL\n";
+       print FH "mkdir  $Out_dir/$workdirname/ens_CONTROL\n";
+       print FH "\\cp $Run_dir/$initial_date/ens_CONTROL/wrfinput_d0* $Out_dir/$workdirname/ens_CONTROL\n";
        close FH ;
 
        $job_feedback = ` bsub -w "ended($init_jobid)" < run_control.csh `;
