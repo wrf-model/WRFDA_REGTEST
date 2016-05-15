@@ -39,6 +39,7 @@ $Start_time=sprintf "Begin : %02d:%02d:%02d-%04d/%02d/%02d\n",
 
 my $Upload_defined;
 my $Compiler_defined;
+my $CCompiler_defined = '';
 my $Source_defined;
 my $Exec_defined;
 my $Debug_defined;
@@ -52,7 +53,7 @@ my $REPO_defined;
 my $RTTOV_dir;
 my $test_list_string = '';
 my $use_HDF5 = "yes";
-my @valid_options = ("compiler","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo","tests");
+my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo","tests");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -79,6 +80,7 @@ foreach my $arg ( @ARGV ) {
 
 
 GetOptions( "compiler=s" => \$Compiler_defined,
+            "cc:s" => \$CCompiler_defined,
             "source:s" => \$Source_defined, 
             "revision:s" => \$Revision,
             "upload:s" => \$Upload_defined,
@@ -99,18 +101,20 @@ unless ( defined $Compiler_defined ) {
 
 
 sub print_help_and_die {
-  print "\nUsage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes --exec=[no]/yes\n";
-  print "                   --debug=[no]/yes/super --j=NUM_PROCS --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes\n";
+  print "\nUsage : regtest.pl --compiler=COMPILER --cc=C_COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes\n";
+  print "                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super\n";
+  print "                   --debug=[no]/yes/super --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes\n";
   print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n";
   print "                   --tests='testname1 testname2'\n\n";
-  print "        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)\n";
+  print "        compiler: [REQUIRED] Compiler name (supported options: ifort, gfortran, xlf, pgf90, g95)\n";
+  print "        cc:       C Compiler name (supported options: icc, gcc, xlf, pgcc, g95)\n";
   print "        source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)\n";
   print "        revision: Specify code revision to retrieve (only works when '--source=REPO' specified)\n";
   print "                  Use any number to specify that revision number; specify 'HEAD' to use the latest revision\n";
   print "        upload:   Uploads summary to web (default is 'yes' iff source==REPO and revision==HEAD)\n";
+  print "        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)\n";
   print "        exec:     Execute only; skips compile, utilizes existing executables\n";
   print "        debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well\n";
-  print "        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)\n";
   print "        cloudcv:  Compile for CLOUD_CV options\n";
   print "        netcdf4:  Compile for NETCDF4 options\n";
   print "        hdf5:     Compile for HDF5 options (note that the default value is 'yes')\n";
@@ -259,8 +263,8 @@ $Machine_name = $splitted[0];
 my %convert_compiler = (
     gfortran    => "gfortran",
     gnu         => "gfortran",
-    pgf90       => "pgi",
-    pgi         => "pgi",
+    pgf90       => "pgf90",
+    pgi         => "pgf90",
     intel       => "ifort",
     ifort       => "ifort",
 );
@@ -282,17 +286,19 @@ $Compiler_defined = $Compiler_defined_conv;
 
 
 
-# Assign a C compiler
-if ($Compiler_defined eq "gfortran") {
-    $CCompiler = "gcc";
-} elsif ($Compiler_defined eq "pgi") {
-    $CCompiler = "pgcc";
-} elsif ($Compiler_defined eq "ifort") {
-    $CCompiler = "icc";
-} else {
-    print "\n ERROR ASSIGNING C COMPILER\n";
-    &print_help_and_die;
-}
+ # Assign a C compiler
+ if ($CCompiler_defined eq '') { #Only assign a C compiler if it was not specified on the command line
+    if ($Compiler_defined eq "gfortran") {
+       $CCompiler = "gcc";
+    } elsif ($Compiler_defined eq "pgf90") {
+       $CCompiler = "pgcc";
+    } elsif ($Compiler_defined eq "ifort") {
+       $CCompiler = "icc";
+    } else {
+       print "\n ERROR ASSIGNING C COMPILER\n";
+       &print_help_and_die;
+    }
+ }
 
 my $Compiler_version = "";
 if (defined $ENV{'COMPILER_VERSION'} ) {
@@ -419,7 +425,7 @@ printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{
      $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
          keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
 
-die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (Mac OSx): pgi, g95 \n\n" unless (keys %Experiments) > 0 ; 
+die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (yellowstone): ifort, gfortran, pgf90 \n Linux x86_64 (loblolly): ifort, gfortran, pgf90 \n Linux i486, i586, i686: ifort, gfortran, pgf90 \n Darwin (Mac OSx): pgf90, g95 \n\n" unless (keys %Experiments) > 0 ; 
 
 sleep 2; #Pause to let user see list
 
@@ -540,15 +546,13 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
    print "\nWill compile for CLOUD_CV option\n\n";
 }
 
-$ENV{CRTM}='1'; #These are not necessary since V3.6, but will not hurt
-$ENV{BUFR}='1';
-
    if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes")) {
       $ENV{HDF5}="$MainDir/libs/HDF5_$Compiler\_$Compiler_version";
       print "Found HDF5 in directory $MainDir/libs/HDF5_$Compiler\_$Compiler_version\n";
    } else {
       unless (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") {print "\nDirectory $MainDir/libs/HDF5_$Compiler\_$Compiler_version DOES NOT EXIST!\n"};
       print "\nNot using HDF5\n";
+      delete $ENV{HDF5};
    }
 
    if ($Arch eq "Linux") {
@@ -561,6 +565,7 @@ $ENV{BUFR}='1';
               print "$RTTOV_dir DOES NOT EXIST\n";
               print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
               $RTTOV_dir = undef;
+              delete $ENV{RTTOV}
           }
 
       } else { # Loblolly
@@ -572,6 +577,7 @@ $ENV{BUFR}='1';
               print "$RTTOV_dir DOES NOT EXIST\n";
               print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
               $RTTOV_dir = undef;
+              delete $ENV{RTTOV}
           }
 
       }
@@ -596,6 +602,7 @@ $ENV{BUFR}='1';
           print "$RTTOV_dir DOES NOT EXIST\n";
           print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
           $RTTOV_dir = undef;
+          delete $ENV{RTTOV}
       }
    }
 
@@ -802,18 +809,6 @@ if ($Compile_type =~ /4DVAR/i) {
             $Compile_options_4dvar{$1} = $par_type;
             $option = $1;
             $count++;
-         } elsif (($config_line=~ m/(\d+)\.\s\($par_type\) .* $Compiler .* $CCompiler .*/ix) &&
-             ! ($config_line=~/Cray/i) &&
-             ! ($config_line=~/PGI accelerator/i) &&
-             ! ($config_line=~/-f90/i) &&
-             ! ($config_line=~/POE/) &&
-             ! ($config_line=~/Xeon/) &&
-             ! ($config_line=~/SGI MPT/i) &&
-             ! ($config_line=~/MIC/) &&
-             ! ($config_line=~/HSW/) ) {
-            $Compile_options_4dvar{$1} = $par_type;
-            $option = $1;
-            $count++;
          } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
@@ -835,7 +830,7 @@ if ($Compile_type =~ /4DVAR/i) {
          }
          print "\nSelecting option '$option'. THIS MAY NOT BE IDEAL.\n";
       } elsif ($count < 1 ) {
-         die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n";
+         die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgf90 \n Linux x86_64 (loblolly): ifort, gfortran, pgf90 \n Linux i486, i586, i686: ifort, gfortran, pgf90 \n Darwin (visit-a05): pgf90, g95 \n\n";
       }
 
       printf "\nFound 4DVAR compilation option for %6s, option %2d.\n",$Compile_options_4dvar{$option}, $option;
@@ -1060,18 +1055,6 @@ if ($Compile_type =~ /3DVAR/i) {
             $Compile_options{$1} = $par_type;
             $option = $1;
             $count++;
-         } elsif ( ($config_line=~ m/(\d+)\.\s\($par_type_configure\) .* $Compiler .* $CCompiler .*/ix) &&
-             ! ($config_line=~/Cray/i) &&
-             ! ($config_line=~/PGI accelerator/i) &&
-             ! ($config_line=~/-f90/i) &&
-             ! ($config_line=~/POE/) &&
-             ! ($config_line=~/Xeon/) &&
-             ! ($config_line=~/SGI MPT/i) &&
-             ! ($config_line=~/MIC/) &&
-             ! ($config_line=~/HSW/) ) {
-            $Compile_options{$1} = $par_type;
-            $option = $1;
-            $count++;
          } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type_configure) .*/ix) &&
              ! ($config_line=~/Cray/i) &&
              ! ($config_line=~/PGI accelerator/i) &&
@@ -1093,7 +1076,7 @@ if ($Compile_type =~ /3DVAR/i) {
          }
          print "\nSelecting option '$option'. THIS MAY NOT BE IDEAL.\n";
       } elsif ($count < 1 ) {
-         die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgi \n Linux x86_64 (loblolly): ifort, gfortran, pgi \n Linux i486, i586, i686: ifort, gfortran, pgi \n Darwin (visit-a05): pgi, g95 \n\n";
+         die "\nSHOULD NOT DIE HERE\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (Yellowstone): ifort, gfortran, pgf90 \n Linux x86_64 (loblolly): ifort, gfortran, pgf90 \n Linux i486, i586, i686: ifort, gfortran, pgf90 \n Darwin (visit-a05): pgf90, g95 \n\n";
       }
 
       printf "\nFound 3DVAR compilation option for %6s, option %2d.\n",$Compile_options{$option}, $option;
