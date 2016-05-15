@@ -608,10 +608,10 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
 
 #For cycle jobs, WRF must exist. Will add capability to compile WRF in the (near?) future
   if ($Type =~ /CYCLING/i) {
-     if (-d "$MainDir/WRFV3_$Compiler") {
+     if (-e "$MainDir/WRFV3_$Compiler/main/wrf.exe") {
         print "Will use WRF code in $MainDir/WRFV3_$Compiler for CYCLING test\n";
      } else {
-        print "\n$MainDir/WRFV3_$Compiler DOES NOT EXIST\n";
+        print "\n$MainDir/WRFV3_$Compiler/main/wrf.exe DOES NOT EXIST\n";
         print "Removing cycling tests...\n\n";
         foreach my $name (keys %Experiments) {
            foreach my $type ($Experiments{$name}{test_type}) {
