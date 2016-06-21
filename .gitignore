@@ -15,7 +15,7 @@ BASELINE.LOBLOLLY*
 WRFDA-data-EM*
 
 # Regression test directories #
-#################################
+###############################
 WRFDA_[3-4]DVAR_*
 WRFV3*
 4dvar_small
@@ -53,4 +53,9 @@ tut_xinzhang_obsproc
 tut_xinzhang_rttov_genbe
 wind_sd
 
+# diffwrf files #
+#################
+*.diff
+fort.88
+fort.98
 

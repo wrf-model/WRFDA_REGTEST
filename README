@@ -51,17 +51,13 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
   The WRFDA Regression Testing Suite is kept in the following Git repository branch (contact
   wrfhelp@ucar.edu or Michael Kavulich; kavulich@ucar.edu) for access:
 
-    https://github.com/wrf-model/WRFDA/tree/master-REGTEST
-
-  Note that this is a branch of the main WRFDA repository. Contact one of the above addresses if
-  you have difficulty getting the code.
+    https://github.com/wrf-model/WRFDA_REGTEST
 
   In this repository you will find 
     - the main testing script (regtest.pl)
     - a text file containing test information (testdata.txt)
     - a directory containing a few helpful scripts (scripts/)
     - a text file containing data about compile times (compile_baseline.txt)
-    - an empty directory which will contain libraries you provide (libs/)
     - this README file
 
   In addition to the files found in the above repository, you must download two data sets for the 
