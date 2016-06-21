@@ -2,50 +2,59 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
 
 0. Purpose
 
-  The purpose of this testing system is to prevent regressions, or the introduction of software bugs, to the WRFDA system. 
-  The WRFDA RTS achieves this by running different tests on components of the WRFDA system, the comparing the output to a 
-  known baseline. The tests are designed to be customizable, compartmentalized, and easy to create.
+  The purpose of this testing system is to prevent regressions, or the introduction of software 
+  bugs, to the WRFDA system. The WRFDA RTS achieves this by running different tests on components 
+  of the WRFDA system, the comparing the output to a known baseline. The tests are designed to be 
+  customizable, compartmentalized, and easy to create.
 
-                         IT IS IMPORTANT TO NOTE THAT THIS SYSTEM CAN NOT DETECT INCORRECT RESULTS
+               IT IS IMPORTANT TO NOTE THAT THIS SYSTEM CAN NOT DETECT INCORRECT RESULTS
 
-  This testing suite can only ensure that all files that should have been created are created, and that the output of the 
-  test has not changed since the version which was used to generate the baseline. There are also sanity checks for NaNs in
-  the output and cases where the first guess file is equal to the output, but poor assimilation can not be detected.
+  This testing suite can only ensure that all files that should have been created are created, and 
+  that the output of the test has not changed since the version which was used to generate the 
+  baseline. There are also sanity checks for NaNs in the output and cases where the first guess 
+  file is bit-for-bit identical to the output, but poor assimilation can not be detected.
 
 1. Contents 
 
-  The contents of the WRFDA regression testing suite are as follows. Some files and directories are required for proper 
-  functioning, while others are optional but helpful additions.
+  The contents of the WRFDA regression testing suite are as follows. Some files and directories 
+  are required for proper functioning, while others are optional but helpful additions.
 
   Required files and directories:
 
   regtest.pl      The Perl script which runs the regression test suite
   testdata.txt    The text file which holds the test information for each platform
-  WRFDA-data-EM/  The directory containing data used to run each test. Can specify different name in 'testdata.txt'
-  BASELINE.NEW/   The directory containing baseline comparisons for each test. Can specify different name in 'testdata.txt'
-  wrfda.tar       The WRFDA source code you wish to use. The name can be specified in 'textdata.txt' or the code can be
-                  retrieved from a Subversion repository.
+  WRFDA-data-EM/  The directory containing data used to run each test. Can specify different name 
+                  in 'testdata.txt'
+  BASELINE.NEW/   The directory containing baseline comparisons for each test. Can specify 
+                  different name in 'testdata.txt'
+  wrfda.tar       The WRFDA source code you wish to use. The name can be specified in 
+                  'textdata.txt' or the code can be retrieved from a Subversion or Git repository.
 
   Optional files and directories:
 
-  scripts/        Contains helpful scripts, such as 'quickcopy.pl' which copies test results to be used as the new baseline.
+  scripts/        Contains helpful scripts, such as 'quickcopy.pl' which copies test results to be 
+                  used as the new baseline.
   README          This README file
 
 2. Supported platforms
 
-  This regression testing suite is optimized for use on the NCAR Yellowstone supercomputer. However, with minimal effort it 
-  can run (albeit slowly) on personal computers, both Linux and Mac.
+  This regression testing suite is optimized for use on the NCAR Yellowstone supercomputer. 
+  However, with minimal effort it can run (albeit slowly) on personal computers, both Linux and 
+  Mac.
 
-  Supported Fortran compilers are ifort, gfortran, and pgf90. Other compilers which should work with minimal effort are xlf 
-  and g95.
+  Supported Fortran compilers are ifort, gfortran, and pgf90. Other compilers which should work 
+  with minimal effort are xlf and g95.
 
 
 3. Set up
 
-  The WRFDA Regression Testing Suite is kept in the following Subversion code repository (contact Michael Kavulich; 
-  kavulich@ucar.edu) for access:
+  The WRFDA Regression Testing Suite is kept in the following Git repository branch (contact
+  wrfhelp@ucar.edu or Michael Kavulich; kavulich@ucar.edu) for access:
 
-    https://svn-user-kavulich.cgd.ucar.edu/trunk/REGTEST/
+    https://github.com/wrf-model/WRFDA/tree/master-REGTEST
+
+  Note that this is a branch of the main WRFDA repository. Contact one of the above addresses if
+  you have difficulty getting the code.
 
   In this repository you will find 
     - the main testing script (regtest.pl)
@@ -55,25 +64,29 @@ This is the Regression Testing Suite (RTS) for the WRF Data Assimilation system 
     - an empty directory which will contain libraries you provide (libs/)
     - this README file
 
-  In addition to the files found in the above repository, you must download two data sets for the regression testing to 
-  function:
+  In addition to the files found in the above repository, you must download two data sets for the 
+  regression testing to function:
 
     - The test database (WRFDA-data-EM), containing the necessary files for each test to run
     - The baseline output files for comparison (BASELINE.NEW)
 
-  These data sets can be found at the WRFDA website: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html
+  These data sets can be found at the WRFDA website: 
+  http://www.mmm.ucar.edu/wrf/users/wrfda/regression/index.html
 
-  This system is not yet set up to automatically compile WRFPLUS for 4DVAR tests. Therefore, to run 4DVAR tests, you must
-  compile the appropriate code separately. The testing suite will look for the WRFPLUS code in the test's 'libs' directory,
-  in a sub-directory named 'WRFPLUSV3_compiler', where "compiler" is gnu, intel, pgi, etc. For serial 4DVAR tests, you'll
-  need to compile WRFPLUS for serial runs as well, and the testing suite will look for the WRFPLUS code in a sub-directory 
-  of 'libs' named 'WRFPLUSV3_compiler_serial'.
+  This system is not yet set up to automatically compile WRFPLUS for 4DVAR tests. Therefore, to 
+  run 4DVAR tests, you must compile the appropriate code separately. The testing suite will look 
+  for the WRFPLUS code in the test's 'libs' directory, in a sub-directory named 
+  'WRFPLUSV3_compiler', where "compiler" is gnu, intel, pgi, etc. For serial 4DVAR tests, you'll 
+  need to compile WRFPLUS for serial runs as well, and the testing suite will look for the WRFPLUS 
+  code in a sub-directory of 'libs' named 'WRFPLUSV3_compiler_serial'.
 
-  Certain tests require external libraries, such as RTTOV and HDF5. You should link/copy the full installation of these 
-  libraries into the provided blank 'libs/' directory. These directories should follow the same compiler-specific naming 
-  conventions as WRFPLUS; for example, RTTOV compiled with gfortran should be found in the directory 'libs/RTTOV_gfortran', 
-  and HDF5 libraries in the directory 'libs/HDF5_gfortran'. These directories should contain the full library installation, 
-  so the command `ls libs/HDF5_gfortran` in the above example should show the following subdirectories:
+  Certain tests require external libraries, such as RTTOV and HDF5. You should link/copy the full 
+  installation of these libraries into the provided blank 'libs/' directory. These directories 
+  should follow the same compiler-specific naming conventions as WRFPLUS; for example, RTTOV 
+  compiled with gfortran should be found in the directory 'libs/RTTOV_gfortran', and HDF5 
+  libraries in the directory 'libs/HDF5_gfortran'. These directories should contain the full 
+  library installation, so the command `ls libs/HDF5_gfortran` in the above example should show 
+  the following subdirectories:
 
      bin     include lib     share
 
@@ -89,95 +102,113 @@ A compiler must be specified!
 
 Aborting the script with dignity.
 
-Usage : regtest.pl --compiler=COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes --exec=[no]/yes
-                   --debug=[no]/yes/super --j=NUM_PROCS --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes
+Usage : regtest.pl --compiler=COMPILER --cc=C_COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
+                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super
+                   --debug=[no]/yes/super --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes
                    --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk
+                   --tests='testname1 testname2'
 
-        compiler: Compiler name (supported options: ifort, gfortran, xlf, pgi, g95)
+        compiler: [REQUIRED] Compiler name (supported options: ifort, gfortran, xlf, pgf90, g95)
+        cc:       C Compiler name (supported options: icc, gcc, xlf, pgcc, g95)
         source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)
         revision: Specify code revision to retrieve (only works when '--source=REPO' specified)
                   Use any number to specify that revision number; specify 'HEAD' to use the latest revision
         upload:   Uploads summary to web (default is 'yes' iff source==REPO and revision==HEAD)
+        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)
         exec:     Execute only; skips compile, utilizes existing executables
         debug:    'yes' compiles with minimal optimization; 'super' compiles with debugging options as well
-        j:        Number of processors to use in parallel compile (default 4, use 1 for serial compilation)
         cloudcv:  Compile for CLOUD_CV options
         netcdf4:  Compile for NETCDF4 options
-        hdf5:     Compile for HDF5 options
+        hdf5:     Compile for HDF5 options (note that the default value is 'yes')
         testfile: Name of test data file (default: testdata.txt)
         repo:     Location of code repository
+        tests:    Test names to run (prunes test list taken from testfile; test specs must exist there!)
 
-  As should be obvious from the above message, there are a number of command-line options you can provide to the script to 
-  run the RTS in different ways. Let's examine these options in detail:
+  As should be obvious from the above message, there are a number of command-line options you can 
+  provide to the script to run the RTS in different ways. Let's examine these options in detail:
 
   compiler:
-    This is the name of the Fortran compiler you will be using to compile WRFDA. Active testing takes place with gfortran, 
-    ifort, and pgf90, but you should be able to easily adapt this test to use any Fortran compiler that WRF is set up for.
-    This is the only mandatory command-line argument for regtest.pl
+    This is the name of the Fortran compiler you will be using to compile WRFDA. Active testing 
+    takes place with gfortran, ifort, and pgf90, but you should be able to easily adapt this test 
+    to use any Fortran compiler that WRF is set up for. This is the only mandatory command-line 
+    argument for regtest.pl
   source:
     This is the source of the code you will be testing. You can enter one of two options:
       --source=REPO will check out a version of the code from the WRF code repository at 
-                   https://svn-wrf-model.cgd.ucar.edu/trunk/ (or specifies by the "repo" option). By default, the most 
-                   recent (HEAD) repository will be checked out, but you can use the "revision" option to change this
-      --source=SOURCE_CODE.tar will use a tar file that you specify which contains the WRFDA source code. It must be a tar 
-                   file which only contains the WRFDA code in a directory named "WRFDA". You can specify a tar file in a 
-                   different directory with either a full path or a relative path.
+                   https://svn-wrf-model.cgd.ucar.edu/trunk/ (or specified by the "repo" option). 
+                   By default, the most recent (HEAD) repository will be checked out, but you can 
+                   use the "revision" option to change this
+      --source=SOURCE_CODE.tar will use a tar file that you specify which contains the WRFDA 
+                   source code. It must be a tar file which only contains the WRFDA code in a 
+                   directory named "WRFDA". You can specify a tar file in a different local 
+                   directory with either a full path or a relative path.
   revision:
-    If you specify "--source=REPO", you can use "--revision=####" to specify a specific revision number to check out of the 
-    repository
+    If you specify "--source=REPO", you can use "--revision=####" to specify a specific revision 
+    number to check out of the repository
   repo:
-    The default repository when you specify "--source=REPO" is "https://svn-wrf-model.cgd.ucar.edu/trunk/". You can specify
-    a different repository with this option.
+    The default repository when you specify "--source=REPO" is 
+    "https://svn-wrf-model.cgd.ucar.edu/trunk/". You can specify a different repository with this 
+    option.
   upload:
-    Will upload a summary of the test to the web (found at http://www2.mmm.ucar.edu/wrf/users/wrfda/regression/index.html). 
-    You must have write permission on the MMM "nebula" machine to successfully use this option, as you will be prompted for 
-    your password to upload the summary files
+    Will upload a summary of the test to the web (found at 
+    http://www2.mmm.ucar.edu/wrf/users/wrfda/regression/index.html). You must have write permission
+    on the MMM "nebula" machine to successfully use this option, as you will be prompted for your 
+    password to upload the summary files
   exec:
-    If you have run a previous test and do not wish to delete that code and re-compile, you can use "--exec=yes" to re-run 
-    the tests on existing code
+    If you have run a previous test and do not wish to delete that code and re-compile, you can use
+    "--exec=yes" to re-run the tests on existing code
   debug:
-    Allows you to compile WRFDA without optimization (--debug=yes) or with debug flags and no optimization (--debug=super).
-    Results will likely differ from normal files, but these options can help trap errors not caught by the standard tests. 
+    Allows you to compile WRFDA without optimization (--debug=yes) or with debug flags and no 
+    optimization (--debug=super). Results may differ from the baseline generated without these 
+    options, but debug options can help trap errors not caught by the standard tests. 
   j:
-    Specify the number of cores to be used with parallel make to speed up compilation. The default is 4, and 16 is the 
-    maximum possible value, though values greater than 6 are not recommended, as there is minimal speedup beyond this
+    Specify the number of cores to be used with parallel make to speed up compilation. The default 
+    is 4, and 16 is the maximum possible value, though values greater than 6 are not recommended, 
+    as there is minimal speedup beyond this
   cloudcv:
-    Compiles WRFDA with the "CLOUDCV=1" environment variable set, which compiles a lot of if-deffed code for moisture
-    control variables that is normally not compiled. There are currently no tests for this option, and it will cause CV3
-    tests to dail
+    Compiles WRFDA with the "CLOUDCV=1" environment variable set, which compiles a lot of if-deffed
+    code for moisture control variables that is normally not compiled. There are currently no tests
+    specifically designed for this option, and it will cause CV3 tests to fail
   netcdf4:
     Compile for NETCDF4 options.
   hdf5:
-    Compile using HDF5 libraries. On by default if the libraries are found in 'libs/HDF5_compiler', but setting this to
-    --hdf5=no will disable this option. Required for amsr2 test(s).
+    Compile using HDF5 libraries. On by default if the libraries are found in 'libs/HDF5_compiler',
+    but setting this to --hdf5=no will disable this option. Required for amsr2 test(s).
   testfile:
     You can read a different test file than the default 'testdata.txt' with this option.
 
 5. Output
 
-  Most of the messages found in the regression test summary are self-explanatory. Here's a full list of possible outcomes:
+  Most of the messages found in the regression test summary are self-explanatory. Here's a full 
+  list of possible outcomes:
 
   If the test completed successfully:
-  --------------------------------------------------------------------------------------------------------------------------
+  ------------------------------------------------------------------------------------------------
   match  The output of the test is a bit-for-bit match with the baseline. Excellent news!
-  ok     The output of the test is not a bit-for-bit match with the baseline, but the fields are exactly the same. This can 
-         result from a change in the variables stored in output, for instance. This is a perfectly acceptable result, but 
-         you should update the baseline using the quickcopy.pl script. NOTE: Tests using NETCDF4 files will always report 
-         'ok' due to limitations of the testing routines that have not yet been resolved.
-  diff   This means that the output of the test is different than the baseline. This often means there is a problem, though 
-         if you expect your updates to change the output this may be an acceptable result. Check the output thoroughly!
+  ok     The output of the test is not a bit-for-bit match with the baseline, but the fields are 
+         exactly the same. This can result from a change in the variables stored in output, for 
+         instance. This is a perfectly acceptable result, but you should update the baseline using 
+         the quickcopy.pl script. NOTE: Tests using NETCDF4 files will always report 'ok' due to 
+         limitations of the testing routines that have not yet been resolved.
+  diff   This means that the output of the test is different than the baseline. This often means 
+         there is a problem, though if you expect your updates to change the output this may be an 
+         acceptable result. Check the output thoroughly!
 
   If the test failed:
-  --------------------------------------------------------------------------------------------------------------------------
-  obsproc failed              For obsproc tests, this status message means that obsproc did not create an observation file.
-  genbe failed                For gen_be tests, this status message means that gen_be reported failure.
-  Output missing              wrfvar_output was not created. Check the rsl.* files in the test directory.
-  Baseline missing            The test could not find a baseline file to compare to your test results.
-  Unknown error               Something strange went wrong in the baseline comparison subroutine.
-  Mysterious error!           Something strange went wrong (the subroutine for starting the test returned "undef"). 
-  diffwrf comparison failed   diffwrf (used for comparing your output to the baseline) failed for some reason (ensure that
-                              it is installed on your system and in your $PATH)
-  Could not open output       Your output or baseline file is malformed (or possibly missing).
-            and/or baseline
-  fg == wrfvar_output         The test produced output, but the output is equal to the first guess, indicating a problem.
+  ------------------------------------------------------------------------------------------------
+  obsproc failed         For obsproc tests, this status message means that obsproc did not create 
+                         an observation file.
+  genbe failed           For gen_be tests, this status message means that gen_be reported failure.
+  Output missing         wrfvar_output was not created. Check the rsl.* files in the test
+                         directory.
+  Baseline missing       The test could not find a baseline file to compare to your test results.
+  Unknown error          Something strange went wrong in the baseline comparison subroutine.
+  Mysterious error!      Something strange went wrong (the subroutine for starting the test 
+                         returned "undef"). 
+  diffwrf                diffwrf (used for comparing your output to the baseline) failed for some 
+     comparison failed   reason (ensure that it is installed on your system and in your $PATH)
+  Could not open output  Your output or baseline file is malformed (or possibly missing).
+         and/or baseline
+  fg == wrfvar_output    The test produced output, but the output is equal to the first guess, 
+                         likely indicating a problem.
 

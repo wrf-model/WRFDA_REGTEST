@@ -1,0 +1,56 @@
+# Zip and tar files #
+#####################
+*.tar
+*.gz
+
+# Dynamically generated HTML files #
+####################################
+summary*.html
+
+# Data directories #
+##################
+BASELINE.NEW*
+BASELINE.MAC*
+BASELINE.LOBLOLLY*
+WRFDA-data-EM*
+
+# Regression test directories #
+#################################
+WRFDA_[3-4]DVAR_*
+WRFV3*
+4dvar_small
+afwa_t7_ssmi
+afwa_t7_ssmi_32
+amsr2
+ASR_airs
+ASR_prepbufr
+cv3_guo
+cv3_guo_32
+cwb_ascii
+cwb_ascii_outerloop_rizvi
+cwb_ascii_thinning
+cycle_sene_hires
+cycle_ne_blizzard
+dual_res_hybrid
+iasi_kavulich
+lat_lon_outerloops
+multirad_pacific
+multirad_pacific_nc4
+outerloop_ztd_bench_guo
+radar_4dvar_cv7
+radar_cv7
+radar_meixu
+rainfall_outerloops
+realtime_hybrid
+rttov_4dvar_madagascar
+seviri_varbc
+sfc_assi_2_outerloop_guo
+t44_liuz
+t44_prepbufr
+tut_xinzhang_4dvar
+tut_xinzhang_fgat
+tut_xinzhang_obsproc
+tut_xinzhang_rttov_genbe
+wind_sd
+
+
