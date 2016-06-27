@@ -15,6 +15,7 @@
 #           December 2015, added HDF5 and NETCDF4 capabilities
 #           January 2016, added 4DVAR serial test capability
 #           February 2016, Added HYBRID capabilities for local machines, enabled sm tests, cleaned up library link system
+#           June 2016, Added git/Github functionality
 
 use strict;
 use Term::ANSIColor;
@@ -44,16 +45,19 @@ my $Source_defined;
 my $Exec_defined;
 my $Debug_defined;
 my $Parallel_compile_num = 4;
-my $Revision = 'HEAD'; # Revision Number
-my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision Number
+my $Revision_defined = 'HEAD'; # Revision number specified from command line
+my $Revision;                  # Revision number from code
+my $Branch = ""; # Branch; used for git repositories only
+my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision number from code
 my $Testfile = 'testdata.txt';
 my $CLOUDCV_defined;
 my $NETCDF4_defined;
 my $REPO_defined;
+my $REPO_type;
 my $RTTOV_dir;
 my $test_list_string = '';
 my $use_HDF5 = "yes";
-my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo","tests");
+my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo","tests","branch");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -82,7 +86,7 @@ foreach my $arg ( @ARGV ) {
 GetOptions( "compiler=s" => \$Compiler_defined,
             "cc:s" => \$CCompiler_defined,
             "source:s" => \$Source_defined, 
-            "revision:s" => \$Revision,
+            "revision:s" => \$Revision_defined,
             "upload:s" => \$Upload_defined,
             "exec:s" => \$Exec_defined,
             "debug:s" => \$Debug_defined,
@@ -92,6 +96,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "hdf5:s" => \$use_HDF5,
             "testfile:s" => \$Testfile,
             "repo:s" => \$REPO_defined,
+            "branch:s" => \$Branch,
             "tests:s" => \$test_list_string ) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
@@ -120,6 +125,7 @@ sub print_help_and_die {
   print "        hdf5:     Compile for HDF5 options (note that the default value is 'yes')\n";
   print "        testfile: Name of test data file (default: testdata.txt)\n";
   print "        repo:     Location of code repository\n";
+  print "        branch:   (git only) branch of repository to use\n";
   print "        tests:    Test names to run (prunes test list taken from testfile; test specs must exist there!)\n";
   die "\n";
 }
@@ -254,6 +260,8 @@ my $Local_machine = `uname -m`; chomp($Local_machine);
 my $Machine_name = `uname -n`; chomp($Machine_name); 
 
 if ($Machine_name =~ /yslogin\d/) {$Machine_name = 'yellowstone'};
+if ($Machine_name =~ /bacon\d/) {$Machine_name = 'bacon'};
+if ($Machine_name =~ /vpn\d/) {$Machine_name = 'bacon'};
 my @splitted = split(/\./,$Machine_name);
 
 $Machine_name = $splitted[0];
@@ -390,10 +398,18 @@ if ( ($Source eq "REPO") && (defined $REPO_defined) ) {
     $CODE_REPO = $REPO_defined;
 }
 
+if ($CODE_REPO =~ /svn-/) {
+   $REPO_type = 'svn';
+} elsif ($CODE_REPO =~ /github/) {
+   $REPO_type = 'git';
+} else {
+   $REPO_type = 'unk';
+}
+
 # Upload summary to web by default if source is head of repository; 
 # otherwise do not upload unless upload option is explicitly selected
 my $Upload;
-if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "REPO") && ($Revision eq "HEAD") && !(defined $Upload_defined) ) {
+if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "REPO") && ($Revision_defined eq "HEAD") && ($Branch eq "") && !(defined $Upload_defined) ) {
     $Upload="yes";
     print "\nSource is head of repository: will upload summary to web when test is complete.\n\n";
 } elsif ( !(defined $Upload_defined) ) {
@@ -753,12 +769,14 @@ if ($Compile_type =~ /4DVAR/i) {
 
       if ($Source eq "REPO") {
          print "Getting the code from repository $CODE_REPO to WRFDA_4DVAR_$par_type ...\n";
-         # SHOULD CREATE CUSTOM FUNCTION FOR GIT CHECKOUT EVENTUALLY
-         ! system ("svn","co","-q","-r",$Revision,$CODE_REPO,"WRFDA_4DVAR_$par_type") or die " Can't run svn checkout: $!\n";
-         if ($Revision eq 'HEAD') {
+         &repo_checkout ($REPO_type,$CODE_REPO,$Revision_defined,$Branch,"WRFDA_4DVAR_$par_type");
+#         ! system ("svn","co","-q","-r",$Revision,$CODE_REPO,"WRFDA_4DVAR_$par_type") or die " Can't run svn checkout: $!\n";
+         if ($Revision_defined eq 'HEAD') {
             $Revision = &get_repo_revision("WRFDA_4DVAR_$par_type");
+         } else {
+            $Revision = $Revision_defined;
          }
-         printf "Revision %5d successfully checked out to WRFDA_4DVAR_$par_type.\n",$Revision;
+         print "Revision $Revision successfully checked out to WRFDA_4DVAR_$par_type.\n";
       } else {
          print "Getting the code from $Source to WRFDA_4DVAR_$par_type ...\n";
          ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
@@ -994,11 +1012,14 @@ if ($Compile_type =~ /3DVAR/i) {
 
        if ($Source eq "REPO") {
           print "Getting the code from repository $CODE_REPO to WRFDA_3DVAR_$par_type ...\n";
-          ! system ("svn","co","-q","-r",$Revision,$CODE_REPO,"WRFDA_3DVAR_$par_type") or die " Can't run svn checkout: $!\n";
+         &repo_checkout ($REPO_type,$CODE_REPO,$Revision_defined,$Branch,"WRFDA_3DVAR_$par_type");
+#          ! system ("svn","co","-q","-r",$Revision,$CODE_REPO,"WRFDA_3DVAR_$par_type") or die " Can't run svn checkout: $!\n";
           if ($Revision eq 'HEAD') {
              $Revision = &get_repo_revision("WRFDA_3DVAR_$par_type");
+          } else {
+             $Revision = $Revision_defined;
           }
-          printf "Revision %5d successfully checked out to WRFDA_3DVAR_$par_type.\n",$Revision;
+          printf "Revision $Revision successfully checked out to WRFDA_3DVAR_$par_type.\n";
        } else {
           print "Getting the code from $Source to WRFDA_3DVAR_$par_type ...\n";
           ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
@@ -1429,7 +1450,11 @@ print SENDMAIL "Source: ",$Source."<br>";
 if ( $Source eq "REPO" ) {
     print SENDMAIL '<li>'."Repository location : $CODE_REPO".'</li>'."\n";
 }
-print SENDMAIL "Revision: ",$Revision."<br>";
+if ( $Revision_defined eq $Revision) {
+    print SENDMAIL "Revision: $Revision<br>";
+} else {
+    print SENDMAIL "Revision: $Revision ($Revision_defined)<br>";
+}
 if ( $WRFPLUS_Revision ne "NONE" ) {
     print SENDMAIL "WRFPLUS Revision: ",$WRFPLUS_Revision."<br>";
 }
@@ -1472,7 +1497,11 @@ sub create_webpage {
 if ( $Source eq "REPO" ) {
     print WEBH '<li>'."Repository location : $CODE_REPO".'</li>'."\n";
 }
+if ( $Revision_defined eq $Revision) {
     print WEBH '<li>'."Revision : $Revision".'</li>'."\n";
+} else {
+    print WEBH '<li>'."Revision : $Revision ($Revision_defined)".'</li>'."\n";
+}
 if ( $WRFPLUS_Revision ne "NONE" ) {
     print WEBH '<li>'."WRFPLUS Revision : $WRFPLUS_Revision".'</li>'."\n";
 }
@@ -1556,7 +1585,7 @@ if ( $Machine_name eq "yellowstone" ) {
     my $go_on='';
 
     if ( $Upload =~ /yes/i ) {
-       if ( (!$Exec) && ($Revision =~ /\d+(M|m)$/) ) {
+       if ( (!$Exec) && ( ($Revision =~ /\d+(M|m)$/) or ($Revision =~ 'modified') ) ) {
           $scp_warn ++;
           print "This revision appears to be modified, are you sure you want to upload the summary?\a\n";
 
@@ -3648,6 +3677,31 @@ sub check_baseline {
 }
 
 
+sub repo_checkout {
+   my ($repo_type, $code_repo, $rev, $branch, $dirname) = @_;
+     
+   die "INVALID DIRECTORY NAME: SLASHES NOT ALLOWED" if ($dirname =~ /\//);
+   if ($repo_type eq "svn") {
+      ! system ("svn","co","-q","-r",$rev,$code_repo,$dirname) or die " Can't run svn checkout: $!\n";
+   } elsif ($repo_type eq "git") {
+      ! system ("git","clone","-q",$code_repo,$dirname) or die " Can't run git clone: $!\n";
+      if ($rev ne "HEAD") {
+         chdir $dirname;
+         ! system ("git","checkout",$rev) or die " Can't run git checkout: $!\n";
+         chdir "..";
+         print "Checked out revision: $rev\n";
+      } elsif ($branch ne "") {
+         chdir $dirname;
+         ! system ("git","checkout",$branch) or die " Can't run git checkout: $!\n";
+         chdir "..";
+         print "Checked out branch: $branch\n";
+      }
+   } else {
+      die "UNKNOWN REPO TYPE\n\n";
+   }
+}
+
+
 sub get_repo_revision {
 
 #This function was originally made due to a Yellowstone upgrade which bungled up the 'svnversion' function.
@@ -3689,6 +3743,31 @@ sub get_repo_revision {
       close ($fh2);
       if($mod=~/\S+/){
          $revnum = "$revnum"."m"; #Add an 'm' if modified
+      }
+
+      chdir $wd;
+      return $revnum;
+
+   } elsif ( -d "$dir_name/.git" ) {
+      open (my $fh,"-|","git","log","--max-count=1")
+           or die " Can't run git log: $!\n";
+      while (<$fh>) {
+         $revnum = $1 if ( /^commit\s+(\S+)/x);
+      }
+      close ($fh);
+
+      open (my $fh2,"-|","git","status","-s")
+           or die " Can't run git status: $!\n";
+      while (my $row = <$fh2>) {
+         if ( $row =~ /\S*/) {
+            unless ($row =~ /^??/) { #We don't care if directories are missing; just modifications.
+               $mod = $row;
+            }
+         }
+      }
+      close ($fh2);
+      if($mod=~/\S+/){
+         $revnum = "$revnum"." modified"; #Note if modified
       }
 
       chdir $wd;
