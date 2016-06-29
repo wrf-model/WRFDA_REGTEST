@@ -38,6 +38,10 @@ my $tm = localtime;
 $Start_time=sprintf "Begin : %02d:%02d:%02d-%04d/%02d/%02d\n",
         $tm->hour, $tm->min, $tm->sec, $tm->year+1900, $tm->mon+1, $tm->mday;
 
+# Where am I?
+my $MainDir = `pwd`; chomp($MainDir);
+
+
 my $Upload_defined;
 my $Compiler_defined;
 my $CCompiler_defined = '';
@@ -57,7 +61,8 @@ my $REPO_type;
 my $RTTOV_dir;
 my $test_list_string = '';
 my $use_HDF5 = "yes";
-my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo","tests","branch");
+my $libdir = "$MainDir/libs";
+my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo","tests","libs","branch");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -97,7 +102,8 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "testfile:s" => \$Testfile,
             "repo:s" => \$REPO_defined,
             "branch:s" => \$Branch,
-            "tests:s" => \$test_list_string ) or &print_help_and_die;
+            "tests:s" => \$test_list_string,
+            "libs:s" => \$libdir ) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
   print "\nA compiler must be specified!\n\nAborting the script with dignity.\n";
@@ -110,7 +116,7 @@ sub print_help_and_die {
   print "                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super\n";
   print "                   --debug=[no]/yes/super --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes\n";
   print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n";
-  print "                   --tests='testname1 testname2'\n\n";
+  print "                   --tests='testname1 testname2' --libs=`pwd`/libs\n\n";
   print "        compiler: [REQUIRED] Compiler name (supported options: ifort, gfortran, xlf, pgf90, g95)\n";
   print "        cc:       C Compiler name (supported options: icc, gcc, xlf, pgcc, g95)\n";
   print "        source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)\n";
@@ -127,6 +133,7 @@ sub print_help_and_die {
   print "        repo:     Location of code repository\n";
   print "        branch:   (git only) branch of repository to use\n";
   print "        tests:    Test names to run (prunes test list taken from testfile; test specs must exist there!)\n";
+  print "        libs:     Specify where the necessary libraries are located\n";
   die "\n";
 }
 
@@ -154,7 +161,7 @@ if ( $Parallel_compile_num > 16 ) {die "Can not parallel compile using more than
 my $Tester = getlogin();
 
 # Local variables
-my ($Arch, $Machine, $Name, $Compiler, $CCompiler, $Project, $Source, $Queue, $Database, $Baseline, $MainDir, $missvars);
+my ($Arch, $Machine, $Name, $Compiler, $CCompiler, $Project, $Source, $Queue, $Database, $Baseline, $missvars);
 my $Compile_queue = 'caldera';
 my @compile_job_list;
 my @Message;
@@ -244,13 +251,11 @@ my %Compile_options;
 my %Compile_options_4dvar;
 my $count; #For counting the number of compile options found
 my %compile_job_array;
+my $go_on=''; #For breaking input loops
 
 # What's my name?
 
 my $ThisGuy = `whoami`; chomp($ThisGuy);
-
-# Where am I?
-$MainDir = `pwd`; chomp($MainDir);
 
 # What's my hostname, system, and machine?
 
@@ -261,7 +266,19 @@ my $Machine_name = `uname -n`; chomp($Machine_name);
 
 if ($Machine_name =~ /yslogin\d/) {$Machine_name = 'yellowstone'};
 if ($Machine_name =~ /bacon\d/) {$Machine_name = 'bacon'};
-if ($Machine_name =~ /vpn\d/) {$Machine_name = 'bacon'};
+if ( $Machine_name =~ /vpn\d/ ) {
+   print " Your machine appears to be connected to VPN so we can't determine what machine you are using\n please enter your machine name (the output of the command `uname -n` when not connected to VPN) below:\a\n";
+
+   while ($go_on eq "") {
+      $go_on = <STDIN>;
+      chop($go_on);
+      if ($go_on eq "") {
+         print "Please enter the name of your machine:\n";
+      } else {
+         $Machine_name = $go_on;
+      }
+   }
+}
 my @splitted = split(/\./,$Machine_name);
 
 $Machine_name = $splitted[0];
@@ -312,6 +329,8 @@ my $Compiler_version = "";
 if (defined $ENV{'COMPILER_VERSION'} ) {
    $Compiler_version = $ENV{COMPILER_VERSION}
 }
+
+print "Will use libraries in $libdir\n";
 
 # Parse the task table:
 
@@ -562,18 +581,18 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
    print "\nWill compile for CLOUD_CV option\n\n";
 }
 
-   if ( (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes")) {
-      $ENV{HDF5}="$MainDir/libs/HDF5_$Compiler\_$Compiler_version";
-      print "Found HDF5 in directory $MainDir/libs/HDF5_$Compiler\_$Compiler_version\n";
+   if ( (-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes")) {
+      $ENV{HDF5}="$libdir/HDF5_$Compiler\_$Compiler_version";
+      print "Found HDF5 in directory $libdir/HDF5_$Compiler\_$Compiler_version\n";
    } else {
-      unless (-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") {print "\nDirectory $MainDir/libs/HDF5_$Compiler\_$Compiler_version DOES NOT EXIST!\n"};
+      unless (-d "$libdir/HDF5_$Compiler\_$Compiler_version") {print "\nDirectory $libdir/HDF5_$Compiler\_$Compiler_version DOES NOT EXIST!\n"};
       print "\nNot using HDF5\n";
       delete $ENV{HDF5};
    }
 
    if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
-          $RTTOV_dir = "$MainDir/libs/rttov_$Compiler\_$Compiler_version";
+          $RTTOV_dir = "$libdir/rttov_$Compiler\_$Compiler_version";
           if (-d $RTTOV_dir) {
               $ENV{RTTOV} = $RTTOV_dir;
               print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -585,7 +604,7 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
           }
 
       } else { # Loblolly
-         $RTTOV_dir = "$MainDir/libs/rttov_$Compiler\_$Compiler_version";
+         $RTTOV_dir = "$libdir/rttov_$Compiler\_$Compiler_version";
           if (-d $RTTOV_dir) {
               $ENV{RTTOV} = $RTTOV_dir;
               print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -610,7 +629,7 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
           }
       }
    } elsif ($Arch eq "Darwin") {   # Darwin
-      $RTTOV_dir = "$MainDir/libs/rttov_$Compiler\_$Compiler_version";
+      $RTTOV_dir = "$libdir/rttov_$Compiler\_$Compiler_version";
       if (-d $RTTOV_dir) {
           $ENV{RTTOV} = $RTTOV_dir;
           print "Using RTTOV libraries in $RTTOV_dir\n";
@@ -657,7 +676,7 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
  my $WRFPLUSDIR_serial;
  if ($Par_4dvar =~ /dmpar/i) {
     # Set WRFPLUS_DIR Environment variable
-    $WRFPLUSDIR = $MainDir."/libs/WRFPLUSV3_$Compiler\_$Compiler_version";
+    $WRFPLUSDIR = "$libdir/WRFPLUSV3_$Compiler\_$Compiler_version";
     chomp($WRFPLUSDIR);
     print "4DVAR dmpar tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR.\n";
     if (-d $WRFPLUSDIR) {
@@ -695,7 +714,7 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
 
 if ($Par_4dvar =~ /serial/i) {
     # Set WRFPLUS_DIR Environment variable
-    $WRFPLUSDIR_serial = $MainDir."/libs/WRFPLUSV3_$Compiler\_$Compiler_version\_serial";
+    $WRFPLUSDIR_serial = "$libdir/WRFPLUSV3_$Compiler\_$Compiler_version\_serial";
     chomp($WRFPLUSDIR_serial);
     print "4DVAR serial tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR_serial.\n";
     if (-d $WRFPLUSDIR_serial) {
@@ -1327,9 +1346,9 @@ if ($Compile_type =~ /4DVAR/i) {
 
 
 # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
-if ( ((-d "$MainDir/libs/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
-   $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib";
-   print "Adding $MainDir/libs/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
+if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
+   $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$libdir/HDF5_$Compiler\_$Compiler_version/lib";
+   print "Adding $libdir/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
 }
 
 
@@ -1455,6 +1474,9 @@ if ( $Revision_defined eq $Revision) {
 } else {
     print SENDMAIL "Revision: $Revision ($Revision_defined)<br>";
 }
+if ( $Branch ne "" ) {
+    print SENDMAIL "Branch: ",$Branch."<br>";
+}
 if ( $WRFPLUS_Revision ne "NONE" ) {
     print SENDMAIL "WRFPLUS Revision: ",$WRFPLUS_Revision."<br>";
 }
@@ -1501,6 +1523,9 @@ if ( $Revision_defined eq $Revision) {
     print WEBH '<li>'."Revision : $Revision".'</li>'."\n";
 } else {
     print WEBH '<li>'."Revision : $Revision ($Revision_defined)".'</li>'."\n";
+}
+if ( $Branch ne "" ) {
+    print WEBH '<li>'."Branch : $Branch".'</li>'."\n";
 }
 if ( $WRFPLUS_Revision ne "NONE" ) {
     print WEBH '<li>'."WRFPLUS Revision : $WRFPLUS_Revision".'</li>'."\n";
@@ -1582,7 +1607,7 @@ if ( $Machine_name eq "yellowstone" ) {
     my $scp_warn=0;
 
 
-    my $go_on='';
+    $go_on='';
 
     if ( $Upload =~ /yes/i ) {
        if ( (!$Exec) && ( ($Revision =~ /\d+(M|m)$/) or ($Revision =~ 'modified') ) ) {
