@@ -643,10 +643,10 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
 
 #For cycle jobs, WRF must exist. Will add capability to compile WRF in the (near?) future
   if ($Type =~ /CYCLING/i) {
-     if (-e "$MainDir/WRFV3_$Compiler/main/wrf.exe") {
-        print "Will use WRF code in $MainDir/WRFV3_$Compiler for CYCLING test\n";
+     if (-e "$libdir/WRFV3_$Compiler/main/wrf.exe") {
+        print "Will use WRF code in $libdir/WRFV3_$Compiler for CYCLING test\n";
      } else {
-        print "\n$MainDir/WRFV3_$Compiler/main/wrf.exe DOES NOT EXIST\n";
+        print "\n$libdir/WRFV3_$Compiler/main/wrf.exe DOES NOT EXIST\n";
         print "Removing cycling tests...\n\n";
         foreach my $name (keys %Experiments) {
            foreach my $type ($Experiments{$name}{test_type}) {
@@ -2085,14 +2085,14 @@ sub new_job {
          chdir "../WRF" or warn "Cannot chdir to '../WRF': $!\n";
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          $starttime = gettimeofday();
-         system("ln -sf $MainDir/WRFV3_$com/run/*.TBL .");      #Linking the necessary WRF accessory files
-         system("ln -sf $MainDir/WRFV3_$com/run/RRTM*DATA .");
-         system("ln -sf $MainDir/WRFV3_$com/run/ozone* .");
+         system("ln -sf $libdir/WRFV3_$com/run/*.TBL .");      #Linking the necessary WRF accessory files
+         system("ln -sf $libdir/WRFV3_$com/run/RRTM*DATA .");
+         system("ln -sf $libdir/WRFV3_$com/run/ozone* .");
          if ($par=~/dm/i) {
-             $cmd= "mpirun -np $cpun $MainDir/WRFV3_$com/main/wrf.exe 1>/dev/null 2>/dev/null";
+             $cmd= "mpirun -np $cpun $libdir/WRFV3_$com/main/wrf.exe 1>/dev/null 2>/dev/null";
              system($cmd);
          } else {
-             $cmd="$MainDir/WRFV3_$com/main/wrf.exe 1>WRF.out.$nam.$par 2>WRF.out.$nam.$par";
+             $cmd="$libdir/WRFV3_$com/main/wrf.exe 1>WRF.out.$nam.$par 2>WRF.out.$nam.$par";
              system($cmd);
          }
          $endtime = gettimeofday();
@@ -2837,13 +2837,13 @@ sub new_job_ys {
 
          my @wrf_commands;
          $wrf_commands[0] = "use File::Basename;\n";
-         $wrf_commands[1] = 'my @wrffiles = glob("'."$MainDir/WRFV3_$com/run/*.TBL\");\n";
+         $wrf_commands[1] = 'my @wrffiles = glob("'."$libdir/WRFV3_$com/run/*.TBL\");\n";
          $wrf_commands[2] = 'foreach (@wrffiles){ symlink($_,basename($_))};'."\n";
-         $wrf_commands[3] = '@wrffiles = glob("'."$MainDir/WRFV3_$com/run/RRTM*DATA\");\n";
+         $wrf_commands[3] = '@wrffiles = glob("'."$libdir/WRFV3_$com/run/RRTM*DATA\");\n";
          $wrf_commands[4] = 'foreach (@wrffiles){ symlink($_,basename($_))};'."\n";
-         $wrf_commands[5] = '@wrffiles = glob("'."$MainDir/WRFV3_$com/run/ozone*\");\n";
+         $wrf_commands[5] = '@wrffiles = glob("'."$libdir/WRFV3_$com/run/ozone*\");\n";
          $wrf_commands[6] = 'foreach (@wrffiles){ symlink($_,basename($_))};'."\n";
-         $wrf_commands[7] = ($par eq 'serial' || $par eq 'smpar') ? "system('$MainDir/WRFV3_$com/main/wrf.exe');\n" : "system('mpirun.lsf $MainDir/WRFV3_$com/main/wrf.exe');\n";
+         $wrf_commands[7] = ($par eq 'serial' || $par eq 'smpar') ? "system('$libdir/WRFV3_$com/main/wrf.exe');\n" : "system('mpirun.lsf $libdir/WRFV3_$com/main/wrf.exe');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @wrf_commands );
