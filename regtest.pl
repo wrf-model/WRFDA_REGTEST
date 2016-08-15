@@ -30,7 +30,7 @@ use IPC::Open2;
 use Net::FTP;
 use Getopt::Long;
 use Data::Dumper;
-
+use Scalar::Util qw(looks_like_number);
 # Start time:
 
 my $Start_time;
@@ -51,6 +51,7 @@ my $Debug_defined;
 my $Parallel_compile_num = 4;
 my $Revision_defined = 'HEAD'; # Revision number specified from command line
 my $Revision;                  # Revision number from code
+my $Version;                   # Version number from tools/version_decl
 my $Branch = ""; # Branch; used for git repositories only
 my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision number from code
 my $Testfile = 'testdata.txt';
@@ -314,7 +315,11 @@ $Compiler_defined = $Compiler_defined_conv;
  # Assign a C compiler
  if ($CCompiler_defined eq '') { #Only assign a C compiler if it was not specified on the command line
     if ($Compiler_defined eq "gfortran") {
-       $CCompiler = "gcc";
+#       if ($Arch eq "Darwin") {
+#          $CCompiler = "clang";
+#       } else {
+          $CCompiler = "gcc";
+#       }
     } elsif ($Compiler_defined eq "pgf90") {
        $CCompiler = "pgcc";
     } elsif ($Compiler_defined eq "ifort") {
@@ -590,6 +595,10 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
       delete $ENV{HDF5};
    }
 
+if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
+   print "Code version detected to be prior to r9362; setting CRTM=1\n";
+   $ENV{CRTM} = 1;
+}
    if ($Arch eq "Linux") {
       if ($Machine_name eq "yellowstone") { # Yellowstone
           $RTTOV_dir = "$libdir/rttov_$Compiler\_$Compiler_version";
@@ -3726,7 +3735,43 @@ sub repo_checkout {
    }
 }
 
+sub revision_conditional {
+   #
+   # sub revision_conditional is a way of changing the script behavior if the source code being
+   # compiled is before, after, or equal to a given revision, version number, or date
+   # It returns a positive value if the comparison is true, 0 if it is false, or a negative number
+   # if there is not enough information or if there is an error
+   #
+   # This subroutine takes two or more arguments:
+   # $op is a string containing the conditional operator you wish to use
+   #     - Can only be '<' for now, should add new conditionals in future (at least =)
+   # $rev is the revision number, version, or date that you are comparing against
+   # The rest of the arguments are stored in @args, and can be any combination of:
+   #     - SVN revision number
+   #     - Version number from tools/version_decl
+   my ($op,$rev,@rest_of_args)=@_;
 
+#print "In revision_conditional\n";
+#print "op = $op, rev = $rev, rest = @rest_of_args\n";
+   foreach my $arg ( @rest_of_args ) {
+      if ( (substr($arg, 0, 1) eq "r") and looks_like_number($rev) ) {
+         my $in_rev = substr ($arg,1);
+         print "Is $rev < $in_rev?\n";
+         if ($rev < $in_rev) {
+            print "Yes it is!\n";
+            return 1;
+         } elsif ($arg eq "HEAD") {
+            print "Rev is HEAD, returning 1!\n";
+            return 1;
+         } else {
+            print "NOPE! Chuck Testa!\n";
+            return 0;
+         }
+      }
+   }
+
+   return -1
+}
 sub get_repo_revision {
 
 #This function was originally made due to a Yellowstone upgrade which bungled up the 'svnversion' function.
