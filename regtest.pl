@@ -417,7 +417,7 @@ $Compile_type =~ s/HYBRID/3DVAR/g;
 $Source = $Source_defined if defined $Source_defined;
 
 # If the source is "REPO", we need to specify the location of the code repository
-my $CODE_REPO = 'https://svn-wrf-model.cgd.ucar.edu/trunk';
+my $CODE_REPO = 'git@github.com:wrf-model/WRF'; #We're now on Github!
 if ( ($Source eq "REPO") && (defined $REPO_defined) ) {
     $CODE_REPO = $REPO_defined;
 }
