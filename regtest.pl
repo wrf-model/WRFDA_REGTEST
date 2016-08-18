@@ -1721,12 +1721,13 @@ CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
        print WEBJS "function ${Machine_name_js}_${Compiler}_${Compiler_version_js}_date()\n";
        print WEBJS '{'."\n";
 
+       my $shortrev = substr( $Revision, 0, 8 ); #Use abbreviated hash for website
        if ($status == -1) {
-          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev, result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
        } elsif ($status == 1) {
-          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev, result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
        } else {
-          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $Revision, result: <b>ALL PASS</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev, result: <b>ALL PASS</b>\";\n";
        }
        print WEBJS '}'."\n";
        close (WEBJS);
