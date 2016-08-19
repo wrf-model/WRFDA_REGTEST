@@ -175,6 +175,7 @@ my $diffwrfdir = "";
 my @gtsfiles;
 my @childs;
 my @exefiles;
+my @Compiletypes;
 my %Experiments ;
 my $cmd='';
 #   Sample %Experiments Structure: #####################
@@ -367,14 +368,20 @@ while (<DATA>) {
                 );
                 $Experiments{$2} = \%record;
                 if ($Experiments{$2}{test_type} =~ /4DVAR/i) {
-                    foreach (@tasks) {
-                        $Par_4dvar = join('|',$Par_4dvar,$_) unless ($Par_4dvar =~ /$_/);
+                    foreach my $task (@tasks) {
+                        if ($task =~ /sm/i) {
+                           print "\nNOTE: 4DVAR shared memory builds not supported. Will not compile 4DVAR for smpar; dm+sm.\n";
+                           next;
+                        }
+                        push @Compiletypes, "4DVAR_$task" unless grep(/4DVAR_$task/,@Compiletypes);
+                        $Par_4dvar = join('|',$Par_4dvar,$task) unless ($Par_4dvar =~ /$task/);
                     }
                 } else {
                     foreach my $task (@tasks) {
-                        my $task_noplus = $task;
-                        $task_noplus =~ s/\+/\\+/g; # Need to escape "+" sign from "dm+sm" in the unless check
-                        $Par = join('|',$Par,$task) unless ($Par =~ /$task_noplus/);
+                        my $task_escapeplus = $task;
+                        $task_escapeplus =~ s/\+/\\+/g; # Need to escape "+" sign from "dm+sm" in the unless check
+                        push @Compiletypes, "3DVAR_$task" unless grep(/3DVAR_$task_escapeplus/,@Compiletypes);
+                        $Par = join('|',$Par,$task) unless ($Par =~ /$task_escapeplus/);
                     }
                 }
               };
