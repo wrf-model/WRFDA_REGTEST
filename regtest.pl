@@ -529,43 +529,43 @@ if ($Exec) {
    if ( ($Compile_type =~ /4DVAR/i) && ($Compile_type =~ /3DVAR/i) ) {
       print "Ensuring that all compiled code is the same version\n";
       if ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /dmpar/i) ) {
-         my $Revision3 = &get_repo_revision("WRFDA_3DVAR_dmpar");
-         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_dmpar");
+         my ($Revision3,undef) = &get_repo_revision("WRFDA_3DVAR_dmpar");
+         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_dmpar");
          die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
          $Revision = $Revision3;
       } elsif ( ($Par =~ /serial/i) && ($Par_4dvar =~ /serial/i) ) {
-         my $Revision3 = &get_repo_revision("WRFDA_3DVAR_serial");
-         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_serial");
+         my ($Revision3,undef) = &get_repo_revision("WRFDA_3DVAR_serial");
+         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
          die "Check your existing code: WRFDA_3DVAR_serial and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
          $Revision = $Revision3;
       } elsif ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /serial/i) ) {
-         my $Revision3 = &get_repo_revision("WRFDA_3DVAR_dmpar");
-         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_serial");
+         my ($Revision3,undef) = &get_repo_revision("WRFDA_3DVAR_dmpar");
+         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
          die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
          $Revision = $Revision3;
       } else {
-         my $Revision3 = &get_repo_revision("WRFDA_3DVAR_dmpar");
-         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_serial");
+         my ($Revision3,undef) = &get_repo_revision("WRFDA_3DVAR_dmpar");
+         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
          die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
          $Revision = $Revision3;
       }
    } elsif ($Compile_type =~ /4DVAR/i) {
       if ( ($Par_4dvar =~ /serial/i) && ($Par_4dvar =~ /dmpar/i) ) {
          print "Ensuring that all compiled code is the same version\n";
-         my $Revision3 = &get_repo_revision("WRFDA_4DVAR_serial");
-         my $Revision4 = &get_repo_revision("WRFDA_4DVAR_dmpar");
+         my ($Revision3,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
+         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_dmpar");
          die "Check your existing code: WRFDA_4DVAR_serial and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
          $Revision = $Revision3;
       } elsif ($Par_4dvar =~ /serial/i) {
-         $Revision = &get_repo_revision("WRFDA_4DVAR_serial");
+         ($Revision,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
       } else {
-         $Revision = &get_repo_revision("WRFDA_4DVAR_dmpar");
+         ($Revision,undef) = &get_repo_revision("WRFDA_4DVAR_dmpar");
       }
    } else {
       if ( $Par =~ /dmpar/i ) {
-         $Revision = &get_repo_revision("WRFDA_3DVAR_dmpar");
+         ($Revision,undef) = &get_repo_revision("WRFDA_3DVAR_dmpar");
       } else {
-         $Revision = &get_repo_revision("WRFDA_3DVAR_serial");
+         ($Revision,undef) = &get_repo_revision("WRFDA_3DVAR_serial");
       }
    }
    chomp($Revision);
@@ -690,7 +690,7 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
     print "4DVAR dmpar tests specified: checking for WRFPLUS code in directory $WRFPLUSDIR.\n";
     if (-d $WRFPLUSDIR) {
         print "Checking WRFPLUS revision ...\n";
-        $WRFPLUS_Revision = &get_repo_revision("$WRFPLUSDIR");
+        ($WRFPLUS_Revision,undef) = &get_repo_revision("$WRFPLUSDIR");
     } else {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR DMPAR!\n";
@@ -729,7 +729,7 @@ if ($Par_4dvar =~ /serial/i) {
     if (-d $WRFPLUSDIR_serial) {
         if ($WRFPLUS_Revision eq "NONE") {
            print "Checking WRFPLUS revision ...\n";
-           $WRFPLUS_Revision = &get_repo_revision("$WRFPLUSDIR_serial");
+           ($WRFPLUS_Revision,undef) = &get_repo_revision("$WRFPLUSDIR_serial");
         }
     } else {
         print "\n$WRFPLUSDIR_serial DOES NOT EXIST\n";
@@ -800,7 +800,7 @@ if ($Compile_type =~ /4DVAR/i) {
          &repo_checkout ($REPO_type,$CODE_REPO,$Revision_defined,$Branch,"WRFDA_4DVAR_$par_type");
 #         ! system ("svn","co","-q","-r",$Revision,$CODE_REPO,"WRFDA_4DVAR_$par_type") or die " Can't run svn checkout: $!\n";
          if ($Revision_defined eq 'HEAD') {
-            $Revision = &get_repo_revision("WRFDA_4DVAR_$par_type");
+            ($Revision,undef) = &get_repo_revision("WRFDA_4DVAR_$par_type");
          } else {
             $Revision = $Revision_defined;
          }
@@ -809,7 +809,7 @@ if ($Compile_type =~ /4DVAR/i) {
          print "Getting the code from $Source to WRFDA_4DVAR_$par_type ...\n";
          ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
          ! system("mv", "WRFDA", "WRFDA_4DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_4DVAR_$par_type': $!\n";
-         $Revision = &get_repo_revision("WRFDA_4DVAR_$par_type");
+         ($Revision,undef) = &get_repo_revision("WRFDA_4DVAR_$par_type");
       }
 
       # Change the working directory to WRFDA:
@@ -1043,7 +1043,7 @@ if ($Compile_type =~ /3DVAR/i) {
          &repo_checkout ($REPO_type,$CODE_REPO,$Revision_defined,$Branch,"WRFDA_3DVAR_$par_type");
 #          ! system ("svn","co","-q","-r",$Revision,$CODE_REPO,"WRFDA_3DVAR_$par_type") or die " Can't run svn checkout: $!\n";
           if ($Revision eq 'HEAD') {
-             $Revision = &get_repo_revision("WRFDA_3DVAR_$par_type");
+             ($Revision,undef) = &get_repo_revision("WRFDA_3DVAR_$par_type");
           } else {
              $Revision = $Revision_defined;
           }
@@ -1052,7 +1052,7 @@ if ($Compile_type =~ /3DVAR/i) {
           print "Getting the code from $Source to WRFDA_3DVAR_$par_type ...\n";
           ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
           ! system("mv", "WRFDA", "WRFDA_3DVAR_$par_type") or die "Can not move 'WRFDA' to 'WRFDA_3DVAR_$par_type': $!\n";
-          $Revision = &get_repo_revision("WRFDA_3DVAR_$par_type");
+          ($Revision,undef) = &get_repo_revision("WRFDA_3DVAR_$par_type");
        }
 
  
@@ -3789,6 +3789,7 @@ sub get_repo_revision {
    chomp ($wd);
    my $revnum;
    my $vernum;
+   my $revdate = undef;
    my $mod = '';
 
    if ( -d "$dir_name/.svn" ) {
@@ -3817,7 +3818,7 @@ sub get_repo_revision {
       }
 
       chdir $wd;
-      return $revnum;
+      return ($revnum, undef);
 
    } elsif ( -d "$dir_name/.git" ) {
       open (my $fh,"-|","git","log","--max-count=1")
@@ -3842,7 +3843,7 @@ sub get_repo_revision {
       }
 
       chdir $wd;
-      return $revnum;
+      return ($revnum,$revdate);
 
    } elsif ( -e "$dir_name/inc/version_decl" ) {
       open my $file, '<', "$dir_name/inc/version_decl"; 
@@ -3851,10 +3852,10 @@ sub get_repo_revision {
       $readfile =~ /\x27(.+)\x27/;
       $vernum = $1;
 
-      return $vernum;
+      return ($vernum, undef);
    } else {
 
-      return "exported";
+      return ("exported", undef);
 
    }
 
