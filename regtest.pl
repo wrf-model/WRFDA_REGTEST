@@ -390,20 +390,6 @@ while (<DATA>) {
      }; 
 }
 
-
-# NOTE: FOR SOME REASON THIS DOESN'T DO ANYTHING RIGHT NOW. NEEDS FURTHER CHECKING
-if ($Par_4dvar =~ /sm/i) {
-    print "\nNOTE: 4DVAR shared memory builds not supported. Will not compile 4DVAR for smpar; dm+sm.\n\n";
-    $Par_4dvar =~ s/smpar\|//g;
-    $Par_4dvar =~ s/\|smpar//g;
-    $Par_4dvar =~ s/smpar//g;
-    $Par_4dvar =~ s/dm\+sm\|//g;
-    $Par_4dvar =~ s/\|dm\+sm//g;
-    $Par_4dvar =~ s/dm\+sm//g;
-    sleep 1;
-}
-
-
 #Remove "|" from the start of parallelism strings
 $Par_4dvar =~ s/^\|//g;
 $Par =~ s/^\|//g;
@@ -533,46 +519,12 @@ if ($Arch eq "Linux") {
 # If exec=yes, collect version info and skip compilation
 if ($Exec) {
    print "Option exec=yes specified; checking previously built code for revision number\n";
-   if ( ($Compile_type =~ /4DVAR/i) && ($Compile_type =~ /3DVAR/i) ) {
+   ($Revision,undef) = &get_repo_revision("WRFDA_$Compiletypes[0]");
+   if ($#Compiletypes > 0 ) {
       print "Ensuring that all compiled code is the same version\n";
-      if ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /dmpar/i) ) {
-         my ($Revision3,undef) = &get_repo_revision("WRFDA_3DVAR_dmpar");
-         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_dmpar");
-         die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
-         $Revision = $Revision3;
-      } elsif ( ($Par =~ /serial/i) && ($Par_4dvar =~ /serial/i) ) {
-         my ($Revision3,undef) = &get_repo_revision("WRFDA_3DVAR_serial");
-         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
-         die "Check your existing code: WRFDA_3DVAR_serial and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
-         $Revision = $Revision3;
-      } elsif ( ($Par =~ /dmpar/i) && ($Par_4dvar =~ /serial/i) ) {
-         my ($Revision3,undef) = &get_repo_revision("WRFDA_3DVAR_dmpar");
-         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
-         die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
-         $Revision = $Revision3;
-      } else {
-         my ($Revision3,undef) = &get_repo_revision("WRFDA_3DVAR_dmpar");
-         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
-         die "Check your existing code: WRFDA_3DVAR_dmpar and WRFDA_4DVAR_serial do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
-         $Revision = $Revision3;
-      }
-   } elsif ($Compile_type =~ /4DVAR/i) {
-      if ( ($Par_4dvar =~ /serial/i) && ($Par_4dvar =~ /dmpar/i) ) {
-         print "Ensuring that all compiled code is the same version\n";
-         my ($Revision3,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
-         my ($Revision4,undef) = &get_repo_revision("WRFDA_4DVAR_dmpar");
-         die "Check your existing code: WRFDA_4DVAR_serial and WRFDA_4DVAR_dmpar do not appear to be built from the same version of code!" unless ($Revision3 eq $Revision4);
-         $Revision = $Revision3;
-      } elsif ($Par_4dvar =~ /serial/i) {
-         ($Revision,undef) = &get_repo_revision("WRFDA_4DVAR_serial");
-      } else {
-         ($Revision,undef) = &get_repo_revision("WRFDA_4DVAR_dmpar");
-      }
-   } else {
-      if ( $Par =~ /dmpar/i ) {
-         ($Revision,undef) = &get_repo_revision("WRFDA_3DVAR_dmpar");
-      } else {
-         ($Revision,undef) = &get_repo_revision("WRFDA_3DVAR_serial");
+      foreach my $compile_check (@Compiletypes[1..$#Compiletypes]) { # $Revision already has revision info for Compiletypes[0]; skip it
+         my ($revision_check,undef) = &get_repo_revision("WRFDA_$compile_check");
+         die "\nCheck your existing code: WRFDA_$Compiletypes[0] ($Revision) and WRFDA_$compile_check ($revision_check) do not appear to be built from the same version of code!\n" unless ($revision_check eq $Revision);
       }
    }
    chomp($Revision);
@@ -1363,7 +1315,11 @@ if ($Compile_type =~ /4DVAR/i) {
 
 # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
 if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
-   $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$libdir/HDF5_$Compiler\_$Compiler_version/lib";
+   if (defined $ENV{LD_LIBRARY_PATH}) {
+      $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$libdir/HDF5_$Compiler\_$Compiler_version/lib";
+   } else {
+      $ENV{LD_LIBRARY_PATH}="$libdir/HDF5_$Compiler\_$Compiler_version/lib";
+   }
    print "Adding $libdir/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
 }
 
