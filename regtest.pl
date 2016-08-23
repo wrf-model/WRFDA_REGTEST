@@ -390,10 +390,6 @@ while (<DATA>) {
      }; 
 }
 
-#Remove "|" from the start of parallelism strings
-$Par_4dvar =~ s/^\|//g;
-$Par =~ s/^\|//g;
-
 #Create $Type and $Compile_type variables to keep track of which code needs to be compiled/checked 
 foreach my $name (keys %Experiments) {
     unless ( $Type =~ $Experiments{$name}{test_type}) {
@@ -730,6 +726,11 @@ if ($Compile_type =~ /4DVAR/i) {
    }
 }
 
+#Remove "|" from the start/end of parallelism strings
+$Par_4dvar =~ s/^\|+//g;
+$Par_4dvar =~ s/\|+$//g;
+$Par =~ s/^\|+//g;
+$Par =~ s/\|+$//g;
 
 if ($Compile_type =~ /4DVAR/i) {
 
