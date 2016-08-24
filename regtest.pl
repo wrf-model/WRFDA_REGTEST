@@ -631,14 +631,18 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
      }
   }
 
+####################  BEGIN COMPILE SECTION  ####################
 
+# Compilation variables
 
 #######################  BEGIN COMPILE 4DVAR  ########################
 
  # Set WRFPLUSDIR (for 4DVAR dmpar tests) and/or WRFPLUSDIR_serial (for 4dvar serial tests)
  my $WRFPLUSDIR;
  my $WRFPLUSDIR_serial;
- if ($Par_4dvar =~ /dmpar/i) {
+
+ # Check for WRFPLUS builds if we need to build 4DVAR
+ if (grep /4DVAR_dmpar/,@Compiletypes) {
     # Set WRFPLUS_DIR Environment variable
     $WRFPLUSDIR = "$libdir/WRFPLUSV3_$Compiler\_$Compiler_version";
     chomp($WRFPLUSDIR);
@@ -650,6 +654,7 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR DMPAR!\n";
         $Par_4dvar =~ s/dmpar//gi;
+        @Compiletypes = grep(!/4DVAR_dmpar/,@Compiletypes);
         foreach my $name (keys %Experiments) {
             if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
                foreach my $par (keys %{$Experiments{$name}{paropt}}) {
@@ -676,7 +681,7 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
     }
  }
 
-if ($Par_4dvar =~ /serial/i) {
+ if (grep /4DVAR_serial/,@Compiletypes) {
     # Set WRFPLUS_DIR Environment variable
     $WRFPLUSDIR_serial = "$libdir/WRFPLUSV3_$Compiler\_$Compiler_version\_serial";
     chomp($WRFPLUSDIR_serial);
@@ -690,13 +695,14 @@ if ($Par_4dvar =~ /serial/i) {
         print "\n$WRFPLUSDIR_serial DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR SERIAL!\n";
         $Par_4dvar =~ s/serial//gi;
+        @Compiletypes = grep(!/4DVAR_serial/,@Compiletypes);
         foreach my $name (keys %Experiments) {
             if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
                foreach my $par (keys %{$Experiments{$name}{paropt}}) {
                    if ($par =~ /serial/i) {
                       delete $Experiments{$name}{paropt}{$par};
                       if ((keys %{$Experiments{$name}{paropt}}) > 0) {
-                         print "\nDeleting 4DVAR dmpar experiment $name from test list.\n";
+                         print "\nDeleting 4DVAR serial experiment $name from test list.\n";
                       } else {
                          delete $Experiments{$name};
                          print "\nDeleting 4DVAR experiment $name from test list.\n";
@@ -713,7 +719,13 @@ if ($Par_4dvar =~ /serial/i) {
              keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
     sleep 2; #Pause to let user see new list
     }
-}
+ }
+
+ #######################  BEGIN COMPILE LOOP  ########################
+ # foreach my $compile_task (@Compiletypes) {
+
+
+ # }
 
 # Since we may have deleted some or all 4DVAR options above, check to make sure we should still compile 4DVAR
 
@@ -1289,29 +1301,10 @@ while ( @compile_job_list ) {
 
 SKIP_COMPILE:
 
-if ($Compile_type =~ /3DVAR/i) {
-   if ( $Par =~ /serial/i ) {
-      die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in serial in directory tree named 'WRFDA_3DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_serial");
-   }
-   if ( $Par =~ /smpar/i ) {
-      die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in serial in directory tree named 'WRFDA_3DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_smpar");
-   }
-   if ( $Par =~ /dmpar/i ) {
-      die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in parallel in directory tree named 'WRFDA_3DVAR_dmpar' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_dmpar");
-   }
-   if ( $Par =~ /dm\+sm/i ) {
-      die "\nSTOPPING SCRIPT\n3DVAR code must be compiled to run in parallel in directory tree named 'WRFDA_3DVAR_dmpar' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_3DVAR_dm+sm");
-   }
-}
-if ($Compile_type =~ /4DVAR/i) {
-   if ( $Par_4dvar =~ /serial/i ) {
-      die "\nSTOPPING SCRIPT\n4DVAR code must be compiled to run in serial in directory tree named 'WRFDA_4DVAR_serial' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_4DVAR_serial");
-   }
-   if ( $Par_4dvar =~ /dmpar/i ) {
-      die "\nSTOPPING SCRIPT\n4DVAR code must be compiled to run in parallel in directory tree named 'WRFDA_4DVAR_dmpar' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_4DVAR_dmpar");
-   }
-}
-
+foreach (@Compiletypes) {
+   my @dir_parts = split /_/, $_;
+   die "\nSTOPPING SCRIPT\n$dir_parts[0] code must be compiled to run in $dir_parts[1] in directory tree named 'WRFDA_$dir_parts[0]_$dir_parts[1]' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_$dir_parts[0]_$dir_parts[1]");
+ }
 
 
 # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
