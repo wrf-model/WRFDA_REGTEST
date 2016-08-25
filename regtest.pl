@@ -166,10 +166,7 @@ my ($Arch, $Machine, $Name, $Compiler, $CCompiler, $Project, $Source, $Queue, $D
 my $Compile_queue = 'caldera';
 my @compile_job_list;
 my @Message;
-my $Par="";
-my $Par_4dvar="";
 my $Type="";
-my $Compile_type="";
 my $Clear = `clear`;
 my $diffwrfdir = "";
 my @gtsfiles;
@@ -374,14 +371,12 @@ while (<DATA>) {
                            next;
                         }
                         push @Compiletypes, "4DVAR_$task" unless grep(/4DVAR_$task/,@Compiletypes);
-                        $Par_4dvar = join('|',$Par_4dvar,$task) unless ($Par_4dvar =~ /$task/);
                     }
                 } else {
                     foreach my $task (@tasks) {
                         my $task_escapeplus = $task;
                         $task_escapeplus =~ s/\+/\\+/g; # Need to escape "+" sign from "dm+sm" in the unless check
                         push @Compiletypes, "3DVAR_$task" unless grep(/3DVAR_$task_escapeplus/,@Compiletypes);
-                        $Par = join('|',$Par,$task) unless ($Par =~ /$task_escapeplus/);
                     }
                 }
               };
@@ -397,10 +392,6 @@ foreach my $name (keys %Experiments) {
     }
 
 }
-$Compile_type = $Type;
-$Compile_type =~ s/CYCLING/3DVAR/g;
-$Compile_type =~ s/FGAT/3DVAR/g;
-$Compile_type =~ s/HYBRID/3DVAR/g;
 
 # If source specified on command line, use it
 $Source = $Source_defined if defined $Source_defined;
@@ -635,9 +626,6 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
 
 # Compilation variables
 
-#######################  BEGIN COMPILE 4DVAR  ########################
-
- # Set WRFPLUSDIR (for 4DVAR dmpar tests) and/or WRFPLUSDIR_serial (for 4dvar serial tests)
  my $WRFPLUSDIR;
  my $WRFPLUSDIR_serial;
 
@@ -653,7 +641,6 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
     } else {
         print "\n$WRFPLUSDIR DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR DMPAR!\n";
-        $Par_4dvar =~ s/dmpar//gi;
         @Compiletypes = grep(!/4DVAR_dmpar/,@Compiletypes);
         foreach my $name (keys %Experiments) {
             if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
@@ -694,7 +681,6 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
     } else {
         print "\n$WRFPLUSDIR_serial DOES NOT EXIST\n";
         print "\nNOT COMPILING FOR 4DVAR SERIAL!\n";
-        $Par_4dvar =~ s/serial//gi;
         @Compiletypes = grep(!/4DVAR_serial/,@Compiletypes);
         foreach my $name (keys %Experiments) {
             if ($Experiments{$name}{test_type} =~ /4DVAR/i) {
@@ -727,27 +713,16 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
 
  # }
 
-# Since we may have deleted some or all 4DVAR options above, check to make sure we should still compile 4DVAR
 
-if ($Compile_type =~ /4DVAR/i) {
-   if ( ( not $Par_4dvar =~ /serial/i ) and ( not $Par_4dvar =~ /dmpar/i ) ) {
-      print "\nNo 4DVAR parallelism options left;\n";
-      print "\nNot compiling for 4DVAR!\n";
-      $Compile_type =~ s/4DVAR//gi;
-      $Type =~ s/4DVAR//gi;
-   }
-}
+ #######################  BEGIN COMPILE 4DVAR  ########################
 
-#Remove "|" from the start/end of parallelism strings
-$Par_4dvar =~ s/^\|+//g;
-$Par_4dvar =~ s/\|+$//g;
-$Par =~ s/^\|+//g;
-$Par =~ s/\|+$//g;
+ if (grep(/4DVAR_*+/,@Compiletypes)) {
 
-if ($Compile_type =~ /4DVAR/i) {
-
-   foreach (split /\|/, $Par_4dvar) { #foreach1
-      my $par_type = $_;
+   foreach my $tmpvalue (@Compiletypes){ #I *WOULD* use the $_ built-in variable but Perl hates me I guess
+      my @tmparray = split /_/,$tmpvalue;
+      my $ass_type = $tmparray[0]; my $par_type = $tmparray[1];
+#my @tests = split(/ /,$test_list_string);
+      next if ($ass_type =~ "3DVAR");
 
       # Set WRFPLUS_DIR for this build
       if ($par_type eq "dmpar") {
@@ -982,8 +957,6 @@ if ($Compile_type =~ /4DVAR/i) {
             die "couldn't fork: $!\n";
          }
 
-
-
       }
       # Back to the upper directory:
       chdir ".." or die "Cannot chdir to .. : $!\n";
@@ -993,15 +966,20 @@ if ($Compile_type =~ /4DVAR/i) {
 
 ########################  END COMPILE 4DVAR  #########################
 
-}
+ }
 
 
 #######################  BEGIN COMPILE 3DVAR  ########################
-if ($Compile_type =~ /3DVAR/i) {
-#  my @par_type = split /\|/, $Par;
+ if (grep /3DVAR/,@Compiletypes) {
 
-  foreach (split /\|/, $Par) { #foreach1
-       my $par_type = $_;
+   foreach my $tmpvar (@Compiletypes){
+      my @tmparray = split /_/,$tmpvar;
+      my $ass_type = $tmparray[0]; my $par_type = $tmparray[1];
+      print "par = $par_type\n";
+      print "ass = $ass_type\n";
+      next if ($ass_type =~ "4DVAR");
+      print "par = $par_type\n";
+      print "ass = $ass_type\n";
 
        if ( -e "WRFDA_3DVAR_$par_type" && -r "WRFDA_3DVAR_$par_type" ) {
             printf "Deleting the old WRFDA_3DVAR_$par_type directory ... \n";
@@ -1304,8 +1282,7 @@ SKIP_COMPILE:
 foreach (@Compiletypes) {
    my @dir_parts = split /_/, $_;
    die "\nSTOPPING SCRIPT\n$dir_parts[0] code must be compiled to run in $dir_parts[1] in directory tree named 'WRFDA_$dir_parts[0]_$dir_parts[1]' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_$dir_parts[0]_$dir_parts[1]");
- }
-
+}
 
 # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
 if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
