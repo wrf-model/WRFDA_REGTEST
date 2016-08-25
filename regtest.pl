@@ -166,7 +166,6 @@ my ($Arch, $Machine, $Name, $Compiler, $CCompiler, $Project, $Source, $Queue, $D
 my $Compile_queue = 'caldera';
 my @compile_job_list;
 my @Message;
-my $Type="";
 my $Clear = `clear`;
 my $diffwrfdir = "";
 my @gtsfiles;
@@ -385,14 +384,6 @@ while (<DATA>) {
      }; 
 }
 
-#Create $Type and $Compile_type variables to keep track of which code needs to be compiled/checked 
-foreach my $name (keys %Experiments) {
-    unless ( $Type =~ $Experiments{$name}{test_type}) {
-        $Type = join('|',$Type,$Experiments{$name}{test_type});
-    }
-
-}
-
 # If source specified on command line, use it
 $Source = $Source_defined if defined $Source_defined;
 
@@ -503,6 +494,31 @@ if ($Arch eq "Linux") {
    $min += 100;     $min = sprintf("%02d", $min % 100);
    $sec += 100;     $sec = sprintf("%02d", $sec % 100);
 
+#For cycle jobs, WRF must exist. Will add capability to compile WRF in the (near?) future
+  if (grep { $Experiments{$_}{test_type} =~ /cycl/i } keys %Experiments) {
+     if (-e "$libdir/WRFV3_$Compiler/main/wrf.exe") {
+        print "Will use WRF code in $libdir/WRFV3_$Compiler for CYCLING test\n";
+     } else {
+        print "\n$libdir/WRFV3_$Compiler/main/wrf.exe DOES NOT EXIST\n";
+        print "Removing cycling tests...\n\n";
+        foreach my $name (keys %Experiments) {
+           foreach my $type ($Experiments{$name}{test_type}) {
+              if ($type =~ /CYCLING/i) {
+                 delete $Experiments{$name};
+                 print "Deleting Cycling experiment $name from test list.\n\n";
+                 next ;
+              }
+           }
+        }
+        printf "\nNew list of experiments : \n";
+        printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
+        printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
+             $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
+                 keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
+        sleep 2; #Pause to let user see new list
+
+     }
+  }
 # If exec=yes, collect version info and skip compilation
 if ($Exec) {
    print "Option exec=yes specified; checking previously built code for revision number\n";
@@ -596,31 +612,6 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
       }
    }
 
-#For cycle jobs, WRF must exist. Will add capability to compile WRF in the (near?) future
-  if ($Type =~ /CYCLING/i) {
-     if (-e "$libdir/WRFV3_$Compiler/main/wrf.exe") {
-        print "Will use WRF code in $libdir/WRFV3_$Compiler for CYCLING test\n";
-     } else {
-        print "\n$libdir/WRFV3_$Compiler/main/wrf.exe DOES NOT EXIST\n";
-        print "Removing cycling tests...\n\n";
-        foreach my $name (keys %Experiments) {
-           foreach my $type ($Experiments{$name}{test_type}) {
-              if ($type =~ /CYCLING/i) {
-                 delete $Experiments{$name};
-                 print "Deleting Cycling experiment $name from test list.\n\n";
-                 next ;
-              }
-           }
-        }
-        printf "\nNew list of experiments : \n";
-        printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
-        printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
-             $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
-                 keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
-        sleep 2; #Pause to let user see new list
-
-     }
-  }
 
 ####################  BEGIN COMPILE SECTION  ####################
 
@@ -975,11 +966,7 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
    foreach my $tmpvar (@Compiletypes){
       my @tmparray = split /_/,$tmpvar;
       my $ass_type = $tmparray[0]; my $par_type = $tmparray[1];
-      print "par = $par_type\n";
-      print "ass = $ass_type\n";
       next if ($ass_type =~ "4DVAR");
-      print "par = $par_type\n";
-      print "ass = $ass_type\n";
 
        if ( -e "WRFDA_3DVAR_$par_type" && -r "WRFDA_3DVAR_$par_type" ) {
             printf "Deleting the old WRFDA_3DVAR_$par_type directory ... \n";
