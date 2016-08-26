@@ -1216,6 +1216,10 @@ if ( $Revision_defined eq $Revision) {
     print WEBH '<li>'."Revision : $Revision".'</li>'."\n";
 } else {
     print WEBH '<li>'."Revision : $Revision ($Revision_defined)".'</li>'."\n";
+    printf WEBH "<li>Revision: $Revision %s", (defined $Revision_date) ? "($Revision_defined) </li>": "</li>";
+}
+if ( defined $Revision_date) {
+    print WEBH "<li>Revision date: $Revision_date</li>";
 }
 if ( $Branch ne "" ) {
     print WEBH '<li>'."Branch : $Branch".'</li>'."\n";
@@ -3508,7 +3512,8 @@ sub get_repo_revision {
       open (my $fh,"-|","git","log","--max-count=1")
            or die " Can't run git log: $!\n";
       while (<$fh>) {
-         $revnum = $1 if ( /^commit\s+(\S+)/x);
+         $revnum = $1 if ( /^commit\s+(\S+)/);
+         $revdate = $1 if ( /^Date:\s+(.+)/);
       }
       close ($fh);
 
