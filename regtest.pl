@@ -774,10 +774,12 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
     my $option;
 
     $count = 0;
+    my $par_type_escapeplus = $par_type;
+    $par_type_escapeplus =~ s/\+/\\+/g; # Need to escape "+" sign from "dm+sm" in the unless check
     foreach (@output) {
        my $config_line = $_ ;
 
-       if (($config_line=~ m/(\d+)\.\s\($par_type\) .* $Compiler\/$CCompiler .*/ix) &&
+       if (($config_line=~ m/(\d+)\.\s\($par_type_escapeplus\) .* $Compiler\/$CCompiler .*/ix) &&
             ! ($config_line=~/Cray/i) &&
             ! ($config_line=~/PGI accelerator/i) &&
             ! ($config_line=~/-f90/i) &&
@@ -789,7 +791,7 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
           $Compile_options{$1} = $par_type;
           $option = $1;
           $count++;
-       } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type) .*/ix) &&
+       } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type_escapeplus) .*/ix) &&
             ! ($config_line=~/Cray/i) &&
             ! ($config_line=~/PGI accelerator/i) &&
             ! ($config_line=~/-f90/i) &&
@@ -1014,6 +1016,10 @@ while ( @compile_job_list ) {
 
    sleep 5;
 }
+
+
+####################  END COMPILE SECTION  ####################
+
 
 
 
