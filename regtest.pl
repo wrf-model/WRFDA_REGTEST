@@ -51,6 +51,7 @@ my $Debug_defined;
 my $Parallel_compile_num = 4;
 my $Revision_defined = 'HEAD'; # Revision number specified from command line
 my $Revision;                  # Revision number from code
+my $Revision_date;             # Date of revision if under version control
 my $Version;                   # Version number from tools/version_decl
 my $Branch = ""; # Branch; used for git repositories only
 my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision number from code
@@ -522,7 +523,7 @@ if ($Arch eq "Linux") {
 # If exec=yes, collect version info and skip compilation
 if ($Exec) {
    print "Option exec=yes specified; checking previously built code for revision number\n";
-   ($Revision,undef) = &get_repo_revision("WRFDA_$Compiletypes[0]");
+   ($Revision,$Revision_date) = &get_repo_revision("WRFDA_$Compiletypes[0]");
    if ($#Compiletypes > 0 ) {
       print "Ensuring that all compiled code is the same version\n";
       foreach my $compile_check (@Compiletypes[1..$#Compiletypes]) { # $Revision already has revision info for Compiletypes[0]; skip it
@@ -704,15 +705,15 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
     my @tmparray = split /_/,$compile_type;
     my $ass_type = $tmparray[0]; my $par_type = $tmparray[1];
 
-    print "================================================\nWill compile for $compile_type\n";
+    print "\n================================================\nWill compile for $compile_type\n";
 
     if ($ass_type eq "4DVAR") {
        # Set WRFPLUS_DIR for this build
        if ($par_type eq "dmpar") {
-          print "Will use WRFPLUS code in $WRFPLUSDIR for 4DVAR $par_type compilation\n";
+          print "Will use WRFPLUS code in $WRFPLUSDIR for $compile_type compilation\n";
           $ENV{WRFPLUS_DIR} = "$WRFPLUSDIR";
        } elsif ($par_type eq "serial") {
-          print "Will use WRFPLUS code in $WRFPLUSDIR_serial for 4DVAR $par_type compilation\n";
+          print "Will use WRFPLUS code in $WRFPLUSDIR_serial for $compile_type compilation\n";
           $ENV{WRFPLUS_DIR} = $WRFPLUSDIR_serial;
        }
     }
@@ -729,7 +730,7 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
        print "Getting the code from repository $CODE_REPO to WRFDA_$compile_type ...\n";
        &repo_checkout ($REPO_type,$CODE_REPO,$Revision_defined,$Branch,"WRFDA_$compile_type");
        if ($Revision_defined eq 'HEAD') {
-          ($Revision,undef) = &get_repo_revision("WRFDA_$compile_type");
+          ($Revision,$Revision_date) = &get_repo_revision("WRFDA_$compile_type");
        } else {
           $Revision = $Revision_defined;
        }
@@ -738,7 +739,7 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
        print "Getting the code from $Source to WRFDA_$compile_type ...\n";
        ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
        ! system("mv", "WRFDA", "WRFDA_$compile_type") or die "Can not move 'WRFDA' to 'WRFDA_$compile_type': $!\n";
-       ($Revision,undef) = &get_repo_revision("WRFDA_$compile_type");
+       ($Revision,$Revision_date) = &get_repo_revision("WRFDA_$compile_type");
     }
 
     # Change the working directory to WRFDA:
@@ -1160,8 +1161,11 @@ if ( $Source eq "REPO" ) {
 }
 if ( $Revision_defined eq $Revision) {
     print SENDMAIL "Revision: $Revision<br>";
-} else {
-    print SENDMAIL "Revision: $Revision ($Revision_defined)<br>";
+} else { # If there's no revision date, it's exported code, so DON'T include $Revision_defined
+    printf SENDMAIL "Revision: $Revision %s", (defined $Revision_date) ? "($Revision_defined) <br>": "<br>";
+}
+if ( defined $Revision_date) {
+    print SENDMAIL "Revision date: $Revision_date<br>";
 }
 if ( $Branch ne "" ) {
     print SENDMAIL "Branch: ",$Branch."<br>";
