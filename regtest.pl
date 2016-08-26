@@ -1213,9 +1213,8 @@ if ( $Source eq "REPO" ) {
     print WEBH '<li>'."Repository location : $CODE_REPO".'</li>'."\n";
 }
 if ( $Revision_defined eq $Revision) {
-    print WEBH '<li>'."Revision : $Revision".'</li>'."\n";
+    print WEBH '<li>'."Revision: $Revision".'</li>'."\n";
 } else {
-    print WEBH '<li>'."Revision : $Revision ($Revision_defined)".'</li>'."\n";
     printf WEBH "<li>Revision: $Revision %s", (defined $Revision_date) ? "($Revision_defined) </li>": "</li>";
 }
 if ( defined $Revision_date) {
@@ -1225,7 +1224,7 @@ if ( $Branch ne "" ) {
     print WEBH '<li>'."Branch : $Branch".'</li>'."\n";
 }
 if ( $WRFPLUS_Revision ne "NONE" ) {
-    print WEBH '<li>'."WRFPLUS Revision : $WRFPLUS_Revision".'</li>'."\n";
+    print WEBH '<li>'."WRFPLUS Revision: $WRFPLUS_Revision".'</li>'."\n";
 }
     print WEBH '<li>'."Tester : $Tester".'</li>'."\n";
     print WEBH '<li>'."Machine name : $Host".'</li>'."\n";
