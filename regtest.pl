@@ -736,9 +736,14 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
        }
        print "Revision $Revision successfully checked out to WRFDA_$compile_type.\n";
     } else {
-       print "Getting the code from $Source to WRFDA_$compile_type ...\n";
-       ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
-       ! system("mv", "WRFDA", "WRFDA_$compile_type") or die "Can not move 'WRFDA' to 'WRFDA_$compile_type': $!\n";
+       if ( ($Source =~ /\.tar$/) or ($Source =~ /\.tar\.gz$/) ) { #if tar file, untar; otherwise assume this is a directory containing code
+          print "Untarring the code from $Source to WRFDA_$compile_type ...\n";
+          ! system("tar", "xf", $Source) or die "Can not open $Source: $!\n";
+          ! system("mv", "WRFDA", "WRFDA_$compile_type") or die "Can not move 'WRFDA' to 'WRFDA_$compile_type': $!\n";
+       } else {
+          print "Copying the code from $Source to WRFDA_$compile_type ...\n";
+          ! system("cp","-rf",$Source,"WRFDA_$compile_type") or die "Can not copy '$Source' to 'WRFDA_$compile_type': $!\n";
+       }
        ($Revision,$Revision_date) = &get_repo_revision("WRFDA_$compile_type");
     }
 
