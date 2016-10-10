@@ -520,6 +520,16 @@ if ($Arch eq "Linux") {
 
      }
   }
+
+# Check for correct modules which have been specially built on Yellowstone with compatible NETCDF/HDF5 (sigh...why can't we just have these compatible for ALL modules...)
+if ( ($Machine_name eq "yellowstone") and ($use_HDF5 eq "yes") ) {
+   if ( ($Compiler eq "gfortran") and ($Compiler_version =~ /6.1.0/) ) {
+      die "Your netCDF build is located at $ENV{NETCDF} and does not appear to be version 4.4.1\nYou need to use netCDF 4.4.1 with this compiler for compatability with HDF5 (don't blame me, blame CISL)\n" unless ($ENV{NETCDF} =~ /4.4.1/);
+   } elsif ( ($Compiler eq "gfortran") and ($Compiler_version =~ /5.3.0/) ) {
+      die "Your netCDF build is located at $ENV{NETCDF} and does not appear to be version 4.4.0\nYou need to use netCDF 4.4.0 with this compiler for compatability with HDF5 (don't blame me, blame CISL)\n" unless ($ENV{NETCDF} =~ /4.4.0/);
+   }
+}
+
 # If exec=yes, collect version info and skip compilation
 if ($Exec) {
    print "Option exec=yes specified; checking previously built code for revision number\n";
@@ -927,11 +937,6 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
              }
              exit 2
           }
-          # Rename the main executable:
-          if (! rename "var/build/da_wrfvar.exe","var/build/da_wrfvar.exe.$Compiler.$Compile_options{$option}") {
-             print "Program da_wrfvar.exe not created for $compile_type: check your compilation log.\n";
-             exit 3;
-          }
 
           # Check other executables for failures
 
@@ -1010,8 +1015,6 @@ while ( @compile_job_list ) {
          }
          die "Exiting $0\n";
       }
-
-      rename "WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe","WRFDA_$compile_job_array{$jobnum}/var/build/da_wrfvar.exe.$Compiler.$details[1]" or die "\nSERIOUS ERROR\nSERIOUS ERROR\nHow on earth did you even get here? The script should have already failed if the main executable doesn't exist!\nProgram da_wrfvar.exe not created for $details[0], $details[1]: check your compilation log.\n";
 
       # Delete job from list of active jobs
       splice (@temparray,$i,1);
@@ -1602,10 +1605,10 @@ sub new_job {
              $starttime = gettimeofday();
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
              if ($par=~/dm/i) {
-                 $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+                 $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
                  system($cmd);
              } else {
-                 $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+                 $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
                  system($cmd);
              }
              $endtime = gettimeofday();
@@ -1640,10 +1643,10 @@ sub new_job {
          $starttime = gettimeofday();
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          if ($par=~/dm/i) { 
-             $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+             $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
              system($cmd);
          } else {
-             $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler"; 
+             $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler"; 
              system($cmd);
          }
          $endtime = gettimeofday();
@@ -1679,10 +1682,10 @@ sub new_job {
          $starttime = gettimeofday();
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          if ($par=~/dm/i) {
-             $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+             $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
              system($cmd);
          } else {
-             $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+             $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
              system($cmd);
          }
          $endtime = gettimeofday();
@@ -1737,10 +1740,10 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          $starttime = gettimeofday();
          if ($par=~/dm/i) {
-             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
              system($cmd);
          } else {
-             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>WRFDA.out.$nam.$par 2>WRFDA.out.$nam.$par";
+             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>WRFDA.out.$nam.$par 2>WRFDA.out.$nam.$par";
              system($cmd);
          }
          $endtime = gettimeofday();
@@ -1853,10 +1856,10 @@ sub new_job {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          $starttime = gettimeofday();
          if ($par=~/dm/i) {
-             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
              system($cmd);
          } else {
-             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>WRFDA.out.$nam.$par 2>WRFDA.out.$nam.$par";
+             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>WRFDA.out.$nam.$par 2>WRFDA.out.$nam.$par";
              system($cmd);
          }
          $endtime = gettimeofday();
@@ -2019,10 +2022,10 @@ sub new_job {
             symlink("$ens_filename.mean",'fg');
          }
          if ($par=~/dm/i) {
-            $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+            $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
             system($cmd);
          } else {
-            $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+            $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
             system($cmd);
          }
          $endtime = gettimeofday();
@@ -2059,10 +2062,10 @@ sub new_job {
 
          $starttime = gettimeofday();
          if ($par=~/dm/i) {
-            $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>/dev/null 2>/dev/null";
+            $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
             system($cmd);
          } else {
-            $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+            $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
             system($cmd);
          }
          $endtime = gettimeofday();
@@ -2304,8 +2307,8 @@ sub new_job_ys {
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @varbc_commands;
          $varbc_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
+             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
          $varbc_commands[1] = "mkdir(\"varbc_run_1_$par\");\n";
          $varbc_commands[2] = "system(\"mv rsl* varbc_run_1_$par/\");\n";
          $varbc_commands[3] = "unlink('VARBC.in');\n";
@@ -2360,8 +2363,8 @@ sub new_job_ys {
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @fgat_commands;
          $fgat_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
+             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @fgat_commands );
@@ -2405,8 +2408,8 @@ sub new_job_ys {
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @_3dvar_commands;
          $_3dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
+             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_3dvar_commands );
@@ -2470,8 +2473,8 @@ sub new_job_ys {
 
          my @_3dvar_init_commands;
          $_3dvar_init_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
+             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
          $_3dvar_init_commands[1] = 'if ( ! -e "wrfvar_output") {'."\n";
          $_3dvar_init_commands[2] = '   open FH,">FAIL";'."\n";
          $_3dvar_init_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
@@ -2605,8 +2608,8 @@ sub new_job_ys {
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_final";
          my @_3dvar_final_commands;
          $_3dvar_final_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par')\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe')\n" :
+             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
          $_3dvar_final_commands[1] = 'if ( ! -e "wrfvar_output") {'."\n";
          $_3dvar_final_commands[2] = '   open FH,">FAIL";'."\n";
          $_3dvar_final_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
@@ -2703,8 +2706,8 @@ sub new_job_ys {
             $hybrid_commands[1] = 'my @pertfiles = glob("'."ep/*\");\n";
             $hybrid_commands[2] = 'foreach (@pertfiles){ symlink($_,basename($_))};'."\n";
             $hybrid_commands[3] = ($par eq 'serial' || $par eq 'smpar') ?
-                "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
-                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+                "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
+                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
             $hybrid_commands[4] = 'if ( ! -e "wrfvar_output") {'."\n";
             $hybrid_commands[5] = '   open FH,">FAIL";'."\n";
             $hybrid_commands[6] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
@@ -2855,8 +2858,8 @@ sub new_job_ys {
             $hybrid_commands[4] = "   symlink('$ens_filename.mean','fg');\n";
             $hybrid_commands[5] = '}'."\n";
             $hybrid_commands[6] = ($par eq 'serial' || $par eq 'smpar') ?
-                "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
-                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+                "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
+                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
             $hybrid_commands[7] = "rename(\"ep/\",\"ep_$par/\");\n";
             $hybrid_commands[8] = 'if ( ! -e "wrfvar_output") {'."\n";
             $hybrid_commands[9] = '   open FH,">FAIL";'."\n";
@@ -2906,8 +2909,8 @@ sub new_job_ys {
 
          my @_4dvar_commands;
          $_4dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe.$com.$par');\n";
+             "system('$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n" :
+             "system('mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_4dvar_commands );
