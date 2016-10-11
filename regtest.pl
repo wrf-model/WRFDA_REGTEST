@@ -3523,6 +3523,7 @@ sub get_repo_revision {
       return ($revnum, undef);
 
    } elsif ( -d "$dir_name/.git" ) {
+      chdir $dir_name;
       open (my $fh,"-|","git","log","--max-count=1")
            or die " Can't run git log: $!\n";
       while (<$fh>) {
