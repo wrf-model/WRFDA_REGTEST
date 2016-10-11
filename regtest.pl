@@ -762,11 +762,11 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
 
     # Delete unnecessary directories to test code in release style
     if ( -e "chem" && -r "chem" ) {
-       print "Deleting chem directory ...\n";
+       print "Deleting chem directory ... ";
        rmtree ("chem") or die "Can not rmtree chem :$!\n";
     }
     if ( -e "dyn_nmm" && -r "dyn_nmm" ) {
-       print "Deleting dyn_nmm directory ...\n";
+       print "Deleting dyn_nmm directory ... ";
        rmtree ("dyn_nmm") or die "Can not rmtree dyn_nmm :$!\n";
     }
     if ( -e "hydro" && -r "hydro" ) {
@@ -1039,20 +1039,7 @@ foreach (@Compiletypes) {
    die "\nSTOPPING SCRIPT\n$dir_parts[0] code must be compiled to run in $dir_parts[1] in directory tree named 'WRFDA_$dir_parts[0]_$dir_parts[1]' in the working directory to use 'exec=yes' option.\n\n" unless (-d "WRFDA_$dir_parts[0]_$dir_parts[1]");
 }
 
-# Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
-if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
-   if (defined $ENV{LD_LIBRARY_PATH}) {
-      $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$libdir/HDF5_$Compiler\_$Compiler_version/lib";
-   } else {
-      $ENV{LD_LIBRARY_PATH}="$libdir/HDF5_$Compiler\_$Compiler_version/lib";
-   }
-   print "Adding $libdir/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
-}
-
-
 # Make working directory for each Experiments:
-
-
 if ( ($Machine_name eq "yellowstone") ) {
     printf "Moving to scratch space: /glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec\n";
     mkpath("/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec") or die "Mkdir failed: $!";
@@ -1475,6 +1462,17 @@ sub new_job {
      # Enter into the experiment working directory:
 
      chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+
+     # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
+     if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
+        if (defined $ENV{LD_LIBRARY_PATH}) {
+           $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$libdir/HDF5_$Compiler\_$Compiler_version/lib";
+        } else {
+           $ENV{LD_LIBRARY_PATH}="$libdir/HDF5_$Compiler\_$Compiler_version/lib";
+        }
+        print "Adding $libdir/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
+     }
+
 
      if ($types =~ /OBSPROC/i) {
          $types =~ s/OBSPROC//i;
@@ -2129,6 +2127,15 @@ sub create_ys_job_script {
     # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
     printf FH "#BSUB -R span[ptile=%d]"."\n", ($jobpar eq 'serial' || $jobpar eq 'smpar') ? 1 : (($jobcores < 16 ) ? $jobcores : 16);
     print FH "\n"; #End of BSUB commands; add newline for readability
+
+    # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
+    if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
+       if (defined $ENV{LD_LIBRARY_PATH}) {
+          print FH '$ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:'."$libdir/HDF5_$Compiler\_$Compiler_version/lib\";\n";
+       } else {
+          print FH '$ENV{LD_LIBRARY_PATH}="'."$libdir/HDF5_$Compiler\_$Compiler_version/lib\";\n";
+       }
+    }
 
     # OpenMP stuff
     print FH 'delete $ENV{MP_PE_AFFINITY};'."\n";
