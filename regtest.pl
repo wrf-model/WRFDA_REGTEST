@@ -2016,8 +2016,6 @@ sub new_job {
 
          print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
          $starttime = gettimeofday();
-         my @pertfiles = glob("ep/*");
-         foreach (@pertfiles){ symlink($_,basename($_))}; # link all perturbation files to base directory
          if ( ! -e "fg") {
             symlink("$ens_filename.mean",'fg');
          }
@@ -2712,16 +2710,14 @@ sub new_job_ys {
 
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
             $hybrid_commands[0] = "use File::Basename;\n";
-            $hybrid_commands[1] = 'my @pertfiles = glob("'."ep/*\");\n";
-            $hybrid_commands[2] = 'foreach (@pertfiles){ symlink($_,basename($_))};'."\n";
-            $hybrid_commands[3] = ($par eq 'serial' || $par eq 'smpar') ?
+            $hybrid_commands[1] = ($par eq 'serial' || $par eq 'smpar') ?
                 "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
                 "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
-            $hybrid_commands[4] = 'if ( ! -e "wrfvar_output") {'."\n";
-            $hybrid_commands[5] = '   open FH,">FAIL";'."\n";
-            $hybrid_commands[6] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
-            $hybrid_commands[7] = "   close FH;\n";
-            $hybrid_commands[8] = "}\n";
+            $hybrid_commands[2] = 'if ( ! -e "wrfvar_output") {'."\n";
+            $hybrid_commands[3] = '   open FH,">FAIL";'."\n";
+            $hybrid_commands[4] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $hybrid_commands[5] = "   close FH;\n";
+            $hybrid_commands[6] = "}\n";
 
 
          } else {
@@ -2861,20 +2857,17 @@ sub new_job_ys {
 
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
             $hybrid_commands[0] = "use File::Basename;\n";
-            $hybrid_commands[1] = 'my @pertfiles = glob("'."ep/*\");\n";
-            $hybrid_commands[2] = 'foreach (@pertfiles){ symlink($_,basename($_))};'."\n";
-            $hybrid_commands[3] = 'if ( ! -e "fg") {'."\n";
-            $hybrid_commands[4] = "   symlink('$ens_filename.mean','fg');\n";
-            $hybrid_commands[5] = '}'."\n";
-            $hybrid_commands[6] = ($par eq 'serial' || $par eq 'smpar') ?
+            $hybrid_commands[1] = 'if ( ! -e "fg") {'."\n";
+            $hybrid_commands[2] = "   symlink('$ens_filename.mean','fg');\n";
+            $hybrid_commands[3] = '}'."\n";
+            $hybrid_commands[4] = ($par eq 'serial' || $par eq 'smpar') ?
                 "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
                 "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
-            $hybrid_commands[7] = "rename(\"ep/\",\"ep_$par/\");\n";
-            $hybrid_commands[8] = 'if ( ! -e "wrfvar_output") {'."\n";
-            $hybrid_commands[9] = '   open FH,">FAIL";'."\n";
-            $hybrid_commands[10] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
-            $hybrid_commands[11] = "   close FH;\n";
-            $hybrid_commands[12] = "}\n";
+            $hybrid_commands[5] = 'if ( ! -e "wrfvar_output") {'."\n";
+            $hybrid_commands[6] = '   open FH,">FAIL";'."\n";
+            $hybrid_commands[7] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
+            $hybrid_commands[8] = "   close FH;\n";
+            $hybrid_commands[9] = "}\n";
 
          }
 
