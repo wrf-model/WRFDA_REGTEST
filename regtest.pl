@@ -1466,11 +1466,13 @@ sub new_job {
      # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
      if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
         if (defined $ENV{LD_LIBRARY_PATH}) {
-           $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$libdir/HDF5_$Compiler\_$Compiler_version/lib";
+           unless ($ENV{LD_LIBRARY_PATH} =~ /$libdir\/HDF5_$Compiler\_$Compiler_version\/lib/) {
+              $ENV{LD_LIBRARY_PATH}="$ENV{LD_LIBRARY_PATH}:$libdir/HDF5_$Compiler\_$Compiler_version/lib";
+              print "Adding $libdir/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
+           }
         } else {
            $ENV{LD_LIBRARY_PATH}="$libdir/HDF5_$Compiler\_$Compiler_version/lib";
         }
-        print "Adding $libdir/HDF5_$Compiler\_$Compiler_version/lib to \$LD_LIBRARY_PATH \n";
      }
 
 
