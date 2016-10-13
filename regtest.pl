@@ -63,8 +63,9 @@ my $REPO_type;
 my $RTTOV_dir;
 my $test_list_string = '';
 my $use_HDF5 = "yes";
+my $use_RTTOV = "yes";
 my $libdir = "$MainDir/libs";
-my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","testfile","repo","tests","libs","branch");
+my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","rttov","testfile","repo","tests","libs","branch");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -101,6 +102,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "cloudcv:s" => \$CLOUDCV_defined,
             "netcdf4:s" => \$NETCDF4_defined,
             "hdf5:s" => \$use_HDF5,
+            "rttov:s" => \$use_RTTOV,
             "testfile:s" => \$Testfile,
             "repo:s" => \$REPO_defined,
             "branch:s" => \$Branch,
@@ -116,12 +118,15 @@ unless ( defined $Compiler_defined ) {
 sub print_help_and_die {
   print "\nUsage : regtest.pl --compiler=COMPILER --cc=C_COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes\n";
   print "                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super\n";
-  print "                   --debug=[no]/yes/super --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes\n";
+  print "                   --debug=[no]/yes/super --netcdf4=[no]/yes --hdf5=no/[yes] --rttov=no/[yes] --cloudcv=[no]/yes\n";
   print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n";
   print "                   --tests='testname1 testname2' --libs=`pwd`/libs\n\n";
   print "        compiler: [REQUIRED] Compiler name (supported options: ifort, gfortran, xlf, pgf90, g95)\n";
   print "        cc:       C Compiler name (supported options: icc, gcc, xlf, pgcc, g95)\n";
-  print "        source:   Specify location of source code .tar file (use 'REPO' to retrieve from repository)\n";
+  print "        source:   Specify location of source code in one of 3 formats:\n";
+  print "                   - If a path is specified, script will assume that path contains the WRFDA source code\n";
+  print "                   - If a .tar or .gz file is specified, that archive should contain a directory named 'WRFDA'\n";
+  print "                   - If 'REPO' is specified, script will look for code from a remote repository; see 'repo' option\n";
   print "        revision: Specify code revision to retrieve (only works when '--source=REPO' specified)\n";
   print "                  Use any number to specify that revision number; specify 'HEAD' to use the latest revision\n";
   print "        upload:   Uploads summary to web (default is 'yes' iff source==REPO and revision==HEAD)\n";
@@ -131,6 +136,7 @@ sub print_help_and_die {
   print "        cloudcv:  Compile for CLOUD_CV options\n";
   print "        netcdf4:  Compile for NETCDF4 options\n";
   print "        hdf5:     Compile for HDF5 options (note that the default value is 'yes')\n";
+  print "        rttov:    Compile for RTTOV options (note that the default value is 'yes')\n";
   print "        testfile: Name of test data file (default: testdata.txt)\n";
   print "        repo:     Location of code repository\n";
   print "        branch:   (git only) branch of repository to use\n";
@@ -572,56 +578,23 @@ if (&revision_conditional('<',$Revision_defined,'r9362') > 0) {
    print "Code version detected to be prior to r9362; setting CRTM=1\n";
    $ENV{CRTM} = 1;
 }
-   if ($Arch eq "Linux") {
-      if ($Machine_name eq "yellowstone") { # Yellowstone
-          $RTTOV_dir = "$libdir/rttov_$Compiler\_$Compiler_version";
-          if (-d $RTTOV_dir) {
-              $ENV{RTTOV} = $RTTOV_dir;
-              print "Using RTTOV libraries in $RTTOV_dir\n";
-          } else {
-              print "$RTTOV_dir DOES NOT EXIST\n";
-              print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
-              $RTTOV_dir = undef;
-              delete $ENV{RTTOV}
-          }
 
-      } else { # Loblolly
-         $RTTOV_dir = "$libdir/rttov_$Compiler\_$Compiler_version";
-          if (-d $RTTOV_dir) {
-              $ENV{RTTOV} = $RTTOV_dir;
-              print "Using RTTOV libraries in $RTTOV_dir\n";
-          } else {
-              print "$RTTOV_dir DOES NOT EXIST\n";
-              print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
-              $RTTOV_dir = undef;
-              delete $ENV{RTTOV}
-          }
-
-      }
-      foreach my $key (keys %Compile_options) {
-          if ($Compile_options{$key} =~/sm/i) {
-              print "Note: shared-memory option $Compile_options{$key} was deleted for gfortran.\n";
-              foreach my $name (keys %Experiments) {
-                  foreach my $par (keys %{$Experiments{$name}{paropt}}) {
-                      delete $Experiments{$name}{paropt}{$par} if $par eq $Compile_options{$key} ;
-                      next ;
-                  }
-              }
-              delete $Compile_options{$key};
-          }
-      }
-   } elsif ($Arch eq "Darwin") {   # Darwin
-      $RTTOV_dir = "$libdir/rttov_$Compiler\_$Compiler_version";
-      if (-d $RTTOV_dir) {
-          $ENV{RTTOV} = $RTTOV_dir;
-          print "Using RTTOV libraries in $RTTOV_dir\n";
-      } else {
-          print "$RTTOV_dir DOES NOT EXIST\n";
-          print "RTTOV Libraries have not been compiled with $Compiler\nRTTOV tests will fail!\n";
-          $RTTOV_dir = undef;
-          delete $ENV{RTTOV}
-      }
+# Set RTTOV environment variable if appropriate
+$RTTOV_dir = "$libdir/rttov_$Compiler\_$Compiler_version";
+if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
+   $ENV{RTTOV} = $RTTOV_dir;
+   print "Using RTTOV libraries in $RTTOV_dir\n";
+} else {
+   if (-d $RTTOV_dir) {
+      print "\$use_RTTOV is not set to 'yes'\n";
+      print "Not compiling with RTTOV: RTTOV tests will fail!\n";
+   } else {
+      print "$RTTOV_dir DOES NOT EXIST\n";
+      print "RTTOV Libraries have not been compiled with $Compiler version $Compiler_version\nRTTOV tests will fail!\n";
    }
+   $RTTOV_dir = undef;
+   delete $ENV{RTTOV}
+}
 
 
 ####################  BEGIN COMPILE SECTION  ####################
