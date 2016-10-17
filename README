@@ -99,10 +99,10 @@ A compiler must be specified!
 Aborting the script with dignity.
 
 Usage : regtest.pl --compiler=COMPILER --cc=C_COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes
-                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super
-                   --debug=[no]/yes/super --netcdf4=[no]/yes --hdf5=no/[yes] --cloudcv=[no]/yes
-                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk
-                   --tests='testname1 testname2'
+                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super --testfile=testdata.txt
+                   --netcdf4=[no]/yes --hdf5=no/[yes] --rttov=no/[yes] --cloudcv=[no]/yes
+                   --repo=git@github.com:wrf-model/WRF --fork=github_username --branch=branchname
+                   --tests='testname1 testname2' --libs=`pwd`/libs
 
         compiler: [REQUIRED] Compiler name (supported options: ifort, gfortran, xlf, pgf90, g95)
         cc:       C Compiler name (supported options: icc, gcc, xlf, pgcc, g95)
@@ -119,8 +119,10 @@ Usage : regtest.pl --compiler=COMPILER --cc=C_COMPILER --source=SOURCE_CODE.tar 
         cloudcv:  Compile for CLOUD_CV options
         netcdf4:  Compile for NETCDF4 options
         hdf5:     Compile for HDF5 options (note that the default value is 'yes')
+        rttov:    Compile for RTTOV options (note that the default value is 'yes')
         testfile: Name of test data file (default: testdata.txt)
         repo:     Location of code repository
+        fork:     (git only) Overwrites default repository 'git@github.com:wrf-model/WRF' to 'git@github.com:fork/WRF'
         branch:   (git only) branch of repository to use
         tests:    Test names to run (prunes test list taken from testfile; test specs must exist there!)
         libs:     Specify where the necessary libraries are located
@@ -150,6 +152,11 @@ Usage : regtest.pl --compiler=COMPILER --cc=C_COMPILER --source=SOURCE_CODE.tar 
   repo:
     The default repository when you specify "--source=REPO" is 
     "git@github.com:wrf-model/WRF". You can specify a different repository with this option.
+  fork:
+    For Git repositories only. The default repostory when you specify "--source=REPO" is
+    "git@github.com:wrf-model/WRF". If you do not specify a "--repo" option, you can specify a fork
+    which will get the repository located at git@github.com:"fork"/WRF. In almost all cases "fork"
+    should be a github username.
   branch:
     For Git repositories only. The default branch when you specify "--source=REPO" is "master". You
     can specify a different branch with this option.

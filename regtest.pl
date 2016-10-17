@@ -53,7 +53,8 @@ my $Revision_defined = 'HEAD'; # Revision number specified from command line
 my $Revision;                  # Revision number from code
 my $Revision_date;             # Date of revision if under version control
 my $Version;                   # Version number from tools/version_decl
-my $Branch = ""; # Branch; used for git repositories only
+my $Fork = "";                 # Fork; used for git repositories only
+my $Branch = "";               # Branch; used for git repositories only
 my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision number from code
 my $Testfile = 'testdata.txt';
 my $CLOUDCV_defined;
@@ -65,7 +66,7 @@ my $test_list_string = '';
 my $use_HDF5 = "yes";
 my $use_RTTOV = "yes";
 my $libdir = "$MainDir/libs";
-my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","rttov","testfile","repo","tests","libs","branch");
+my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","rttov","testfile","repo","tests","libs","branch","fork");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -105,6 +106,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "rttov:s" => \$use_RTTOV,
             "testfile:s" => \$Testfile,
             "repo:s" => \$REPO_defined,
+            "fork:s" => \$Fork,
             "branch:s" => \$Branch,
             "tests:s" => \$test_list_string,
             "libs:s" => \$libdir ) or &print_help_and_die;
@@ -117,9 +119,9 @@ unless ( defined $Compiler_defined ) {
 
 sub print_help_and_die {
   print "\nUsage : regtest.pl --compiler=COMPILER --cc=C_COMPILER --source=SOURCE_CODE.tar --revision=NNNN --upload=[no]/yes\n";
-  print "                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super\n";
-  print "                   --debug=[no]/yes/super --netcdf4=[no]/yes --hdf5=no/[yes] --rttov=no/[yes] --cloudcv=[no]/yes\n";
-  print "                   --testfile=testdata.txt --repo=https://svn-wrf-model.cgd.ucar.edu/trunk\n";
+  print "                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super --testfile=testdata.txt \n";
+  print "                   --netcdf4=[no]/yes --hdf5=no/[yes] --rttov=no/[yes] --cloudcv=[no]/yes\n";
+  print "                   --repo=git\@github.com:wrf-model/WRF --fork=github_username --branch=branchname\n";
   print "                   --tests='testname1 testname2' --libs=`pwd`/libs\n\n";
   print "        compiler: [REQUIRED] Compiler name (supported options: ifort, gfortran, xlf, pgf90, g95)\n";
   print "        cc:       C Compiler name (supported options: icc, gcc, xlf, pgcc, g95)\n";
@@ -139,6 +141,7 @@ sub print_help_and_die {
   print "        rttov:    Compile for RTTOV options (note that the default value is 'yes')\n";
   print "        testfile: Name of test data file (default: testdata.txt)\n";
   print "        repo:     Location of code repository\n";
+  print "        fork:     (git only) Overwrites default repository 'git\@github.com:wrf-model/WRF' to 'git\@github.com:fork/WRF'\n";
   print "        branch:   (git only) branch of repository to use\n";
   print "        tests:    Test names to run (prunes test list taken from testfile; test specs must exist there!)\n";
   print "        libs:     Specify where the necessary libraries are located\n";
@@ -395,9 +398,23 @@ while (<DATA>) {
 $Source = $Source_defined if defined $Source_defined;
 
 # If the source is "REPO", we need to specify the location of the code repository
+
 my $CODE_REPO = 'git@github.com:wrf-model/WRF'; #We're now on Github!
-if ( ($Source eq "REPO") && (defined $REPO_defined) ) {
-    $CODE_REPO = $REPO_defined;
+
+if ($Source eq "REPO") {
+   if (defined $REPO_defined) {
+      if ($Fork eq "") {
+         $CODE_REPO = $REPO_defined;
+      } else {
+         die "\nCan not define 'repo' and 'fork' on command line; choose one or the other\n";
+      }
+      print "Using specified repository location: $CODE_REPO\n";
+   } elsif ($Fork eq "") {
+      print "Using default repository location: $CODE_REPO\n";
+   } else {
+      $CODE_REPO = "git\@github.com:$Fork/WRF";
+      print "Using specified repository location: $CODE_REPO\n";
+   }
 }
 
 if ($CODE_REPO =~ /svn-/) {
@@ -411,9 +428,9 @@ if ($CODE_REPO =~ /svn-/) {
 # Upload summary to web by default if source is head of repository; 
 # otherwise do not upload unless upload option is explicitly selected
 my $Upload;
-if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "REPO") && ($Revision_defined eq "HEAD") && ($Branch eq "") && !(defined $Upload_defined) ) {
+if ( ($Debug == 0) && ($Exec == 0) && ($Source eq "REPO") && ($Revision_defined eq "HEAD") && ($Branch eq "") && ($Fork eq "") && !(defined $Upload_defined) ) {
     $Upload="yes";
-    print "\nSource is head of repository: will upload summary to web when test is complete.\n\n";
+    print "\nSource is head of main repository: will upload summary to web when test is complete.\n\n";
 } elsif ( !(defined $Upload_defined) ) {
     $Upload="no";
 } else {
