@@ -1,0 +1,115 @@
+&wrfvar1
+ var4d                               = .false.
+/
+&wrfvar2
+ calc_w_increment                    = .true.
+/
+&wrfvar3
+ ob_format                           = 2,
+/
+&wrfvar4
+/
+&wrfvar5
+/
+&wrfvar6
+ max_ext_its                         = 1,
+ ntmax                               = 20,
+ eps                                 = 0.005
+ orthonorm_gradient                  = .true.
+/
+&wrfvar7
+ cv_options                          = 5,
+/
+&wrfvar8
+/
+&wrfvar9
+ trace_use                           = .true.
+/
+&wrfvar10
+/
+&wrfvar11
+ check_rh                            = 1,
+ sfc_assi_options                    = 2
+ calculate_cg_cost_fn                = .true.
+/
+&wrfvar12
+/
+&wrfvar13
+/
+&wrfvar14
+/
+&wrfvar15
+/
+&wrfvar16
+/
+&wrfvar17
+/
+&wrfvar18
+ analysis_date                       = "2015-04-22_12:00:00.0000",
+/
+&wrfvar19
+/
+&wrfvar20
+/
+&wrfvar21
+ time_window_min                     = "2015-04-22_11:30:00.0000",
+/
+&wrfvar22
+ time_window_max                     = "2015-04-22_12:30:00.0000",
+/
+&wrfvar23
+/
+&time_control
+ start_year                          = 2015,
+ start_month                         = 04,
+ start_day                           = 22,
+ start_hour                          = 12,
+ start_minute                        = 00,
+ start_second                        = 00,
+ end_year                            = 2015,
+ end_month                           = 04,
+ end_day                             = 22,
+ end_hour                            = 12,
+ end_minute                          = 00,
+ end_second                          = 00,
+/
+&fdda
+/
+&domains
+ e_we                                = 100,
+ e_sn                                =  80,
+ e_vert                              =  41,
+ dx                                  = 4000,
+ dy                                  = 4000,
+/
+&dfi_control
+/
+&tc
+/
+&physics
+ mp_physics                          = 8,     3,     3,
+ ra_lw_physics                       = 4,     1,     1,
+ ra_sw_physics                       = 4,     1,     1,
+ radt                                = 10,   30,    30,
+ sf_sfclay_physics                   = 1,     1,     1,
+ sf_surface_physics                  = 2,     2,     2,
+ bl_pbl_physics                      = 1,     1,     1,
+ cu_physics                          = 0,     1,     0,
+ cudt                                = 0,     5,     5,
+ num_soil_layers                     = 4,
+ num_land_cat                        = 24,
+/
+&scm
+/
+&dynamics
+/
+&bdy_control
+/
+&grib2
+/
+&fire
+/
+&namelist_quilt
+/
+&perturbation
+/

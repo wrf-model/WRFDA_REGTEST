@@ -1,0 +1,141 @@
+&wrfvar1
+ print_detail_grad                   = .true.,
+ print_detail_rad                    = .true.,
+ var4d                               = .false.,
+ multi_inc                           = 0,
+ print_detail_be                     = .true.,
+/
+&wrfvar2
+/
+&wrfvar3
+ob_format                            = 1,
+/
+&wrfvar4
+ use_synopobs                        = true,
+ use_shipsobs                        = true,
+ use_metarobs                        = true,
+ use_soundobs                        = true,
+ use_pilotobs                        = true,
+ use_airepobs                        = true,
+ use_geoamvobs                       = true,
+ use_polaramvobs                     = true,
+ use_bogusobs                        = false,
+ use_buoyobs                         = true,
+ use_profilerobs                     = false,
+ use_satemobs                        = false,
+ use_gpspwobs                        = false,
+ use_gpsrefobs                       = false,
+ use_ssmisobs                        = true,
+ use_qscatobs                        = false,
+ use_iasiobs                         = false,
+ use_atmsobs                         = true,
+ use_amsr2obs                        = true,
+/
+&wrfvar5
+ check_max_iv                        = true,
+ max_error_tb                        = 3
+ put_rand_seed                       = false,
+/
+&wrfvar6
+ ntmax                               = 100,
+/
+&wrfvar7
+ cv_options                          = 5
+/
+&wrfvar8
+/
+&wrfvar9
+/
+ trace_use                           = .true.,
+/
+&wrfvar10
+/
+&wrfvar11
+ calculate_cg_cost_fn                = .true.,
+/
+&wrfvar12
+/
+&wrfvar13
+/
+&wrfvar14
+rtminit_nsensor                      = 3
+rtminit_platform                     = 17,2,29
+rtminit_satid                        = 0,16,1
+rtminit_sensor                       = 19,10,63
+thinning_mesh                        = 70,70,70
+write_profile                        = .true.
+write_jacobian                       = .true.
+qc_rad                               = .true.
+write_iv_rad_ascii                   = .true.
+write_oa_rad_ascii                   = .true.
+rtm_option                           = 2
+only_sea_rad                         = .false.
+use_varbc                            = .true.
+!use_satcv                            = .true., .true.
+/
+&wrfvar15
+/
+&wrfvar16
+/
+&wrfvar17
+analysis_type                       = '3D-VAR',
+/
+&wrfvar18
+analysis_date                       = "2015-10-10_12_00:00.0000",
+/
+&wrfvar19
+/
+&wrfvar20
+/
+&wrfvar21
+time_window_min                     = "2015-10-10_09:00:00.0000",
+/
+&wrfvar22
+time_window_max                     = "2015-10-10_15:00:00.0000",
+/
+&wrfvar23
+/
+&fdda
+/
+&domains
+e_we=181,
+e_sn=61,
+e_vert=41,
+dx=70000,
+dy=70000,
+/
+&dfi_control
+/
+&tc
+/
+&physics
+ mp_physics                          = 3,
+ ra_lw_physics                       = 1,
+ ra_sw_physics                       = 1,
+ radt                                = 30,
+ sf_sfclay_physics                   = 1,
+ sf_surface_physics                  = 2,
+ bl_pbl_physics                      = 1,
+ bldt                                = 0,
+ cu_physics                          = 1,
+ cudt                                = 5,
+ isfflx                              = 1,
+ ifsnow                              = 1,
+ icloud                              = 1,
+ surface_input_source                = 1,
+ num_soil_layers                     = 5,
+ num_land_cat                        = 24,
+ sf_urban_physics                    = 0,
+/
+&scm
+/
+&dynamics
+/
+&bdy_control
+/
+&grib2
+/
+&fire
+/
+&namelist_quilt
+/

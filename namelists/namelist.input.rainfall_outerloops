@@ -1,0 +1,179 @@
+&wrfvar1
+ var4d                               = .true.,
+ var4d_lbc                           = .false.,
+ var4d_bin                           = 3600,
+ var4d_bin_rain                      = 3600,
+ print_detail_outerloop              = .false.,
+ print_detail_grad                   = .false.,
+ print_detail_be                     = .true.,
+/
+&wrfvar2
+/
+&wrfvar3
+/
+&wrfvar4
+ use_synopobs                        = .false.,
+ use_shipsobs                        = .false.,
+ use_metarobs                        = .false.,
+ use_soundobs                        = .false.,
+ use_pilotobs                        = .false.,
+ use_airepobs                        = .false.,
+ use_geoamvobs                       = .false.,
+ use_polaramvobs                     = .false.,
+ use_bogusobs                        = .false.,
+ use_buoyobs                         = .false.,
+ use_profilerobs                     = .false.,
+ use_satemobs                        = .false.,
+ use_gpspwobs                        = .false.,
+ use_gpsrefobs                       = .false.,
+ use_qscatobs                        = .false.,
+ use_rainobs                         = .true.,
+/
+&wrfvar5
+ check_max_iv                        = .true.,
+/
+&wrfvar6
+ max_ext_its                         = 2,
+ ntmax                               = 2*2,
+ orthonorm_gradient                  = .false.,
+/
+&wrfvar7
+ cv_options                          = 5,
+/
+&wrfvar8
+/
+&wrfvar9
+ trace_use                           = .true.
+/
+&wrfvar10
+ test_transforms                     = .false.,
+ test_gradient                       = .false.,
+/
+&wrfvar11
+ check_rh                            = 0,
+ sfc_assi_options                    = 1,
+ calculate_cg_cost_fn                = .false.,
+/
+&wrfvar12
+/
+&wrfvar13
+/
+&wrfvar14
+/
+&wrfvar15
+/
+&wrfvar16
+/
+&wrfvar17
+/
+&wrfvar18
+ analysis_date                       = "2013-09-12_00:00:00.0000",
+/
+&wrfvar19
+/
+&wrfvar20
+/
+&wrfvar21
+ time_window_min                     = "2013-09-12_00:00:00.0000",
+/
+&wrfvar22
+ time_window_max                     = "2013-09-12_06:00:00.0000",
+/
+&wrfvar23
+/
+&time_control
+ run_hours                           = 6,
+ start_year                          = 2013,
+ start_month                         = 09,
+ start_day                           = 12,
+ start_hour                          = 00,
+ end_year                            = 2013,
+ end_month                           = 09,
+ end_day                             = 12,
+ end_hour                            = 06,
+ interval_seconds                    = 21600,
+ debug_level                         = 0,
+/
+&domains
+ time_step                           = 120,
+ time_step_fract_num                 = 0,
+ time_step_fract_den                 = 1,
+ max_dom                             = 1,
+ e_we                                = 41,    112,   94,
+ e_sn                                = 41,    97,    91,
+ e_vert                              = 31,    30,    30,
+ p_top_requested                     = 5000,
+ num_metgrid_levels                  = 27,
+ num_metgrid_soil_levels             = 4,
+ dx                                  = 20000, 10000,  3333.33,
+ dy                                  = 20000, 10000,  3333.33,
+ grid_id                             = 1,     2,     3,
+ parent_id                           = 0,     1,     2,
+ i_parent_start                      = 1,     31,    30,
+ j_parent_start                      = 1,     17,    30,
+ parent_grid_ratio                   = 1,     3,     3,
+ parent_time_step_ratio              = 1,     3,     3,
+ feedback                            = 1,
+ smooth_option                       = 0
+ /
+&fdda
+/
+&dfi_control
+/
+&tc
+/
+&physics
+ mp_physics                          = 6,     3,     3,
+ ra_lw_physics                       = 1,     1,     1,
+ ra_sw_physics                       = 1,     1,     1,
+ radt                                = 10,    30,    30,
+ sf_sfclay_physics                   = 1,     1,     1,
+ sf_surface_physics                  = 2,     2,     2,
+ bl_pbl_physics                      = 1,     1,     1,
+ bldt                                = 0,     0,     0,
+ cu_physics                          = 6,     1,     0,
+ cudt                                = 0,     5,     5,
+ isfflx                              = 1,
+ ifsnow                              = 1,
+ icloud                              = 1,
+ surface_input_source                = 1,
+ num_soil_layers                     = 4,
+ num_land_cat                        = 24,
+ sf_urban_physics                    = 0,     0,     0,
+ isftcflx                            = 2,
+/
+&scm
+/
+&dynamics
+ w_damping                           = 0,
+ diff_opt                            = 1,      1,      1,
+ km_opt                              = 4,      4,      4,
+ diff_6th_opt                        = 0,      0,      0,
+ diff_6th_factor                     = 0.12,   0.12,   0.12,
+ base_temp                           = 290.
+ damp_opt                            = 0,
+ zdamp                               = 5000.,  5000.,  5000.,
+ dampcoef                            = 0.2,    0.2,    0.2
+ khdif                               = 0,      0,      0,
+ kvdif                               = 0,      0,      0,
+ non_hydrostatic                     = .true., .true., .true.,
+ moist_adv_opt                       = 1,      1,      1,
+ scalar_adv_opt                      = 1,      1,      1,
+/
+&grib2
+/
+&namelist_quilt
+/
+&perturbation
+ trajectory_io                       = .true.,
+ enable_identity                     = .false.,
+ jcdfi_use                           = .false.,
+ jcdfi_diag                          = 1,
+ jcdfi_penalty                       = 1000.0,
+/
+
+&bdy_control
+ specified                           = .true.,
+ real_data_init_type                 = 3,
+/
+

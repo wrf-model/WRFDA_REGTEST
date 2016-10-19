@@ -1,0 +1,177 @@
+&wrfvar1
+ write_increments                    = .false., 
+ var4d                               = .false.,
+ multi_inc                           = 0,
+ print_detail_radar                  = .true.,
+ print_detail_grad                   = .true.,
+ check_max_iv_print                  = .true.,
+ print_detail_be                     = .true.,
+/
+&wrfvar2
+ analysis_accu                       = 900,
+/
+&wrfvar3
+ ob_format                           = 1,
+/
+&wrfvar4
+ thin_conv                           = .false.,
+ use_synopobs                        = .false.,
+ use_shipsobs                        = .false.,
+ use_metarobs                        = .false.,
+ use_soundobs                        = .false.,
+ use_pilotobs                        = .false.,
+ use_airepobs                        = .false.,
+ use_geoamvobs                       = .false.,
+ use_polaramvobs                     = .false.,
+ use_bogusobs                        = .false.,
+ use_buoyobs                         = .false.,
+ use_profilerobs                     = .false.,
+ use_satemobs                        = .false.,
+ use_gpspwobs                        = .false.,
+ use_gpsrefobs                       = .false.,
+ use_ssmiretrievalobs                = .false.,
+ use_ssmitbobs                       = .false.,
+ use_ssmt1obs                        = .false.,
+ use_ssmt2obs                        = .false.,
+ use_qscatobs                        = .false.,
+ use_radarobs                        = .true.,
+ use_radar_rv                        = .true.,
+ use_radar_rf                        = .false.,
+/
+&wrfvar5
+ check_max_iv=true,
+ max_radar_input                     = 2000000,
+/
+&wrfvar6
+ max_ext_its                         = 1,
+ ntmax                               = 50,
+ eps                                 = 0.01
+/
+&wrfvar7
+ cv_options                          = 5,
+ rf_passes                           = 6,
+ var_scaling1                        = 1.5,
+ var_scaling2                        = 1.5,
+ var_scaling3                        = 1.5,
+ var_scaling4                        = 1.5,
+ var_scaling5                        = 1.5,
+ len_scaling1                        = 0.5,
+ len_scaling2                        = 0.5,
+ len_scaling3                        = 0.5,
+ len_scaling4                        = 0.5,
+ len_scaling5                        = 0.5,
+/
+&wrfvar8
+/
+&wrfvar9
+ trace_use                           = .false.,
+/
+&wrfvar10
+ interpolate_stats=.true.
+ be_eta                              = 0.9965, 0.988, 0.9765, 0.962, 0.944, 0.9215, 0.8945, 0.8683053, 0.844916,0.8215265, 0.7981372, 0.7645414, 0.7216843, 0.6806834, 0.6414717,0.6039845, 0.5681586, 0.5339334, 0.5012495, 0.4700497, 0.4402786,0.4118823, 0.384809, 0.359008, 0.3344305, 0.3110294, 0.2887589,0.2675747, 0.2474339, 0.2282951, 0.2101182, 0.1928644, 0.1764961,0.1609772, 0.1462726, 0.1323483, 0.1191717, 0.1067111, 0.09493599,0.08381677, 0.07332497, 0.06343306, 0.05411445, 0.04534348, 0.03709537,0.02934618, 0.02207283, 0.01525297, 0.008865068, 0.002888225,
+/
+&wrfvar11
+ cv_options_hum                      = 1,
+ check_rh                            = 0,
+ seed_array1                         = 0,
+ seed_array2                         = 0,
+ calculate_cg_cost_fn                = .true.,
+/
+&wrfvar12
+/
+&wrfvar13
+/
+&wrfvar14
+/
+&wrfvar15
+/
+&wrfvar16
+/
+&wrfvar17
+ analysis_type                       = "3D-VAR",
+/
+&wrfvar18
+ analysis_date                       = "2008-08-05_00:00:00.0000",
+/
+&wrfvar19
+/
+&wrfvar20
+/
+&wrfvar21
+ time_window_min                     = "2008-08-04_23:30:00.0000",
+/
+&wrfvar22
+ time_window_max                     = "2008-08-05_00:30:00.0000",
+/
+&wrfvar23
+ jcdfi_use=false,
+/
+&time_control
+ run_hours                           = 12,
+ start_year                          = 2008,
+ start_month                         = 08,
+ start_day                           = 05,
+ start_hour                          = 00,
+ end_year                            = 2008,
+ end_month                           = 08,
+ end_day                             = 05,
+ end_hour                            = 12,
+ interval_seconds                    = 21600,
+ input_from_file                     = .true.,
+ history_interval                    = 720,
+ frames_per_outfile                  = 1,
+ debug_level                         = 0,
+ inputout_interval                   = 360,
+ inputout_begin_h                    = 00,
+ inputout_end_h                      = 00,
+ input_outname                       = "wrfinput_d<domain>_<date>",
+ write_input                         = .true.,
+/
+&fdda
+/
+&domains
+ time_step                           = 50,
+ e_we                                = 90,
+ e_sn                                = 46,
+ e_vert                              = 51,
+ dx                                  = 25000,
+ dy                                  = 25000,
+ smooth_option                       = 1,
+/
+&dfi_control
+/
+&physics
+ mp_physics                          = 8,
+ ra_lw_physics                       = 1,
+ ra_sw_physics                       = 1,
+ radt                                = 30,
+ sf_sfclay_physics                   = 2,
+ sf_surface_physics                  = 3,
+ bl_pbl_physics                      = 2,
+ cu_physics                          = 0,
+ cudt                                = 0,
+ ifsnow                              = 1,
+ num_soil_layers                     = 6,
+ mp_zero_out                         = 2,
+ co2tf                               = 0,
+/
+&dynamics
+ w_damping                           = 0,
+ diff_opt                            = 1,
+ km_opt                              = 4,
+ diff_6th_opt                        = 0,
+ diff_6th_factor                     = 0.12,
+ damp_opt                            = 1,
+ dampcoef                            = 0.02,
+ time_step_sound                     = 6,
+ base_temp                           = 290.0,
+ use_baseparam_fr_nml                = .true.,
+/
+&bdy_control
+ specified=true,
+ real_data_init_type                 = 3,
+/
+&grib2
+/
+&namelist_quilt
+/

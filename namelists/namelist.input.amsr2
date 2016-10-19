@@ -1,0 +1,153 @@
+ &wrfvar1
+ /
+ &wrfvar2
+ /
+ &wrfvar3
+ ob_format=2,
+ num_fgat_time=1,
+ /
+ &wrfvar4
+ use_synopobs=true,
+ use_shipsobs=true,  
+ use_metarobs=true,
+ use_pilotobs=true,
+ use_soundobs=true,
+ use_airepobs=true,
+ use_geoamvobs=true,
+ use_polaramvobs=true,
+ use_bogusobs=false,
+ use_buoyobs=true,
+ use_profilerobs=true,
+ use_satemobs=true,
+ use_gpspwobs=true,
+ use_gpsrefobs=true, 
+ use_amsr2obs=true,
+ use_amsuaobs=false
+
+ /
+ &wrfvar5
+ MAX_ERROR_T =    5.000000000000000     ,
+ MAX_ERROR_UV =    5.000000000000000     ,
+ MAX_ERROR_PW =    5.000000000000000     ,
+ MAX_ERROR_REF =   5.000000000000000     ,
+ MAX_ERROR_Q =    5.000000000000000     ,
+ MAX_ERROR_P =    5.000000000000000     ,
+ /
+ &wrfvar6
+ max_ext_its=1,
+ ntmax=5,
+ eps=0.001,
+ /
+ &wrfvar7
+ cv_options=5,
+ /
+ &wrfvar8
+ /
+ &wrfvar9
+ trace_use=false,
+ trace_use_frequent=true,
+ trace_use_dull=true,
+ trace_memory=true,
+ trace_csv=true,
+ /
+ &wrfvar10
+ test_transforms=.false.,
+ test_gradient=.false.,
+ /
+ &wrfvar11
+ /
+ &wrfvar12
+ /
+ &wrfvar13
+ /
+ &wrfvar14
+ rtminit_nsensor=1,
+ rtminit_platform=29
+ rtminit_satid=1
+ rtminit_sensor=63
+ thinning_mesh=60.0
+ thinning=true,
+ qc_rad=true,
+ write_iv_rad_ascii=true,
+ write_oa_rad_ascii=true,
+ rtm_option=2,
+ only_sea_rad=.true,
+ use_varbc=.true.
+ varbc_factor=1.0,
+ varbc_nbgerr=5000,
+ varbc_nobsmin=500,
+ use_crtm_kmatrix=.true.
+ airs_warmest_fov=.true.
+ /
+ &wrfvar15
+ /
+ &wrfvar16
+ /
+ &wrfvar17
+ analysis_type="3D-VAR"
+ /
+ &wrfvar18
+ analysis_date="2012-10-27_18:00:00.0000",
+ /
+ &wrfvar19
+ /
+ &wrfvar20
+ /
+ &wrfvar21
+ time_window_min="2012-10-27_15:00:00.0000",
+ /
+ &wrfvar22
+ time_window_max="2012-10-27_21:00:00.0000",
+ /
+ &time_control
+ start_year                          = 2012
+ start_month                         = 10
+ start_day                           = 27
+ start_hour                          = 18
+ start_minute                        = 00
+ start_second                        = 00
+ end_year                            = 2012
+ end_month                           = 10
+ end_day                             = 27
+ end_hour                            = 18
+ end_minute                          = 00
+ end_second                          = 00
+ /
+ &dfi_control
+ /
+ &domains
+ s_we                                = 1
+ e_we                                = 415
+ s_sn                                = 1
+ e_sn                                = 325
+ s_vert                              = 1
+ e_vert                              = 57
+ dx                                  = 15000
+ dy                                  = 15000
+ /
+ &physics
+ mp_physics                          = 6,     4,
+ sf_sfclay_physics                   = 1,     5,
+ sf_surface_physics                  = 2,     2,
+ bl_pbl_physics                      = 1,     5,
+ cu_physics                          = 6,     5,
+ num_soil_layers                     = 4,
+ num_land_cat                        = 24,
+
+ /
+ &fdda
+ /
+ &dynamics
+ /
+ &bdy_control
+ spec_bdy_width                      = 5,
+ spec_zone                           = 1,
+ relax_zone                          = 4,
+ specified                           = .true., .false.,
+ spec_exp                            = 0.33,
+ nested                              = .false., .true.,
+ /
+ &grib2
+ /
+ &namelist_quilt
+ /
