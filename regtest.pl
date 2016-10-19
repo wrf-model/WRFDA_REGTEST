@@ -479,12 +479,23 @@ if ($Arch eq "Linux") { #If on Yellowstone, make sure we have the right modules 
     my %New_Experiments ;
     print "\nTest list was specified on the command line.\n";
     print "Removing all but specified tests.\n";
+    undef @Compiletypes; # Need to reset @Compiletypes and re-populate it, since we may prune some test types all together
     my $testfound = 0;
     foreach my $testname (@tests) {
        foreach my $name (keys %Experiments) {
           if ($name eq $testname) {
              $New_Experiments{$name} = $Experiments{$name};
              $testfound = 1;
+             my $newtask = $New_Experiments{$name}{test_type};
+             foreach my $par (keys %{$Experiments{$name}{paropt}}) {
+                if ($newtask =~ /4DVAR/i) {
+                   push @Compiletypes, "4DVAR_$par" unless grep(/4DVAR_$par/,@Compiletypes);
+                } else {
+                   my $task_escapeplus = $par;
+                   $task_escapeplus =~ s/\+/\\+/g; # Need to escape "+" sign from "dm+sm" in the unless check
+                   push @Compiletypes, "3DVAR_$par" unless grep(/3DVAR_$task_escapeplus/,@Compiletypes);
+                }
+             }
           }
        }
        printf "\nWARNING : Test $testname not found!\n" unless ($testfound > 0);
@@ -822,7 +833,6 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
     }
 
     printf "Found $ass_type compilation option for %6s, option %2d.\n",$Compile_options{$option}, $option;
-
     # Run clean and configure scripts
 
     my $status = system ('./clean -a 1>/dev/null  2>/dev/null');
