@@ -744,6 +744,7 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
           ($Revision,$Revision_date) = &get_repo_revision("WRFDA_$compile_type");
        } else {
           $Revision = $Revision_defined;
+          (undef,$Revision_date) = &get_repo_revision("WRFDA_$compile_type");
        }
        print "Revision $Revision successfully checked out to WRFDA_$compile_type.\n";
     } else {
@@ -1405,11 +1406,11 @@ CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
 
        my $shortrev = substr( $Revision, 0, 8 ); #Use abbreviated hash for website
        if ($status == -1) {
-          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev, result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev ($Revision_date), result: <b><span style=\\\"color:red\\\">ERROR(S)</b>\";\n";
        } elsif ($status == 1) {
-          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev, result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev ($Revision_date), result: <b><span style=\\\"color:orange\\\">DIFF(S)</b>\";\n";
        } else {
-          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev, result: <b>ALL PASS</b>\";\n";
+          print WEBJS "        document.getElementById(\"${Machine_name_js}_${Compiler}_${Compiler_version_js}_update\").innerHTML = \"$year-$mon-$mday, revision $shortrev ($Revision_date), result: <b>ALL PASS</b>\";\n";
        }
        print WEBJS '}'."\n";
        close (WEBJS);
