@@ -3,6 +3,7 @@
 Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.8.1.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
+0        4denvar_large_conus         4DENVAR         16     1      dmpar
 1        4dvar_small                 4DVAR           16     1      serial|dmpar
 2        afwa_t7_ssmi                3DVAR            4     1      serial|dmpar
 3        afwa_t7_ssmi_32             3DVAR            4     1      serial|dmpar
@@ -16,7 +17,7 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 11       cwb_ascii_thinning          3DVAR            4     4      serial|smpar|dmpar|dm+sm
 12       cycle_sene_hires            CYCLING         16     1      dmpar
 13       cycle_ne_blizzard           CYCLING         16     1      dmpar
-14       dual_res_hybrid             HYBRID          16     1      dmpar|dm+sm
+14       dual_res_hybrid             3DENVAR         16     1      dmpar|dm+sm
 15       iasi_kavulich               3DVAR           16     1      dmpar
 16       lat_lon_outerloops          OBSPROC|3DVAR   16     1      dmpar
 17       multirad_pacific            3DVAR           32     1      dmpar
@@ -26,7 +27,7 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 21       radar_cv7                   GENBE|3DVAR      8     1      dmpar
 22       radar_meixu                 3DVAR            8     1      serial|dmpar
 23       rainfall_outerloops         4DVAR           32     1      dmpar
-24       realtime_hybrid             HYBRID          32     1      dmpar
+24       realtime_hybrid             3DENVAR         32     1      dmpar
 25       rttov_4dvar_madagascar      4DVAR           32     1      dmpar
 26       seviri_varbc                VARBC|3DVAR     16     1      dmpar
 27       sfc_assi_2_outerloop_guo    3DVAR           16     1      serial|dmpar
@@ -42,6 +43,7 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.8.1.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
+0        4denvar_large_conus         4DENVAR         16     1      dmpar
 1        4dvar_small                 4DVAR           16     1      serial|dmpar
 2        afwa_t7_ssmi                3DVAR            4     1      serial|dmpar
 3        afwa_t7_ssmi_32             3DVAR            4     1      serial|dmpar
@@ -55,7 +57,7 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 11       cwb_ascii_thinning          3DVAR            4     4      serial|smpar|dmpar|dm+sm
 12       cycle_sene_hires            CYCLING         16     1      dmpar
 13       cycle_ne_blizzard           CYCLING         16     1      dmpar
-14       dual_res_hybrid             HYBRID          16     1      dmpar|dm+sm
+14       dual_res_hybrid             3DENVAR         16     1      dmpar|dm+sm
 15       iasi_kavulich               3DVAR           16     1      dmpar
 16       lat_lon_outerloops          OBSPROC|3DVAR   16     1      dmpar
 17       multirad_pacific            3DVAR           32     1      dmpar
@@ -65,7 +67,7 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 21       radar_cv7                   GENBE|3DVAR      8     1      dmpar
 22       radar_meixu                 3DVAR            8     1      serial|dmpar
 23       rainfall_outerloops         4DVAR           32     1      dmpar
-24       realtime_hybrid             HYBRID          32     1      dmpar
+24       realtime_hybrid             3DENVAR         32     1      dmpar
 25       rttov_4dvar_madagascar      4DVAR           32     1      dmpar
 26       seviri_varbc                VARBC|3DVAR     16     1      dmpar
 27       sfc_assi_2_outerloop_guo    3DVAR           16     1      serial|dmpar
@@ -81,6 +83,7 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 Linux    x86_64    yellowstone    pgf90     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.8.1.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
+0        4denvar_large_conus         4DENVAR         16     1      dmpar
 1        4dvar_small                 4DVAR           16     1      serial|dmpar
 2        afwa_t7_ssmi                3DVAR            4     1      serial|dmpar
 3        afwa_t7_ssmi_32             3DVAR            4     1      serial|dmpar
@@ -94,7 +97,7 @@ Linux    x86_64    yellowstone    pgf90     P64000510 caldera   WRFDA-data-EM  B
 11       cwb_ascii_thinning          3DVAR            4     4      serial|smpar|dmpar|dm+sm
 12       cycle_sene_hires            CYCLING         16     1      dmpar
 13       cycle_ne_blizzard           CYCLING         16     1      dmpar
-14       dual_res_hybrid             HYBRID          16     1      dmpar|dm+sm
+14       dual_res_hybrid             3DENVAR         16     1      dmpar|dm+sm
 15       iasi_kavulich               3DVAR           16     1      dmpar
 16       lat_lon_outerloops          OBSPROC|3DVAR   16     1      dmpar
 17       multirad_pacific            3DVAR           32     1      dmpar
@@ -104,7 +107,7 @@ Linux    x86_64    yellowstone    pgf90     P64000510 caldera   WRFDA-data-EM  B
 11       radar_cv7                   GENBE|3DVAR      8     1      dmpar
 22       radar_meixu                 3DVAR            8     1      serial|dmpar
 23       rainfall_outerloops         4DVAR           32     1      dmpar
-24       realtime_hybrid             HYBRID          32     1      dmpar
+24       realtime_hybrid             3DENVAR         32     1      dmpar
 25       rttov_4dvar_madagascar      4DVAR           32     1      dmpar
 26       seviri_varbc                VARBC|3DVAR     16     1      dmpar
 27       sfc_assi_2_outerloop_guo    3DVAR           16     1      serial|dmpar

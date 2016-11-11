@@ -16,6 +16,8 @@
 #           January 2016, added 4DVAR serial test capability
 #           February 2016, Added HYBRID capabilities for local machines, enabled sm tests, cleaned up library link system
 #           June 2016, Added git/Github functionality
+#           November 2016, Added 4DENVAR as test type (existing HYBRID types are now called 3DENVAR)
+
 
 use strict;
 use Term::ANSIColor;
@@ -1885,10 +1887,11 @@ sub new_job {
          return 1;
 
 
-     } elsif ($types =~ /HYBRID/i) {
+     } elsif ( ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i) ) {
          $types =~ s/HYBRID//i;
+         $types =~ s/3DENVAR//i;
 
-         print "Starting HYBRID $par job '$nam'\n";
+         print "Starting 3DENVAR $par job '$nam'\n";
 
          # Hybrid jobs need some extra variables
          my $job_feedback;
@@ -2012,7 +2015,7 @@ sub new_job {
          }
          # Step 4: Finally, run WRFDA
 
-         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
+         $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_3DENVAR";
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
 
          print "Starting $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
@@ -2653,7 +2656,8 @@ sub new_job_ys {
 
      }
 
-     if ($types =~ /HYBRID/i) {
+     if ( ($types =~ /HYBRID/i) or ($types =~ /(3|4)DENVAR/i)) {
+         print "Hybrid types: $types\n";
          $types =~ s/HYBRID//i;
 
          # Hybrid jobs also need some extra variables
@@ -2663,8 +2667,13 @@ sub new_job_ys {
          my $ens_num;
          my $vertlevs;
          my $ens_filename;
+         my $hybrid_type = '3DENVAR'; # Default (if type is "HYBRID") is 3ENDVAR, since 4DENVAR was introduced later
          my @hybrid_commands;
 
+         if ($types =~ /4DENVAR/i) { $hybrid_type = '4DENVAR' }; 
+         $types =~ s/(3|4)DENVAR//i;
+
+         print "No hybrid types: $types\n";
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
@@ -2676,12 +2685,16 @@ sub new_job_ys {
          # For Hybrid jobs, we can either run the whole process, or start with pre-calculated perturbations
          if ( -e "ep.tar" ) {
 
-            if ( not -d "ep" ) { #No need to untar again if we're running multiple parallelisms
+            if ( (not -d "ep") and (not -d "ep01") ) { #No need to untar again if we're running multiple parallelisms
                $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "UNTAR_ENS_DATA";
 
                my @untar_commands;
                $untar_commands[0] = "system('tar -xf ep.tar');\n";
-               $untar_commands[1] = 'if ( ! -d "ep") {'."\n";
+               if ($hybrid_type eq '4DENVAR') {
+                  $untar_commands[1] = 'if ( ! -d "ep01") {'."\n";
+               } else {
+                  $untar_commands[1] = 'if ( ! -d "ep") {'."\n";
+               }
                $untar_commands[2] = '   open FH,">../FAIL";'."\n";
                $untar_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
                $untar_commands[4] = "   close FH;\n";
@@ -2703,13 +2716,13 @@ sub new_job_ys {
                   $h = $i;
                   $i ++;
                } else {
-                  print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UNTAR_ENS_DATA job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+                  print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UNTAR_ENS_DATA job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                   chdir ".." or die "Cannot chdir to '..' : $!\n";
                   return undef;
                }
             }
 
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_$hybrid_type";
             $hybrid_commands[0] = "use File::Basename;\n";
             $hybrid_commands[1] = ($par eq 'serial' || $par eq 'smpar') ?
                 "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
@@ -2722,6 +2735,14 @@ sub new_job_ys {
 
 
          } else {
+
+            # Full test not yet set up for 4DENVAR
+            if ($types =~ /4DENVAR/i) { 
+               print "\nERROR\n\nERROR\n\n4DENVAR not yet set up for full test\n";
+               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               return undef;
+            }
+
 
             # To make tests easier, the test directory should have a file "ens.info" that contains the wrf-formatted date
             # on the first line, the base filename should appear on the second line, and the number of vertical levels on 
@@ -2782,7 +2803,7 @@ sub new_job_ys {
                $h = $i;
                $i ++;
             } else {
-               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit ENS_MEAN_VARI job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit ENS_MEAN_VARI job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                chdir ".." or die "Cannot chdir to '..' : $!\n";
                return undef;
             }
@@ -2816,7 +2837,7 @@ sub new_job_ys {
                }
                $h ++;$i ++;
             } else {
-               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit ENS_PERT job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit ENS_PERT job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                chdir "../.." or die "Cannot chdir to '../..' : $!\n";
                return undef;
             }
@@ -2847,7 +2868,7 @@ sub new_job_ys {
                }
                $h ++;$i ++;
             } else {
-               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VERT_LOC job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+               print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VERT_LOC job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                chdir ".." or die "Cannot chdir to '..' : $!\n";
                return undef;
             }
@@ -2856,7 +2877,7 @@ sub new_job_ys {
 
             # Finally, create job to run WRFDA
 
-            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_HYBRID";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRFDA_3DENVAR";
             $hybrid_commands[0] = "use File::Basename;\n";
             $hybrid_commands[1] = 'if ( ! -e "fg") {'."\n";
             $hybrid_commands[2] = "   symlink('$ens_filename.mean','fg');\n";
@@ -2890,7 +2911,7 @@ sub new_job_ys {
                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "waiting";
             }
          } else {
-            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_HYBRID job for HYBRID task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_3DENVAR job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             chdir ".." or die "Cannot chdir to '..' : $!\n";
             return undef;
          }
