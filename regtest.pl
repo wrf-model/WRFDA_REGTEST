@@ -2321,7 +2321,7 @@ sub new_job_ys {
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
              "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
          $varbc_commands[1] = "mkdir(\"varbc_run_1_$par\");\n";
-         $varbc_commands[2] = "system(\"mv rsl* varbc_run_1_$par/\");\n";
+         $varbc_commands[2] = "system(\"cp statistics rsl* wrfvar_output varbc_run_1_$par/\");\n";
          $varbc_commands[3] = "unlink('VARBC.in');\n";
          $varbc_commands[4] = "rename('VARBC.out','VARBC.in');\n";
          $varbc_commands[5] = 'if ( ! -e "wrfvar_output") {'."\n";
@@ -3003,12 +3003,7 @@ sub compare_output {
 
      my $diff_file = "$name.diff";
 
-     #If we've gotten this far, print the output of diffwrf to a file
-     
-     open (FILE, ">> $diff_file") || die "problem opening $diff_file: $!\n";
-     print FILE @output;
-     close(FILE);
-
+     # Go through diffwrf output and look for various errors, then see if there are diffs. If nothing found, return 0 at the end of loop for no diff.
      foreach (@output) {
          
          return -5 if ( $_=~/could not open/i);
@@ -3028,8 +3023,13 @@ sub compare_output {
 
          if ($values[4]) {
              if ($values[4] =~ /^\d\.\d{10}E[+-]\d{2}$/) {# look for RMS format
-                 #compare RMS(1) and RMS(2) , return 1 if diff found.
-                 return 1 unless ($values[4] == $values[5]) ;
+                 #compare RMS(1) and RMS(2) , return 1 and print diff file if they are different
+                 unless ($values[4] == $values[5]) {
+                    open (FILE, "> $MainDir/$diff_file") || die "problem opening $diff_file: $!\n";
+                    print FILE @output;
+                    close(FILE);
+                    return 1;
+                 }
              }
          }
 
@@ -3106,7 +3106,7 @@ sub submit_job {
             $Experiments{$name}{paropt}{$par}{status} = "done";
 
             # Wrap-up this job:
-
+            system("ncdiff $name/fg $name/wrfvar_output $name/increment.$par.nc");
             rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
             # Compare the wrfvar_output with the BASELINE:
@@ -3273,6 +3273,7 @@ $count = 0;
                        printf "%-30s test,%8s was completed in %5d seconds. \n", $name, $par, $Experiments{$name}{paropt}{$par}{walltime};
 
                        # Wrap-up this job:
+                       system("ncdiff $name/fg $name/wrfvar_output $name/increment.$par.nc");
                        rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
                        # Compare against the baseline
