@@ -2053,6 +2053,46 @@ sub new_job {
          return 1;
 
      } elsif ($types =~ /4DVAR/i) {
+         if ($types =~ /VARBC/i) {
+            $types =~ s/VARBC//i;
+
+            while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+               $i ++;
+            }
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VARBC";
+
+            # Submit first job for VARBC 
+
+            print "Starting VARBC 4DVAR $par job '$nam'\n";
+
+            $starttime = gettimeofday();
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
+            if ($par=~/dm/i) {
+               $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
+               system($cmd);
+            } else {
+               $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+               system($cmd);
+            }
+            $endtime = gettimeofday();
+
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
+            $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
+                                                           + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+            print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+            printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+            mkpath("varbc_run_1_$par") or die "mkdir failed: $!";
+            unless ( -e "wrfvar_output") {
+               chdir "..";
+               $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
+               return "VARBC_FAIL";
+            }
+            system("mv statistics rsl* wrfvar_output varbc_run_1_$par/");
+            unlink 'VARBC.in';
+            move('VARBC.out','VARBC.in') or die "Move failed: $!";
+            $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
+         }
+
          $types =~ s/4DVAR//i;
 
          print "Starting 4DVAR $par job '$nam'\n";
@@ -2317,14 +2357,25 @@ sub new_job_ys {
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @varbc_commands;
-         $varbc_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
-             "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+         if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) ) {
+            $varbc_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
+                "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
+                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+         } elsif ($types =~ /4DVAR/i) {
+            $varbc_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
+                "system('$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n" :
+                "system('mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n";
+         } else {
+            print "\nVARBC jobs can only be run in combination with 3DVAR, FGAT, or 4DVAR tasks for now\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VARBC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            return undef;
+         }
          $varbc_commands[1] = "mkdir(\"varbc_run_1_$par\");\n";
          $varbc_commands[2] = "system(\"cp statistics rsl* wrfvar_output varbc_run_1_$par/\");\n";
-         $varbc_commands[3] = "unlink('VARBC.in');\n";
+         $varbc_commands[3] = "unlink('VARBC.in','wrfvar_output');\n";
          $varbc_commands[4] = "rename('VARBC.out','VARBC.in');\n";
-         $varbc_commands[5] = 'if ( ! -e "wrfvar_output") {'."\n";
+         $varbc_commands[5] = "if ( ! -e \"varbc_run_1_$par/wrfvar_output\") {\n";
          $varbc_commands[6] = '   open FH,">FAIL";'."\n";
          $varbc_commands[7] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
          $varbc_commands[8] = "   close FH;\n";
@@ -2673,7 +2724,6 @@ sub new_job_ys {
          if ($types =~ /4DENVAR/i) { $hybrid_type = '4DENVAR' }; 
          $types =~ s/(3|4)DENVAR//i;
 
-         print "No hybrid types: $types\n";
          chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
@@ -3273,6 +3323,7 @@ $count = 0;
                        printf "%-30s test,%8s was completed in %5d seconds. \n", $name, $par, $Experiments{$name}{paropt}{$par}{walltime};
 
                        # Wrap-up this job:
+                       
                        system("ncdiff $name/fg $name/wrfvar_output $name/increment.$par.nc");
                        rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 

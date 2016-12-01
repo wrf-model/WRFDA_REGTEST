@@ -7,7 +7,7 @@ start_hour=12,
 end_year=2012,
 end_month=09,
 end_day=25,
-end_hour=12,
+end_hour=18,
 interval_seconds=21600,
 input_from_file=true,
 input_outname="wrfinput_d<domain>_<date>",
@@ -22,16 +22,16 @@ inputout_end_h=6,
 &dfi_control
 /
 &domains
-time_step=360,
-e_we=292,
-e_sn=256,
-e_vert=57,
+time_step=600,
+e_we=73,
+e_sn=64,
+e_vert=30,
 num_metgrid_levels=27,
-p_top_requested=1000,
+p_top_requested=5000,
 interp_type=1,
 t_extrap_type=1,
-dx=60000,
-dy=60000,
+dx=240000,
+dy=240000,
 i_parent_start=1,
 j_parent_start=1,
 smooth_option=0,
@@ -53,7 +53,7 @@ isfflx=1,
 ifsnow=0,
 surface_input_source=1,
 num_soil_layers=4,
- num_land_cat                        = 24,
+ num_land_cat                        = 21,
 maxiens=1,
 maxens=1,
 maxens2=1,
@@ -94,9 +94,8 @@ real_data_init_type=3,
 &grib2
 /
 &wrfvar1
-var4d=false,
+var4d=true,
 multi_inc=0,
- print_detail_rad                    = .true.,
  print_detail_grad                   = .true.,
  print_detail_be                     = .true.,
 /
@@ -109,6 +108,7 @@ num_fgat_time=1,
 &wrfvar4
 use_satemobs=false,
 use_seviriobs=true,
+use_iasiobs=false,
 /
 &wrfvar5
 check_max_iv=true,
@@ -116,7 +116,7 @@ put_rand_seed=false,
 /
 &wrfvar6
 max_ext_its=1,
-ntmax=100,
+ntmax=2,
 orthonorm_gradient=false,
 /
 &wrfvar7
@@ -133,8 +133,6 @@ trace_use_dull=false,
 &wrfvar11
 cv_options_hum=1,
 check_rh=2,
-seed_array1=2012092512,
-seed_array2=2012092512,
 /
 &wrfvar12
 /
@@ -142,30 +140,24 @@ seed_array2=2012092512,
 /
 &wrfvar14
 rtminit_nsensor=1,
-rtminit_platform=12,
-rtminit_satid=2,
-rtminit_sensor=21,
+rtminit_platform=12,10
+rtminit_satid=2,2
+rtminit_sensor=21,16
+thinning_mesh=30*240.0
+thinning=true,
 qc_rad=true,
 write_iv_rad_ascii=true,
 write_oa_rad_ascii=true,
 rtm_option=2,
 use_crtm_kmatrix=true,
-use_rttov_kmatrix=false,
-only_sea_rad=false,
+only_sea_rad=true,
 use_varbc=true,
 varbc_nbgerr=5000,
-crtm_mwwater_coef="FASTEM5.MWwater.EmisCoeff.bin",
-crtm_irland_coef="USGS.IRland.EmisCoeff.bin",
+crtm_irland_coef="IGBP.IRland.EmisCoeff.bin",
 /
 &wrfvar15
 /
 &wrfvar16
-alphacv_method=2,
-ensdim_alpha=0,
-alpha_truncation=0,
-alpha_corr_type=3,
-alpha_corr_scale=1500,
-alpha_std_dev=1.0,
 /
 &wrfvar17
 analysis_type="3D-VAR",
@@ -179,10 +171,10 @@ analysis_date="2012-09-25_12:00:00.0000",
 &wrfvar20
 /
 &wrfvar21
-time_window_min="2012-09-25_09:00:00.0000",
+time_window_min="2012-09-25_12:00:00.0000",
 /
 &wrfvar22
-time_window_max="2012-09-25_15:00:00.0000",
+time_window_max="2012-09-25_18:00:00.0000",
 /
 &perturbation
 jcdfi_use=false,
