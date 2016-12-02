@@ -1418,7 +1418,7 @@ CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
        close (WEBJS);
 
 
-       my @uploadit = ("scp", "summary_${Machine_name}_${Compiler}_${Compiler_version}.html","${Machine_name}_${Compiler}_${Compiler_version}_date.js" , "$ThisGuy\@nebula.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
+       my @uploadit = ("scp", "summary_${Machine_name}_${Compiler}_${Compiler_version}.html","${Machine_name}_${Compiler}_${Compiler_version}_date.js" , "$ThisGuy\@galaxy.mmm.ucar.edu:/web/htdocs/wrf/users/wrfda/regression/");
        $status = system(@uploadit);
        if ($status == 0) {
           print "Summary successfully uploaded to: http://www.mmm.ucar.edu/wrf/users/wrfda/regression/summary_${Machine_name}_${Compiler}_${Compiler_version}.html\n";
