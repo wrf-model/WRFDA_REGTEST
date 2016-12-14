@@ -2749,6 +2749,9 @@ sub new_job_ys {
                $untar_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
                $untar_commands[4] = "   close FH;\n";
                $untar_commands[5] = "}\n";
+               if ($hybrid_type eq '4DENVAR') {
+                  $untar_commands[6] = 'symlink("ep04","ep")'."\n";
+               }
 
                &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
                                     'caldera', $Project, @untar_commands );
