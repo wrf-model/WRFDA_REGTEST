@@ -61,7 +61,6 @@ ob_format=2,
  use_radar_rf     = .true.
  use_radar_rqv    = .true.
  use_radar_rhv    = .false.
- use_3dvar_phy    = .true.
 /
 &wrfvar5
 check_max_iv=true,
