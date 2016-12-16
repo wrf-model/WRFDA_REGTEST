@@ -43,6 +43,7 @@
  seed_array2                         = 2003010100,
  lat_stats_option                    = false,
  calculate_cg_cost_fn                = true,
+ sfc_hori_intp_options               = 2,
 /
 &wrfvar12
 /

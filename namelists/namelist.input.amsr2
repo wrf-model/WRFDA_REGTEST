@@ -71,6 +71,7 @@
  write_iv_rad_ascii=true,
  write_oa_rad_ascii=true,
  rtm_option=2,
+ crtm_cloud=true,
  only_sea_rad=.true,
  use_varbc=.true.
  varbc_factor=1.0,

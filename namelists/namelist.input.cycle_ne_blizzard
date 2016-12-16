@@ -30,8 +30,10 @@
 /
 &wrfvar11
  check_rh                            = 1,
- sfc_assi_options                    = 2
+ sfc_assi_options                    = 2,
  calculate_cg_cost_fn                = .true.
+ sfc_hori_intp_options               = 2,
+ q_error_options                     = 2,
 /
 &wrfvar12
 /

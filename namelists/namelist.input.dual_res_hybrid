@@ -119,6 +119,7 @@
  seed_array2=0,
  sfc_assi_options=2,
  CALCULATE_CG_COST_FN =  T,
+ q_error_options                     = 2,
  /
  lat_stats_option=.false.,
  &wrfvar12
