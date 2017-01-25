@@ -37,7 +37,7 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 31       tut_xinzhang_fgat           OBSPROC|FGAT    16     1      dmpar
 32       tut_xinzhang_obsproc        OBSPROC|3DVAR   16     1      dmpar
 33       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10     1      dmpar
-34       varbc_4dvar                 VARBC|4DVAR     32     1      dmpar
+#34       varbc_4dvar                 VARBC|4DVAR     32     1      dmpar
 35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
@@ -78,7 +78,7 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 31       tut_xinzhang_fgat           OBSPROC|FGAT    16     1      dmpar
 32       tut_xinzhang_obsproc        OBSPROC|3DVAR   16     1      dmpar
 33       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10     1      dmpar
-34       varbc_4dvar                 VARBC|4DVAR     32     1      dmpar
+#34       varbc_4dvar                 VARBC|4DVAR     32     1      dmpar
 35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
@@ -119,7 +119,7 @@ Linux    x86_64    yellowstone    pgf90     P64000510 caldera   WRFDA-data-EM  B
 21       tut_xinzhang_fgat           OBSPROC|FGAT    16     1      dmpar
 32       tut_xinzhang_obsproc        OBSPROC|3DVAR   16     1      dmpar
 33       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10     1      dmpar
-34       varbc_4dvar                 VARBC|4DVAR     32     1      dmpar
+#34       varbc_4dvar                 VARBC|4DVAR     32     1      dmpar
 35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
