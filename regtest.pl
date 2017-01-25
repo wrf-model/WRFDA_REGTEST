@@ -1413,7 +1413,7 @@ sub show_tests {
     my (%Experiments) = @_;
 
     printf "#INDEX EXPERIMENT                  TYPE           CPU_MPI CPU_OPENMP  PAROPT\n";
-    printf "%-4d   %-27s %-16s %-8d  %-8d"."%-7s "x(keys %{$Experiments{$_}{paropt}})."\n",
+    printf " %-4d  %-27s %-16s %-8d  %-8d"."%-7s "x(keys %{$Experiments{$_}{paropt}})."\n",
          $Experiments{$_}{index}, 
          $_, 
          $Experiments{$_}{test_type},
@@ -1429,12 +1429,12 @@ sub refresh_status {
 
     my @mes; 
 
-    push @mes, "Experiment                  Paropt      Job type        CPU_MPI  CPU_OMP  Status    Walltime (s)   Result\n";
-    push @mes, "=============================================================================================================\n";
+    push @mes, "Experiment                  Paropt   Job type        CPU_MPI CPU_OMP Status    Walltime  Result\n";
+    push @mes, "====================================================================================================\n";
 
     foreach my $name (sort keys %Experiments) {
         foreach my $par (sort keys %{$Experiments{$name}{paropt}}) {
-            push @mes, sprintf "%-28s%-12s%-16s%-9d%-9d%-10s%-15d%-7s\n",
+            push @mes, sprintf "%-27s %-8s %-15s %-7d %-7d %-10s%-10d%-8s\n",
                     $name, $par, $Experiments{$name}{test_type},
                     $Experiments{$name}{paropt}{$par}{cpu_mpi},
                     $Experiments{$name}{paropt}{$par}{cpu_openmp},
@@ -1444,7 +1444,7 @@ sub refresh_status {
         }
     }
 
-    push @mes, "=============================================================================================================\n";
+    push @mes, "====================================================================================================\n";
     return @mes;
 }
 
