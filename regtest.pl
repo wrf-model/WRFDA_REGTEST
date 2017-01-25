@@ -395,6 +395,7 @@ while (<DATA>) {
        };
      }; 
 }
+close DATA;
 
 # If source specified on command line, use it
 $Source = $Source_defined if defined $Source_defined;
@@ -455,19 +456,13 @@ unless ( -e "$Database" ) {
    die "DATABASE NOT FOUND: '$Database'\nQuitting $0...\n";
 }
 
+die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (yellowstone): ifort, gfortran, pgf90 \n Linux x86_64 (loblolly): ifort, gfortran, pgf90 \n Linux i486, i586, i686: ifort, gfortran, pgf90 \n Darwin (Mac OSx): pgf90, g95 \n\n" unless (keys %Experiments) > 0 ;
 
 printf "Finished parsing the table, the experiments are : \n";
-printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
-printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n", 
-     $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
-         keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
+&show_tests(%Experiments);
 
-die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (yellowstone): ifort, gfortran, pgf90 \n Linux x86_64 (loblolly): ifort, gfortran, pgf90 \n Linux i486, i586, i686: ifort, gfortran, pgf90 \n Darwin (Mac OSx): pgf90, g95 \n\n" unless (keys %Experiments) > 0 ; 
-
-sleep 2; #Pause to let user see list
-
-if ($Arch eq "Linux") { #If on Yellowstone, make sure we have the right modules loaded
-   if ( !( $ENV{TACC_FAMILY_COMPILER} =~ m/$module_loaded/) ) {; # Check Yellowstone ENV variable for current module
+if ($Arch eq "Linux") { #If on a machine with modules, make sure we have the right modules loaded
+   if ( !( $ENV{TACC_FAMILY_COMPILER} =~ m/$module_loaded/) ) {; # Check ENV variable for current module
       print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
       print "You have specified the $module_loaded compiler, but the $ENV{TACC_FAMILY_COMPILER} module is loaded!";
       print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
@@ -506,11 +501,7 @@ if ($Arch eq "Linux") { #If on Yellowstone, make sure we have the right modules 
     die "\n\nNO VALID TESTS MATCH FROM tests= OPTION AND $Testfile\n\nQUITTING TEST SCRIPT\n\n" unless (%New_Experiments);
     %Experiments = %New_Experiments;
     printf "\nNew list of experiments : \n";
-    printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
-    printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
-         $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
-             keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
-    sleep 2; #Pause to let user see new list
+    &show_tests(%Experiments);
  }
 
 # Set paths to necessary utilities, set BUFR read ENV variables if needed
@@ -548,11 +539,7 @@ if ($Arch eq "Linux") {
            }
         }
         printf "\nNew list of experiments : \n";
-        printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
-        printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
-             $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
-                 keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
-        sleep 2; #Pause to let user see new list
+        &show_tests(%Experiments);
 
      }
   }
@@ -665,11 +652,7 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
         }
 
     printf "\nNew list of experiments : \n";
-    printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
-    printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
-         $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
-             keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
-    sleep 2; #Pause to let user see new list
+    &show_tests(%Experiments);
     }
  }
 
@@ -704,11 +687,7 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
             }
         }
     printf "\nNew list of experiments : \n";
-    printf "#INDEX   EXPERIMENT                   TYPE             CPU_MPI  CPU_OPENMP    PAROPT\n";
-    printf "%-4d     %-27s  %-16s   %-8d   %-10d"."%-10s "x(keys %{$Experiments{$_}{paropt}})."\n",
-         $Experiments{$_}{index}, $_, $Experiments{$_}{test_type},$Experiments{$_}{cpu_mpi},$Experiments{$_}{cpu_openmp},
-             keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
-    sleep 2; #Pause to let user see new list
+    &show_tests(%Experiments);
     }
  }
 
@@ -1427,6 +1406,23 @@ CHECKRESULTS: foreach my $exp (sort keys %Experiments) {
        }
        unlink "$Machine_name\_$Compiler\_${Compiler_version}_date.js";
     }
+}
+
+sub show_tests {
+
+    my (%Experiments) = @_;
+
+    printf "#INDEX EXPERIMENT                  TYPE           CPU_MPI CPU_OPENMP  PAROPT\n";
+    printf "%-4d   %-27s %-16s %-8d  %-8d"."%-7s "x(keys %{$Experiments{$_}{paropt}})."\n",
+         $Experiments{$_}{index}, 
+         $_, 
+         $Experiments{$_}{test_type},
+         $Experiments{$_}{cpu_mpi},
+         $Experiments{$_}{cpu_openmp},
+         keys%{$Experiments{$_}{paropt}} for (keys %Experiments);
+
+sleep 2; #Pause to let user see list
+
 }
 
 sub refresh_status {
