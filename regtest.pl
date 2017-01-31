@@ -3155,7 +3155,7 @@ sub submit_job {
             $Experiments{$name}{paropt}{$par}{status} = "done";
 
             # Wrap-up this job:
-            system("ncdiff $name/fg $name/wrfvar_output $name/increment.$par.nc");
+            system("ncdiff $name/wrfvar_output $name/fg $name/increment.$par.nc");
             rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
             # Compare the wrfvar_output with the BASELINE:
@@ -3323,7 +3323,7 @@ $count = 0;
 
                        # Wrap-up this job:
                        
-                       system("ncdiff $name/fg $name/wrfvar_output $name/increment.$par.nc");
+                       system("ncdiff $name/wrfvar_output $name/fg $name/increment.$par.nc");
                        rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
                        # Compare against the baseline
