@@ -34,6 +34,7 @@ my $prevlon= -9999.9;
 my $prevlat= -9999.9;
 my $blacklist_lon = -9999.9;
 my $numobs_after_thinning = 0;
+my $numstations;
 
 # Loop for reading infile line by line
 while (<INFILE>) {
@@ -46,7 +47,9 @@ while (<INFILE>) {
    if (/^TOTAL NUMBER/) {
       open(OUTFILE, ">$outfile") or die "Couldn't open output file $outfile for writing: $!";
       print OUTFILE $_;
-      print OUTFILE "#-----------------#\n\n";
+      $numstations = $_;
+      $numstations =~ s/\D//g;
+      print OUTFILE "#-----------------#\n";
       next;
    }
    next if /^#-/;  # Skip lines that start "#-"
@@ -118,12 +121,18 @@ while (<INFILE>) {
             }
          $i--; # Need to decrement $i and $numobs_after_thinning since they were incremented before
          $numobs_after_thinning--;
+         next;
          } 
       }
       $Radar_site[$i][$j]=$_;
       $j++;
    }
 
+}
+
+if ($numstations == 1) {
+   print "Num obs for $name= $numobs\n";
+   print "Num obs after thinning    = $numobs_after_thinning\n";
 }
 
 #Print final radar site
@@ -136,7 +145,7 @@ sub print_radar_site {
    my (@radar_site) = @_;
 
    open(OUTFILE, ">>$outfile") or die "Couldn't open output file $outfile for writing: $!";
-   printf OUTFILE "${platform}${name}${lon}${lat}${elev}${date}%6u%6u\n",$numobs_after_thinning,$maxlevs;
+   printf OUTFILE "\n${platform}${name}${lon}${lat}${elev}${date}%6u%6u\n",$numobs_after_thinning,$maxlevs;
    print OUTFILE "#-------------------------------------------------------------------------------#\n\n";
 
 #   foreach my $ob ($#radar_site) {
