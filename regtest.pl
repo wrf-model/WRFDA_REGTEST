@@ -470,79 +470,77 @@ if ($Arch eq "Linux") { #If on a machine with modules, make sure we have the rig
    }
 }
 
- # If a command-line test list was specified, remove other tests
- if ( $test_list_string ) {
-    my @tests = split(/ /,$test_list_string);
-    my %New_Experiments ;
-    print "\nTest list was specified on the command line.\n";
-    print "Removing all but specified tests.\n";
-    undef @Compiletypes; # Need to reset @Compiletypes and re-populate it, since we may prune some test types all together
-    my $testfound = 0;
-    foreach my $testname (@tests) {
-       foreach my $name (keys %Experiments) {
-          if ($name eq $testname) {
-             $New_Experiments{$name} = $Experiments{$name};
-             $testfound = 1;
-             my $newtask = $New_Experiments{$name}{test_type};
-             foreach my $par (keys %{$Experiments{$name}{paropt}}) {
-                if ($newtask =~ /4DVAR/i) {
-                   push @Compiletypes, "4DVAR_$par" unless grep(/4DVAR_$par/,@Compiletypes);
-                } else {
-                   my $task_escapeplus = $par;
-                   $task_escapeplus =~ s/\+/\\+/g; # Need to escape "+" sign from "dm+sm" in the unless check
-                   push @Compiletypes, "3DVAR_$par" unless grep(/3DVAR_$task_escapeplus/,@Compiletypes);
-                }
-             }
-          }
-       }
-       printf "\nWARNING : Test $testname not found!\n" unless ($testfound > 0);
-       $testfound = 0;
-    }
-    die "\n\nNO VALID TESTS MATCH FROM tests= OPTION AND $Testfile\n\nQUITTING TEST SCRIPT\n\n" unless (%New_Experiments);
-    %Experiments = %New_Experiments;
-    printf "\nNew list of experiments : \n";
-    &show_tests(%Experiments);
- }
+# If a command-line test list was specified, remove other tests
+if ( $test_list_string ) {
+   my @tests = split(/ /,$test_list_string);
+   my %New_Experiments ;
+   print "\nTest list was specified on the command line.\n";
+   print "Removing all but specified tests.\n";
+   undef @Compiletypes; # Need to reset @Compiletypes and re-populate it, since we may prune some test types all together
+   my $testfound = 0;
+   foreach my $testname (@tests) {
+      foreach my $name (keys %Experiments) {
+         if ($name eq $testname) {
+            $New_Experiments{$name} = $Experiments{$name};
+            $testfound = 1;
+            my $newtask = $New_Experiments{$name}{test_type};
+            foreach my $par (keys %{$Experiments{$name}{paropt}}) {
+               if ($newtask =~ /4DVAR/i) {
+                  push @Compiletypes, "4DVAR_$par" unless grep(/4DVAR_$par/,@Compiletypes);
+               } else {
+                  my $task_escapeplus = $par;
+                  $task_escapeplus =~ s/\+/\\+/g; # Need to escape "+" sign from "dm+sm" in the unless check
+                  push @Compiletypes, "3DVAR_$par" unless grep(/3DVAR_$task_escapeplus/,@Compiletypes);
+               }
+            }
+         }
+      }
+      printf "\nWARNING : Test $testname not found!\n" unless ($testfound > 0);
+      $testfound = 0;
+   }
+   die "\n\nNO VALID TESTS MATCH FROM tests= OPTION AND $Testfile\n\nQUITTING TEST SCRIPT\n\n" unless (%New_Experiments);
+   %Experiments = %New_Experiments;
+   printf "\nNew list of experiments : \n";
+   &show_tests(%Experiments);
+}
 
 # Set paths to necessary utilities, set BUFR read ENV variables if needed
 
 if ($Arch eq "Linux") {
-    if ($Machine_name =~ /yellowstone/i) { # Yellowstone
-        $diffwrfdir = "~/bin/";
-    }
+   $diffwrfdir = "~/bin/";
 }
 
 # What time is it?
 #
-   my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = gmtime(time);
-   $year += 1900;
-   $mon += 101;     $mon = sprintf("%02d", $mon % 100);
-   $mday += 100;    $mday = sprintf("%02d", $mday % 100);
-   $hour += 100;    $hour = sprintf("%02d", $hour % 100);
-   $min += 100;     $min = sprintf("%02d", $min % 100);
-   $sec += 100;     $sec = sprintf("%02d", $sec % 100);
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = gmtime(time);
+$year += 1900;
+$mon += 101;     $mon = sprintf("%02d", $mon % 100);
+$mday += 100;    $mday = sprintf("%02d", $mday % 100);
+$hour += 100;    $hour = sprintf("%02d", $hour % 100);
+$min += 100;     $min = sprintf("%02d", $min % 100);
+$sec += 100;     $sec = sprintf("%02d", $sec % 100);
 
 #For cycle jobs, WRF must exist. Will add capability to compile WRF in the (near?) future
-  if (grep { $Experiments{$_}{test_type} =~ /cycl/i } keys %Experiments) {
-     if (-e "$libdir/WRFV3_$Compiler/main/wrf.exe") {
-        print "Will use WRF code in $libdir/WRFV3_$Compiler for CYCLING test\n";
-     } else {
-        print "\n$libdir/WRFV3_$Compiler/main/wrf.exe DOES NOT EXIST\n";
-        print "Removing cycling tests...\n\n";
-        foreach my $name (keys %Experiments) {
-           foreach my $type ($Experiments{$name}{test_type}) {
-              if ($type =~ /CYCLING/i) {
-                 delete $Experiments{$name};
-                 print "Deleting Cycling experiment $name from test list.\n\n";
-                 next ;
-              }
-           }
-        }
-        printf "\nNew list of experiments : \n";
-        &show_tests(%Experiments);
+if (grep { $Experiments{$_}{test_type} =~ /cycl/i } keys %Experiments) {
+   if (-e "$libdir/WRFV3_$Compiler/main/wrf.exe") {
+      print "Will use WRF code in $libdir/WRFV3_$Compiler for CYCLING test\n";
+   } else {
+      print "\n$libdir/WRFV3_$Compiler/main/wrf.exe DOES NOT EXIST\n";
+      print "Removing cycling tests...\n\n";
+      foreach my $name (keys %Experiments) {
+         foreach my $type ($Experiments{$name}{test_type}) {
+            if ($type =~ /CYCLING/i) {
+               delete $Experiments{$name};
+               print "Deleting Cycling experiment $name from test list.\n\n";
+               next ;
+            }
+         }
+      }
+      printf "\nNew list of experiments : \n";
+      &show_tests(%Experiments);
 
-     }
-  }
+   }
+}
 
 # Check for correct modules which have been specially built on Yellowstone with compatible NETCDF/HDF5 (sigh...why can't we just have these compatible for ALL modules...)
 if ( ($Machine_name eq "yellowstone") and ($use_HDF5 eq "yes") ) {
