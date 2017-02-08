@@ -1,0 +1,121 @@
+&wrfvar1
+ print_detail_grad                   = .false.,
+ print_detail_be                     = .false.,
+/
+&wrfvar2
+/
+&wrfvar3
+ ob_format                           = 1,
+ num_fgat_time                       = 7,
+/
+&wrfvar4
+ use_satemobs                        = .true.,
+ use_synopobs                        = .true.,
+ use_metarobs                        = .true.,
+ use_geoamvobs                       = .true.,
+ use_soundobs                        = .true.,
+ use_shipsobs                        = .true.,
+ use_pilotobs                        = .true.,
+ use_buoyobs                         = .true.,
+ use_profilerobs                     = .true.,
+ use_qscatobs                        = .true.,
+ use_airepobs                        = .true.,
+ use_amsuaobs                        = .false.,
+/
+&wrfvar5
+ check_max_iv                        = .true.,
+/
+&wrfvar6
+ max_ext_its                         = 1,
+ ntmax                               = 5,
+/
+&wrfvar7
+ cv_options                          = 5,
+ cloud_cv_options                    = 1,
+ je_factor                           = 2.0,
+/
+&wrfvar8
+/
+&wrfvar9
+ trace_use                           = .false.,
+ trace_all_pes                       = .false.,
+/
+&wrfvar10
+ test_transforms                     = .false.,
+ test_gradient                       = .false.,
+/
+&wrfvar11
+ calculate_cg_cost_fn                = .false.,
+ sfc_assi_options                    = 1,
+/
+&wrfvar12
+/
+&wrfvar13
+/
+&wrfvar14
+/
+&wrfvar15
+/
+&wrfvar16
+ use_4denvar                         = .true.,
+ ensdim_alpha                        = 2,
+ alphacv_method                      = 2,
+ alpha_corr_scale                    = 200.0,
+ alpha_vertloc                       = .true.,
+ alpha_hydrometeors                  = .false.,
+/
+&wrfvar17
+ analysis_type                       = '3D-VAR',
+/
+&wrfvar18
+ analysis_date                       = "2013-05-20_00:00:00.0000",
+/
+&wrfvar19
+/
+&wrfvar20
+/
+&wrfvar21
+ time_window_min                     = "2013-05-19_21:00:00.0000",
+/
+&wrfvar22
+ time_window_max                     = "2013-05-20_03:00:00.0000",
+/
+&wrfvar23
+/
+&time_control
+ start_year                          = 2013,
+ start_month                         = 05,
+ start_day                           = 20,
+ start_hour                          = 00,
+ end_year                            = 2013,
+ end_month                           = 05,
+ end_day                             = 20,
+ end_hour                            = 00,
+/
+&dfi_control
+/
+&domains
+ time_step                           = 240,
+ e_we                                = 415,
+ e_sn                                = 325,
+ e_vert                              = 40,
+ dx                                  = 15000,
+ dy                                  = 15000,
+/
+&physics
+ mp_physics                          = 8,
+ sf_surface_physics                  = 2,
+ sf_sfclay_physics                   = 2,
+ num_soil_layers                     = 4,
+ num_land_cat                        = 20,
+/
+&fdda
+/
+&dynamics
+/
+&bdy_control
+/
+&grib2
+/
+&namelist_quilt
+/
