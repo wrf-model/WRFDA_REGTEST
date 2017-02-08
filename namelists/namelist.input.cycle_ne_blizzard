@@ -9,6 +9,10 @@
  ob_format                           = 2,
 /
 &wrfvar4
+ use_amsuaobs                        = .true.,
+ use_hirs4obs                        = .true.,
+ use_mhsobs                          = .true.,
+ use_airsobs                         = .true.,
 /
 &wrfvar5
 /
@@ -40,6 +44,24 @@
 &wrfvar13
 /
 &wrfvar14
+ rtminit_nsensor                     = 4,
+ rtminit_platform                    = 1,1,1,1
+ rtminit_satid                       = 19,18,18,19,
+ rtminit_sensor                      = 3,0,15,15
+ thinning_mesh                       = 60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,
+ thinning                            = .true.,
+ read_biascoef                       = .false.,
+ biascorr                            = .false.,
+ biasprep                            = .false.,
+ qc_rad                              = .true.,
+ write_iv_rad_ascii                  = .true.,
+ write_oa_rad_ascii                  = .false.,
+ rtm_option                          = 1,
+ only_sea_rad                        = .true.,
+ use_varbc                           = .false.,
+ freeze_varbc                        = .false.,
+ varbc_factor                        = 10.0,
+ use_rttov_kmatrix                   = true,
 /
 &wrfvar15
 /
@@ -55,10 +77,10 @@
 &wrfvar20
 /
 &wrfvar21
- time_window_min                     = "2015-01-26_23:30:00.0000",
+ time_window_min                     = "2015-01-26_22:00:00.0000",
 /
 &wrfvar22
- time_window_max                     = "2015-01-27_00:30:00.0000",
+ time_window_max                     = "2015-01-27_02:00:00.0000",
 /
 &wrfvar23
 /

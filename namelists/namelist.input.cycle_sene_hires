@@ -8,6 +8,9 @@
  ob_format                           = 2,
 /
 &wrfvar4
+ use_hirs4obs                        = .true.,
+ use_amsuaobs                        = .true.,
+ use_mhsobs                          = .true.,
 /
 &wrfvar5
 /
@@ -37,6 +40,26 @@
 &wrfvar13
 /
 &wrfvar14
+ rtminit_nsensor                     =  9,
+ rtminit_platform                    = 10,  1,  1,  1,  1,  1,  1, 10, 10,
+ rtminit_satid                       =  2, 15, 18, 19, 18, 18, 19,  1,  2,
+ rtminit_sensor                      =  3,  3,  3,  3,  0, 15, 15, 15, 15,
+ rad_monitoring                      =  0,
+ thinning_mesh                       = 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0,
+ thinning                            = true,
+ qc_rad                              = true,
+ write_iv_rad_ascii                  = true,
+ write_oa_rad_ascii                  = true,
+ use_error_factor_rad                = false,
+ use_antcorr                         = false,
+ rtm_option                          = 2,
+ only_sea_rad                        = false,
+ use_varbc                           = true,
+ freeze_varbc                        = false,
+ varbc_factor                        = 1.0,
+ varbc_nobsmin                       = 10,
+ use_crtm_kmatrix                    = true,
+ varbc_nbgerr                        = 5000
 /
 &wrfvar15
 /
@@ -52,10 +75,10 @@
 &wrfvar20
 /
 &wrfvar21
- time_window_min                     = "2015-04-22_11:30:00.0000",
+ time_window_min                     = "2015-04-22_11:00:00.0000",
 /
 &wrfvar22
- time_window_max                     = "2015-04-22_12:30:00.0000",
+ time_window_max                     = "2015-04-22_13:00:00.0000",
 /
 &wrfvar23
 /
@@ -97,7 +120,7 @@
  cu_physics                          = 0,     1,     0,
  cudt                                = 0,     5,     5,
  num_soil_layers                     = 4,
- num_land_cat                        = 24,
+ num_land_cat                        = 21,
 /
 &scm
 /
