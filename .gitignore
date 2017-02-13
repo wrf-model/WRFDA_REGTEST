@@ -18,6 +18,8 @@ WRFDA-data-EM*
 ###############################
 WRFDA_[3-4]DVAR_*
 WRFV3*
+regtest_compile_logs
+4denvar_large_conus
 4dvar_small
 afwa_t7_ssmi
 afwa_t7_ssmi_32
@@ -51,6 +53,7 @@ tut_xinzhang_4dvar
 tut_xinzhang_fgat
 tut_xinzhang_obsproc
 tut_xinzhang_rttov_genbe
+varbc_4dvar
 wind_sd
 
 # diffwrf files #
