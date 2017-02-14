@@ -968,8 +968,8 @@ while ( @compile_job_list ) {
 
    for my $i ( 0 .. $#compile_job_list ) {
       my $jobnum = $compile_job_list[$i];
-      my $feedback = `bjobs $jobnum`;
-      if ( ($feedback =~ m/RUN/) || ( $feedback =~ m/PEND/ ) ) {; # Still pending or running
+      my $job_feedback = `bjobs $jobnum`;
+      if ( ($job_feedback =~ m/RUN/) || ( $job_feedback =~ m/PEND/ ) ) {; # Still pending or running
          next;
       }
 
@@ -1044,27 +1044,26 @@ foreach my $name (keys %Experiments) {
    unless ( -e "$Database/$name" ) {
       die "DATABASE NOT FOUND: '$Database/$name'\n";
    }
-   # Symbolically link all data files ;
+   # Make a subdirectory for each parallelism
 
    chdir "$name" or die "Cannot chdir to $name : $!\n";
-   my @datafiles = glob ("$Database/$name/*");
-   foreach (@datafiles) {
-      next if $_ =~ /namelist./;
-#         if ($_ =~ "namelist.input") {
-#            copy("$MainDir/namelists/namelist.input.$name", basename($_)) or warn "Cannot copy $_ to local directory: $!\n";
-#         } else {
-      symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
-#         }
+   foreach my $par (keys %{$Experiments{$name}{paropt}}) {
+      mkdir "$par", 0755 or warn "Cannot make $name/$par directory: $!\n";
+      chdir "$par" or die "Cannot chdir to $name/$par : $!\n";
+      # Symbolically link all data files ;
+      my @datafiles = glob ("$Database/$name/*");
+      foreach (@datafiles) {
+         next if $_ =~ /namelist./;
+         symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+      }
+      # Copy namelists so test can be easily re-run with different namelist options
+      copy("$MainDir/namelists/namelist.input.$name", "namelist.input") or warn "Cannot copy namelist.input to local directory: $!\n";
+      if ($Experiments{$name}{test_type} =~ /OBSPROC/i) {
+         copy("$MainDir/namelists/namelist.obsproc.$name", "namelist.obsproc") or warn "Cannot copy namelist.obsproc to local directory: $!\n";
+      }
+      mkdir "trace"; #Make trace directory for "trace_use" option
+      chdir ".." or die "Cannot chdir to .. : $!\n";
    }
-
-
-   # Copy namelists so test can be easily re-run with different namelist options
-   copy("$MainDir/namelists/namelist.input.$name", "namelist.input") or warn "Cannot copy namelist.input to local directory: $!\n";
-   if ($Experiments{$name}{test_type} =~ /OBSPROC/i) {
-      copy("$MainDir/namelists/namelist.obsproc.$name", "namelist.obsproc") or warn "Cannot copy namelist.obsproc to local directory: $!\n";
-   }
-     
-   mkdir "trace"; #Make trace directory for "trace_use" option
 
    printf "The directory for %-30s is ready.\n",$name;
 
@@ -1457,7 +1456,7 @@ sub new_job {
      
      my ($nam, $com, $par, $cpun, $cpum, $types) = @_;
 
-     my $feedback;
+     my $job_feedback;
      my $starttime;
      my $endtime;
      my $h;
@@ -1465,7 +1464,7 @@ sub new_job {
 
      # Enter into the experiment working directory:
 
-     chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+     chdir "$nam/$par" or die "Cannot chdir to $nam/$par : $!\n";
 
      # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
      if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
@@ -1509,7 +1508,7 @@ sub new_job {
            symlink "$MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL", "RRTM_DATA" or warn "Cannot symlink $_ to local directory: $!\n";
         } else {
            print "\nERROR:\nCAN NOT DETERMINE JOB TYPE FOR LINKING FIX FILES\nERROR IN $types FOR JOB '$nam'\n";
-           chdir ".." or die "Cannot chdir to .. : $!\n";
+           chdir "../../" or die "Cannot chdir to ../.. : $!\n";
 
            return undef;
         }
@@ -1544,7 +1543,7 @@ sub new_job {
             } else {
                printf "ob.ascii does not exist!\n";
                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-               chdir "..";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                return "OBSPROC_FAIL";
             }
          } else {
@@ -1582,7 +1581,7 @@ sub new_job {
             } else {
                printf "ob01.ascii does not exist!\n";
                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-               chdir "..";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                return "OBSPROC_FAIL";
             }
 
@@ -1623,7 +1622,7 @@ sub new_job {
             copy("gen_be_run/be.dat","be.dat") or die "Cannot copy be.dat: $!";
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
-            chdir "..";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
             return "GENBE_FAIL";
          }
@@ -1656,11 +1655,11 @@ sub new_job {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = $endtime - $starttime;
              $Experiments{$nam}{paropt}{$par}{walltime} = $Experiments{$nam}{paropt}{$par}{walltime}
                                                            + $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
-            print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
-            printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
+             print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
+             printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
              mkpath("varbc_run_1_$par") or die "mkdir failed: $!";
              unless ( -e "wrfvar_output") {
-                 chdir "..";
+                 chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                  $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
                  return "VARBC_FAIL";
              }
@@ -1706,7 +1705,7 @@ sub new_job {
     
          # Back to the upper directory:
 
-         chdir ".." or die "Cannot chdir to .. : $!\n";
+         chdir "../.." or die "Cannot chdir to ../.. : $!\n";
     
          return 1;
 
@@ -1742,16 +1741,13 @@ sub new_job {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
          }
          # Back to the upper directory:
-         chdir ".." or die "Cannot chdir to .. : $!\n";
+         chdir "../.." or die "Cannot chdir to ../.. : $!\n";
 
          return 1;
 
 
      } elsif ($types =~ /CYCLING/i) {
          $types =~ s/CYCLING//i;
-
-         # Cycling jobs need some extra variables. You'll see why if you read on
-         my $job_feedback;
 
          print "Starting CYCLING $par job '$nam'\n";
 
@@ -1798,7 +1794,7 @@ sub new_job {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-             chdir "../.." or die "Cannot chdir to ../.. : $!\n";
+             chdir "../../.." or die "Cannot chdir to ../../.. : $!\n";
              return 1;
          }
          $i++;
@@ -1853,7 +1849,7 @@ sub new_job {
              my $wd = `pwd`;
              chomp($wd);
              print "\nWD: $wd\n";
-             chdir "../.." or die "Cannot chdir to ../.. : $!\n";
+             chdir "../../.." or die "Cannot chdir to ../../.. : $!\n";
              $wd = `pwd`;
              chomp($wd);
              print "\nWD: $wd\n";
@@ -1931,7 +1927,6 @@ sub new_job {
          print "Starting 3DENVAR $par job '$nam'\n";
 
          # Hybrid jobs need some extra variables
-         my $job_feedback;
          my $wrfdate;
          my $date;
          my $ens_num;
@@ -1955,7 +1950,7 @@ sub new_job {
             my $openstatus = open(INFO, "<","ens.info");
             unless ($openstatus) {
                print "Problem opening ens.info; $!\nTest probably not set up correctly\n";
-               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                return undef;
             }
 
@@ -2020,7 +2015,7 @@ sub new_job {
                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
             } else {
                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-               chdir "../.." or die "Cannot chdir to .. : $!\n";
+               chdir "../../.." or die "Cannot chdir to ../../.. : $!\n";
                return 1;
             }
             print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
@@ -2042,7 +2037,7 @@ sub new_job {
                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
             } else {
                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-               chdir ".." or die "Cannot chdir to .. : $!\n";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                return 1;
             }
             print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
@@ -2076,15 +2071,13 @@ sub new_job {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-             chdir ".." or die "Cannot chdir to .. : $!\n";
-             return 1;
          }
          print "Finished $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} subjob of '$nam' $par job\n";
          printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
 
 
          # Return to the upper directory
-         chdir ".." or die "Cannot chdir to .. : $!\n";
+         chdir "../.." or die "Cannot chdir to ../.. : $!\n";
 
          # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
          return 1;
@@ -2120,7 +2113,7 @@ sub new_job {
             printf "It took %.1f seconds\n",$Experiments{$nam}{paropt}{$par}{job}{$i}{walltime};
             mkpath("varbc_run_1_$par") or die "mkdir failed: $!";
             unless ( -e "wrfvar_output") {
-               chdir "..";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
                return "VARBC_FAIL";
             }
@@ -2162,13 +2155,13 @@ sub new_job {
          }
 
          # Back to the upper directory:
-         chdir ".." or die "Cannot chdir to .. : $!\n";
+         chdir "../.." or die "Cannot chdir to ../.. : $!\n";
 
          return 1;
 
      } else {
          print "\nERROR:\nINVALID JOB TYPE $types FOR JOB '$nam'\n";
-         chdir ".." or die "Cannot chdir to .. : $!\n";
+         chdir "../.." or die "Cannot chdir to ../.. : $!\n";
 
          return undef;
      }
@@ -2242,16 +2235,17 @@ sub new_job_ys {
 
      my ($nam, $com, $par, $cpun, $cpum, $types) = @_;
 
-     my $feedback;
+     my $job_feedback;
      my $h;
      my $i = 1; #jobnum loop counter
      # Enter into the experiment working directory:
+
+     chdir "$nam/$par" or die "Cannot chdir to $nam/$par : $!\n";
 
      while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
         $i ++;
      }
      if ($i == 1) {
-        chdir "$nam" or die "Cannot chdir to $nam : $!\n";
         # Before first job is run, symbolically link all fix files from code
         if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i)) {
            my @fixfiles = glob ("$MainDir/WRFDA_3DVAR_$par/var/run/*");
@@ -2280,22 +2274,18 @@ sub new_job_ys {
            symlink "$MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL", "RRTM_DATA" or warn "Cannot symlink $_ to local directory: $!\n";
         } else {
            print "\nERROR:\nCAN NOT DETERMINE JOB TYPE FOR LINKING FIX FILES\nERROR IN $types FOR JOB '$nam'\n";
-           chdir ".." or die "Cannot chdir to .. : $!\n";
+           chdir "../.." or die "Cannot chdir to ../.. : $!\n";
 
            return undef;
         }
-        chdir ".." or die "Cannot chdir to .. : $!\n";
      }
     
-
      if ($types =~ /GENBE/i) {
          $types =~ s/GENBE//i;
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "GENBE";
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
-
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @genbe_commands;
@@ -2323,12 +2313,12 @@ sub new_job_ys {
          # Submit the job
 
          if ($i == 1) {
-            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})"  < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})"  < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.pl 2>/dev/null `;
          }
-         if ($feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2339,13 +2329,9 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit GENBE job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
-
-         # Return to the upper directory
-         chdir ".." or die "Cannot chdir to .. : $!\n";
-
      }
 
      if ($types =~ /OBSPROC/i) {
@@ -2355,7 +2341,6 @@ sub new_job_ys {
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "OBSPROC";
 
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @obsproc_commands;
@@ -2399,12 +2384,12 @@ sub new_job_ys {
          # Submit the job
 
          if ($i == 1) {
-            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          }
-         if ($feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2415,12 +2400,9 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit OBSPROC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
-
-         # Return to the upper directory
-         chdir ".." or die "Cannot chdir to .. : $!\n";
      }
 
      if ($types =~ /VARBC/i) {
@@ -2429,8 +2411,6 @@ sub new_job_ys {
             $i ++;
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "VARBC";
-
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @varbc_commands;
@@ -2445,7 +2425,7 @@ sub new_job_ys {
          } else {
             print "\nVARBC jobs can only be run in combination with 3DVAR, FGAT, or 4DVAR tasks for now\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VARBC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
          $varbc_commands[1] = "mkdir(\"varbc_run_1_$par\");\n";
@@ -2464,12 +2444,12 @@ sub new_job_ys {
          # Submit the job
 
          if ($i == 1) {
-            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          }
-         if ($feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2480,13 +2460,10 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VARBC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
 
-         # Return to the upper directory
-
-         chdir ".." or die "Cannot chdir to .. : $!\n";
      }
 
      if ($types =~ /FGAT/i) {
@@ -2495,9 +2472,6 @@ sub new_job_ys {
             $i ++;
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "FGAT";
-
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
-
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @fgat_commands;
@@ -2510,12 +2484,12 @@ sub new_job_ys {
 
          # Submit the job
          if ($i == 1) {
-            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          }
-         if ($feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2526,12 +2500,9 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit FGAT job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
-
-         # Return to the upper directory
-         chdir ".." or die "Cannot chdir to .. : $!\n";
      }
 
 
@@ -2541,8 +2512,6 @@ sub new_job_ys {
             $i ++;
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "3DVAR";
-
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          #NEW FUNCTION FOR CREATING JOB SUBMISSION SCRIPTS: Put all commands for job script in an array
          my @_3dvar_commands;
@@ -2556,12 +2525,12 @@ sub new_job_ys {
          # Submit the job
 
          if ($i == 1) {
-            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          }
-         if ($feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2572,20 +2541,13 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit 3DVAR job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
-
-         chdir ".." or die "Cannot chdir to .. : $!\n";
      }
 
      if ($types =~ /CYCLING/i) {
          $types =~ s/CYCLING//i;
-
-         # Cycling jobs need some extra variables. You'll see why if you read on
-         my $job_feedback;
-
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          # For cycling jobs, after first 3DVAR run, we run UPDATEBC for lateral BC, then WRF,
          # then UPDATEBC for lower BC, then 3DVAR again at next time.
@@ -2602,7 +2564,7 @@ sub new_job_ys {
          my $tarstatus = system("tar", "xf", "cycle_data.tar");
          unless ($tarstatus == 0) {
             print "Problem opening cycle_data.tar; $!\nTest probably not set up correctly\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
 
@@ -2641,7 +2603,7 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_init job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir "../.." or die "Cannot chdir to '../..' : $!\n";
+            chdir "../../.." or die "Cannot chdir to '../../..' : $!\n";
             return undef;
          }
 
@@ -2672,7 +2634,7 @@ sub new_job_ys {
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LAT job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir "../.." or die "Cannot chdir to '../..' : $!\n";
+            chdir "../../.." or die "Cannot chdir to '../../..' : $!\n";
             return undef;
          }
          # Third: Use our updated wrfinput and wrfbdy to run a forecast
@@ -2705,7 +2667,7 @@ sub new_job_ys {
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRF job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir "../.." or die "Cannot chdir to '../..' : $!\n";
+            chdir "../../.." or die "Cannot chdir to '../../..' : $!\n";
             return undef;
          }
 
@@ -2739,7 +2701,7 @@ sub new_job_ys {
             $i++;$h++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UPDATE_BC_LOW job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
 
@@ -2770,17 +2732,9 @@ sub new_job_ys {
             }
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_final job for CYCLING task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
-
-         # Now we're done creating and submitting jobs; let's go back to the main test
-
-         # Return to the upper directory
-         chdir ".." or die "Cannot chdir to .. : $!\n";
-
-         # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
-         return 1;
 
      }
 
@@ -2789,7 +2743,6 @@ sub new_job_ys {
          $types =~ s/HYBRID//i;
 
          # Hybrid jobs also need some extra variables
-         my $job_feedback;
          my $wrfdate;
          my $date;
          my $ens_num;
@@ -2800,8 +2753,6 @@ sub new_job_ys {
 
          if ($types =~ /4DENVAR/i) { $hybrid_type = '4DENVAR' }; 
          $types =~ s/(3|4)DENVAR//i;
-
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
@@ -2847,7 +2798,7 @@ sub new_job_ys {
                   $i ++;
                } else {
                   print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit UNTAR_ENS_DATA job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-                  chdir ".." or die "Cannot chdir to '..' : $!\n";
+                  chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                   return undef;
                }
             }
@@ -2869,7 +2820,7 @@ sub new_job_ys {
             # Full test not yet set up for 4DENVAR
             if ($types =~ /4DENVAR/i) { 
                print "\nERROR\n\nERROR\n\n4DENVAR not yet set up for full test\n";
-               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                return undef;
             }
 
@@ -2881,7 +2832,7 @@ sub new_job_ys {
             my $openstatus = open(INFO, "<","ens.info");
             unless ($openstatus) {
                print "Problem opening ens.info; $!\nTest probably not set up correctly\n";
-               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                return undef;
             }
 
@@ -2934,7 +2885,7 @@ sub new_job_ys {
                $i ++;
             } else {
                print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit ENS_MEAN_VARI job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                return undef;
             }
 
@@ -2968,7 +2919,7 @@ sub new_job_ys {
                $h ++;$i ++;
             } else {
                print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit ENS_PERT job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-               chdir "../.." or die "Cannot chdir to '../..' : $!\n";
+               chdir "../../.." or die "Cannot chdir to '../../..' : $!\n";
                return undef;
             }
 
@@ -2999,7 +2950,7 @@ sub new_job_ys {
                $h ++;$i ++;
             } else {
                print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VERT_LOC job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-               chdir ".." or die "Cannot chdir to '..' : $!\n";
+               chdir "../.." or die "Cannot chdir to ../.. : $!\n";
                return undef;
             }
 
@@ -3042,15 +2993,10 @@ sub new_job_ys {
             }
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit WRFDA_3DENVAR job for 3DENVAR task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            chdir ".." or die "Cannot chdir to '..' : $!\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
 
-         # Return to the upper directory
-         chdir ".." or die "Cannot chdir to .. : $!\n";
-
-         # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
-         return 1;
      }
 
      if ($types =~ /4DVAR/i) {
@@ -3059,7 +3005,6 @@ sub new_job_ys {
             $i ++;
          }
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "4DVAR";
-         chdir "$nam" or die "Cannot chdir to $nam : $!\n";
 
          my @_4dvar_commands;
          $_4dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
@@ -3071,12 +3016,12 @@ sub new_job_ys {
 
          # Submit the job
          if ($i == 1) {
-            $feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
          }
-         if ($feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/.*<(\d+)>/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -3090,11 +3035,9 @@ sub new_job_ys {
            return undef;
          }
 
-         # Return to the upper directory
-
-         chdir ".." or die "Cannot chdir to .. : $!\n";
      }
 
+     chdir "../.." or die "Cannot chdir to ../.. : $!\n";
 
      # Update the job list
      $types =~ s/^\|//;
@@ -3102,14 +3045,12 @@ sub new_job_ys {
 
      # Pick the job id
 
-     if ($feedback =~ m/.*<(\d+)>/) {;
-#         $Experiments{$nam}{paropt}{$par}{job}{$Experiments{$nam}{paropt}{$par}{currjob}}{jobid} = $1;
+     if ($job_feedback =~ m/.*<(\d+)>/) {;
          return 1;
      } else {
          print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit task for $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
          return undef;
      };
-
 
 }
 
@@ -3120,10 +3061,10 @@ sub compare_output {
 
      my $diffwrfpath = $diffwrfdir . "diffwrf";
 
-     return -3 unless ( -e "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version");
+     return -3 unless ( -e "$name/$par/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version");
      return -4 unless ( -e "$Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version");
 
-     my @output = `$diffwrfpath $name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version $Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version`;
+     my @output = `$diffwrfpath $name/$par/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version $Baseline/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version`;
  
      return -2 if (!@output);
      
@@ -3236,8 +3177,8 @@ sub submit_job {
             $Experiments{$name}{paropt}{$par}{status} = "done";
 
             # Wrap-up this job:
-            system("ncdiff $name/wrfvar_output $name/fg $name/increment.$par.nc");
-            rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
+            system("ncdiff $name/$par/wrfvar_output $name/$par/fg $name/$par/increment.nc");
+            rename "$name/$par/wrfvar_output", "$name/$par/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
             # Compare the wrfvar_output with the BASELINE:
 
@@ -3289,7 +3230,7 @@ $count = 0;
                          }
                      } else {
                          $Experiments{$name}{paropt}{$par}{status} = "error";
-                         $Experiments{$name}{paropt}{$par}{result} = "Job submit failed";
+                         $Experiments{$name}{paropt}{$par}{result} = "Job submit fail";
                          $remain_par{$name} -- ;
                          if ($remain_par{$name} == 0) {
                              $Experiments{$name}{status} = "done";
@@ -3404,8 +3345,8 @@ $count = 0;
 
                        # Wrap-up this job:
                        
-                       system("ncdiff $name/wrfvar_output $name/fg $name/increment.$par.nc");
-                       rename "$name/wrfvar_output", "$name/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
+                       system("ncdiff $name/$par/wrfvar_output $name/$par/fg $name/$par/increment.nc");
+                       rename "$name/$par/wrfvar_output", "$name/$par/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
                        # Compare against the baseline
                        unless ($Baseline =~ /none/i) {
@@ -3525,12 +3466,12 @@ sub check_baseline {
 
     my ($cbname, $cbArch, $cbMachine_name, $cbpar, $cbCompiler, $cbBaseline, $cbCompiler_version) = @_;
 
-    print "\nComparing '$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version' 
-              to '$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version'" ;
-    if (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version",
+    print "\nComparing '$cbname/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version' 
+              to '$cbBaseline/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version'" ;
+    if (compare ("$cbname/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version",
                      "$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version") == 0) {
         $Experiments{$cbname}{paropt}{$cbpar}{result} = "match";
-    } elsif (compare ("$cbname/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version","$cbname/fg") == 0) {
+    } elsif (compare ("$cbname/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version","$cbname/$cbpar/fg") == 0) {
         $Experiments{$cbname}{paropt}{$cbpar}{status} = "error";
         $Experiments{$cbname}{paropt}{$cbpar}{result} = "fg == wrfvar_output";
     } else {

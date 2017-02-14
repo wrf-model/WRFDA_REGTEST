@@ -49,7 +49,7 @@ unless (-e "$baseline_dir") {
 }
 my $q = (@ARGV);
 
-my @files = `find . -maxdepth 2 -follow -name "wrfvar_output.*$version"`;
+my @files = `find . -maxdepth 3 -follow -name "wrfvar_output.*$version"`;
 
 my $copied_num = 0; #Note: copied_num will actually be the size of @changed, but @changed is indexed from 0
 foreach $filename (@files) {
@@ -61,18 +61,18 @@ foreach $filename (@files) {
     next if ( ($checkall !~ /\s$fileparts[1]\s/i) && ($q > 0) ); # Only check given directories
                                                                 # (if they are provided as command-line args)
 
-    unless ( compare ("$filename","$baseline_dir/$fileparts[2]") ) {
+    unless ( compare ("$filename","$baseline_dir/$fileparts[3]") ) {
        $unchanged[$uncopied_num] = $filename;
        $uncopied_num = @unchanged;
        next ;
     }
-    unless (-e "$baseline_dir/$fileparts[2]") {
+    unless (-e "$baseline_dir/$fileparts[3]") {
         # If there is no baseline file, don't copy. For new tests you should add the baseline manually.
         print "WARNING: $filename does not have a baseline file for comparison! Not copying.\n";
         next;
     }
     mkdir "$baseline_dir.BACKUP" unless (-e "$baseline_dir.BACKUP");
-    copy ("$baseline_dir/$fileparts[2]","$baseline_dir.BACKUP") or die "Cannot copy '$baseline_dir/$fileparts[2]' to '$baseline_dir.BACKUP': $!";
+    copy ("$baseline_dir/$fileparts[3]","$baseline_dir.BACKUP") or die "Cannot copy '$baseline_dir/$fileparts[3]' to '$baseline_dir.BACKUP': $!";
     copy ("$filename","$baseline_dir") or die "Cannot copy '$filename' to '$baseline_dir': $!";
 #    print "'$filename' copied to $baseline_dir, old baseline file backed up to $baseline_dir.BACKUP\n";
     $changed[$copied_num] = $filename;
