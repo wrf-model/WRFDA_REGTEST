@@ -59,10 +59,11 @@ test_transforms=false,
 test_gradient=false,
 /
 &wrfvar11
-cv_options_hum=1,
-check_rh=0,
-sfc_assi_options=1,
-calculate_cg_cost_fn=false,
+ cv_options_hum=1,
+ check_rh=0,
+ sfc_assi_options=1,
+ calculate_cg_cost_fn=false,
+ max_stheight_diff                   = 50.,
 /
 &wrfvar12
 /

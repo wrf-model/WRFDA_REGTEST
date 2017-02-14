@@ -93,8 +93,10 @@ ob_format                            = 2,
  check_rh                            = 0,
  seed_array1                         = 2007081300,
  seed_array2                         = 2007081300,
- sfc_assi_options                    = 2,
+ sfc_assi_options                    = 1,
  calculate_cg_cost_fn                = .true.,
+ obs_err_inflate                     = .true.,
+ stn_ht_diff_scale                   = 100.,
 /
 &wrfvar12
 /
