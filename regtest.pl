@@ -1021,48 +1021,56 @@ foreach (@Compiletypes) {
 
 # Make working directory for each Experiments:
 if ( ($Machine_name eq "yellowstone") ) {
-    printf "Moving to scratch space: /glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec\n";
-    mkpath("/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec") or die "Mkdir failed: $!";
-    chdir "/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec" or die "Chdir failed: $!";
+   printf "Moving to scratch space: /glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec\n";
+   mkpath("/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec") or die "Mkdir failed: $!";
+   chdir "/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec" or die "Chdir failed: $!";
 }
 
 foreach my $name (keys %Experiments) {
 
-     # Make working directory:
+   # Make working directory:
 
-     if ( -e $name && -r $name ) {
-          rmtree ($name) or die "Can not rmtree $name :$!\n";
-     }
-     mkdir "$name", 0755 or warn "Cannot make $name directory: $!\n";
-     if ( ($Machine_name eq "yellowstone") ) {
-         if ( -l "$MainDir/$name") {unlink "$MainDir/$name" or die "Cannot unlink '$MainDir/$name'"}
-         my $CurrDir = `pwd`;chomp $CurrDir;
-         symlink "$CurrDir/$name", "$MainDir/$name"
-             or warn "Cannot symlink '$CurrDir/$name' to main directory '$MainDir'";
-     }
+   if ( -e $name && -r $name ) {
+      rmtree ($name) or die "Can not rmtree $name :$!\n";
+   }
+   mkdir "$name", 0755 or warn "Cannot make $name directory: $!\n";
+   if ( ($Machine_name eq "yellowstone") ) {
+      if ( -l "$MainDir/$name") {unlink "$MainDir/$name" or die "Cannot unlink '$MainDir/$name'"}
+      my $CurrDir = `pwd`;chomp $CurrDir;
+      symlink "$CurrDir/$name", "$MainDir/$name"
+           or warn "Cannot symlink '$CurrDir/$name' to main directory '$MainDir'";
+   }
 
-     unless ( -e "$Database/$name" ) {
-         die "DATABASE NOT FOUND: '$Database/$name'\n";
-     }
-     # Symbolically link all files ;
+   unless ( -e "$Database/$name" ) {
+      die "DATABASE NOT FOUND: '$Database/$name'\n";
+   }
+   # Symbolically link all data files ;
 
-     chdir "$name" or die "Cannot chdir to $name : $!\n";
-     my @allfiles = glob ("$Database/$name/*");
-     foreach (@allfiles) {
-         if ($_ =~ "namelist.input") {
-            copy("$_", basename($_)) or warn "Cannot copy $_ to local directory: $!\n";
-         } else {
-            symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
-         }
-     }
+   chdir "$name" or die "Cannot chdir to $name : $!\n";
+   my @datafiles = glob ("$Database/$name/*");
+   foreach (@datafiles) {
+      next if $_ =~ /namelist./;
+#         if ($_ =~ "namelist.input") {
+#            copy("$MainDir/namelists/namelist.input.$name", basename($_)) or warn "Cannot copy $_ to local directory: $!\n";
+#         } else {
+      symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+#         }
+   }
+
+
+   # Copy namelists so test can be easily re-run with different namelist options
+   copy("$MainDir/namelists/namelist.input.$name", "namelist.input") or warn "Cannot copy namelist.input to local directory: $!\n";
+   if ($Experiments{$name}{test_type} =~ /OBSPROC/i) {
+      copy("$MainDir/namelists/namelist.obsproc.$name", "namelist.obsproc") or warn "Cannot copy namelist.obsproc to local directory: $!\n";
+   }
      
-     mkdir "trace"; #Make trace directory for "trace_use" option
+   mkdir "trace"; #Make trace directory for "trace_use" option
 
-     printf "The directory for %-30s is ready.\n",$name;
+   printf "The directory for %-30s is ready.\n",$name;
 
-     # Back to the upper directory:
+   # Back to the upper directory:
 
-     chdir ".." or die "Cannot chdir to .. : $!\n";
+   chdir ".." or die "Cannot chdir to .. : $!\n";
 
 }
 
@@ -1075,8 +1083,7 @@ foreach my $name (keys %Experiments) {
 #How many jobs do we have for each experiment ?
 
  my %remain_par;
- $remain_par{$_} = scalar keys %{$Experiments{$_}{paropt}} 
-    for keys %Experiments;
+ $remain_par{$_} = scalar keys %{$Experiments{$_}{paropt}} for keys %Experiments;
 
 # preset the the status of all jobs and subjobs (types)
 
@@ -1472,6 +1479,41 @@ sub new_job {
         }
      }
 
+     if ($i == 1) {
+        # Before first job is run, symbolically link all fix files from code
+        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i)) {
+
+           my @fixfiles = glob ("$MainDir/WRFDA_3DVAR_$par/var/run/*");
+           push @fixfiles, "$MainDir/WRFDA_3DVAR_$par/run/LANDUSE.TBL";
+           foreach (@fixfiles) {
+              if (-e basename($_)) {
+# Don't warn for this yet, might need to warn in future if we move to subdirectories for different parallelisms
+#                 warn "WARNING: file basename($_) already exists in test directory $nam\n";
+              } else {
+                 symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+              }
+           }
+        } elsif ( ($types =~ /4DVAR/i) or ($types =~ /4DENVAR/i) ) {
+           my @fixfiles = glob ("$MainDir/WRFDA_4DVAR_$par/var/run/*");
+           push @fixfiles, glob ("$MainDir/WRFDA_4DVAR_$par/run/*.TBL");
+           push @fixfiles, "$MainDir/WRFDA_4DVAR_$par/run/LANDUSE.TBL";
+           foreach (@fixfiles) {
+              if (-e basename($_)) {
+# Don't warn for this yet, might need to warn in future if we move to subdirectories for different parallelisms
+#                 warn "WARNING: file basename($_) already exists in test directory $nam\n";
+              } else {
+                 symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+              }
+           }
+           # Need to use double-precision version of RRTM_DATA table, renamed:
+           symlink "$MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL", "RRTM_DATA" or warn "Cannot symlink $_ to local directory: $!\n";
+        } else {
+           print "\nERROR:\nCAN NOT DETERMINE JOB TYPE FOR LINKING FIX FILES\nERROR IN $types FOR JOB '$nam'\n";
+           chdir ".." or die "Cannot chdir to .. : $!\n";
+
+           return undef;
+        }
+     }
 
      if ($types =~ /OBSPROC/i) {
          $types =~ s/OBSPROC//i;
@@ -1479,6 +1521,7 @@ sub new_job {
          while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
             $i ++;
          }
+
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "OBSPROC";
 
          print "Running OBSPROC for $par job '$nam'\n";
@@ -2203,7 +2246,47 @@ sub new_job_ys {
      my $h;
      my $i = 1; #jobnum loop counter
      # Enter into the experiment working directory:
-     
+
+     while (exists $Experiments{$nam}{paropt}{$par}{job}{$i}) { #Increment jobnum if a job already exists
+        $i ++;
+     }
+     if ($i == 1) {
+        chdir "$nam" or die "Cannot chdir to $nam : $!\n";
+        # Before first job is run, symbolically link all fix files from code
+        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i)) {
+           my @fixfiles = glob ("$MainDir/WRFDA_3DVAR_$par/var/run/*");
+           push @fixfiles, "$MainDir/WRFDA_3DVAR_$par/run/LANDUSE.TBL";
+           foreach (@fixfiles) {
+              if (-e basename($_)) {
+# Don't warn for this yet, might need to warn in future if we move to subdirectories for different parallelisms
+#                  warn "WARNING: file basename($_) already exists in test directory $nam, deleting existing file\n";
+                 unlink basename($_);
+              }
+              symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+           }
+        } elsif ( ($types =~ /4DVAR/i) or ($types =~ /4DENVAR/i) ) {
+           my @fixfiles = glob ("$MainDir/WRFDA_4DVAR_$par/var/run/*");
+           push @fixfiles, glob ("$MainDir/WRFDA_4DVAR_$par/run/*.TBL");
+           push @fixfiles, "$MainDir/WRFDA_4DVAR_$par/run/LANDUSE.TBL";
+           foreach (@fixfiles) {
+              if (-e basename($_)) {
+# Don't warn for this yet, might need to warn in future if we move to subdirectories for different parallelisms
+#                  warn "WARNING: file basename($_) already exists in test directory $nam\n";
+              } else {
+                 symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+              }
+           }
+           # Need to use double-precision version of RRTM_DATA table, renamed:
+           symlink "$MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL", "RRTM_DATA" or warn "Cannot symlink $_ to local directory: $!\n";
+        } else {
+           print "\nERROR:\nCAN NOT DETERMINE JOB TYPE FOR LINKING FIX FILES\nERROR IN $types FOR JOB '$nam'\n";
+           chdir ".." or die "Cannot chdir to .. : $!\n";
+
+           return undef;
+        }
+        chdir ".." or die "Cannot chdir to .. : $!\n";
+     }
+    
 
      if ($types =~ /GENBE/i) {
          $types =~ s/GENBE//i;
