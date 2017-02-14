@@ -52,6 +52,7 @@ ob_format                            = 1,
 /
 &wrfvar11
  calculate_cg_cost_fn                = .true.,
+ q_error_options                     = 2,
 /
 &wrfvar12
 /
