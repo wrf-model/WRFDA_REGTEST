@@ -30,6 +30,8 @@ ob_format                            = 1,
  use_iasiobs                         = false,
  use_atmsobs                         = true,
  use_amsr2obs                        = true,
+ use_mwtsobs                         = true,
+ use_mwhsobs                         = true,
 /
 &wrfvar5
  check_max_iv                        = true,
