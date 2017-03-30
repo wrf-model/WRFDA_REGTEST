@@ -1495,7 +1495,6 @@ sub new_job {
         } elsif ( ($types =~ /4DVAR/i) or ($types =~ /4DENVAR/i) ) {
            my @fixfiles = glob ("$MainDir/WRFDA_4DVAR_$par/var/run/*");
            push @fixfiles, glob ("$MainDir/WRFDA_4DVAR_$par/run/*.TBL");
-           push @fixfiles, "$MainDir/WRFDA_4DVAR_$par/run/LANDUSE.TBL";
            foreach (@fixfiles) {
               if (-e basename($_)) {
 # Don't warn for this yet, might need to warn in future if we move to subdirectories for different parallelisms
@@ -1505,7 +1504,7 @@ sub new_job {
               }
            }
            # Need to use double-precision version of RRTM_DATA table, renamed:
-           symlink "$MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL", "RRTM_DATA" or warn "Cannot symlink $_ to local directory: $!\n";
+           symlink "$MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL", "RRTM_DATA" or warn "Cannot symlink $MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL to local directory: $!\n";
         } else {
            print "\nERROR:\nCAN NOT DETERMINE JOB TYPE FOR LINKING FIX FILES\nERROR IN $types FOR JOB '$nam'\n";
            chdir "../../" or die "Cannot chdir to ../.. : $!\n";
@@ -1644,10 +1643,10 @@ sub new_job {
              $starttime = gettimeofday();
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
              if ($par=~/dm/i) {
-                 $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
+                 $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
                  system($cmd);
              } else {
-                 $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+                 $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
                  system($cmd);
              }
              $endtime = gettimeofday();
@@ -1682,10 +1681,10 @@ sub new_job {
          $starttime = gettimeofday();
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          if ($par=~/dm/i) { 
-             $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
+             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
              system($cmd);
          } else {
-             $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler"; 
+             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler"; 
              system($cmd);
          }
          $endtime = gettimeofday();
@@ -1721,10 +1720,10 @@ sub new_job {
          $starttime = gettimeofday();
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          if ($par=~/dm/i) {
-             $cmd= "mpirun -np $cpun ../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
+             $cmd= "mpirun -np $cpun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
              system($cmd);
          } else {
-             $cmd="../WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+             $cmd="$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
              system($cmd);
          }
          $endtime = gettimeofday();
@@ -1766,6 +1765,7 @@ sub new_job {
          my $tarstatus = system("tar", "xf", "cycle_data.tar");
          unless ($tarstatus == 0) {
             print "Problem opening cycle_data.tar; $!\nTest probably not set up correctly\n";
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
          }
 
@@ -1823,7 +1823,7 @@ sub new_job {
          # Third: Use our updated wrfinput and wrfbdy to run a forecast
 
          $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "WRF";
-         chdir "../WRF" or warn "Cannot chdir to '../WRF': $!\n";
+         chdir "../WRF" or die "Cannot chdir to '../WRF': $!\n";
          $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
          $starttime = gettimeofday();
          system("ln -sf $libdir/WRFV3_$com/run/*.TBL .");      #Linking the necessary WRF accessory files
@@ -1909,12 +1909,12 @@ sub new_job {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "done";
          } else {
              $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "error";
-             chdir ".." or die "Cannot chdir to .. : $!\n";
+             chdir "../.." or die "Cannot chdir to ../.. : $!\n";
              return 1;
          }
 
          # Return to the upper directory
-         chdir ".." or die "Cannot chdir to .. : $!\n";
+         chdir "../.." or die "Cannot chdir to ../.. : $!\n";
 
          # Return 1, since we can now track sub-jobs properly (lol) and there were no job submission errors
          return 1;
@@ -2098,10 +2098,10 @@ sub new_job {
             $starttime = gettimeofday();
             $Experiments{$nam}{paropt}{$par}{job}{$i}{status} = "running";
             if ($par=~/dm/i) {
-               $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
+               $cmd= "mpirun -np $cpun $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
                system($cmd);
             } else {
-               $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+               $cmd="$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
                system($cmd);
             }
             $endtime = gettimeofday();
@@ -2134,10 +2134,10 @@ sub new_job {
 
          $starttime = gettimeofday();
          if ($par=~/dm/i) {
-            $cmd= "mpirun -np $cpun ../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
+            $cmd= "mpirun -np $cpun $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>/dev/null 2>/dev/null";
             system($cmd);
          } else {
-            $cmd="../WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
+            $cmd="$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe 1>print.out.$Arch.$nam.$par.$Compiler 2>print.out.$Arch.$nam.$par.$Compiler";
             system($cmd);
          }
          $endtime = gettimeofday();
@@ -2271,7 +2271,7 @@ sub new_job_ys {
               }
            }
            # Need to use double-precision version of RRTM_DATA table, renamed:
-           symlink "$MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL", "RRTM_DATA" or warn "Cannot symlink $_ to local directory: $!\n";
+           symlink "$MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL", "RRTM_DATA" or warn "Cannot symlink $MainDir/WRFDA_4DVAR_$par/run/RRTM_DATA_DBL to local directory: $!\n";
         } else {
            print "\nERROR:\nCAN NOT DETERMINE JOB TYPE FOR LINKING FIX FILES\nERROR IN $types FOR JOB '$nam'\n";
            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
@@ -3141,6 +3141,7 @@ sub submit_job {
 
 
             #Submit job
+
             my $rc = &new_job ( $name, $Compiler, $par, $Experiments{$name}{cpu_mpi},
                                 $Experiments{$name}{cpu_openmp},$Experiments{$name}{test_type} );
 
@@ -3467,7 +3468,7 @@ sub check_baseline {
     my ($cbname, $cbArch, $cbMachine_name, $cbpar, $cbCompiler, $cbBaseline, $cbCompiler_version) = @_;
 
     print "\nComparing '$cbname/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version' 
-              to '$cbBaseline/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version'" ;
+              to '$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version'" ;
     if (compare ("$cbname/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version",
                      "$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version") == 0) {
         $Experiments{$cbname}{paropt}{$cbpar}{result} = "match";
