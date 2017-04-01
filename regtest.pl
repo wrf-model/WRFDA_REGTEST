@@ -58,7 +58,7 @@ my $Version;                   # Version number from tools/version_decl
 my $Fork = "";                 # Fork; used for git repositories only
 my $Branch = "";               # Branch; used for git repositories only
 my $WRFPLUS_Revision = 'NONE'; # WRFPLUS Revision number from code
-my $Testfile = 'testdata.txt';
+my $Testfile_defined;
 my $CLOUDCV_defined;
 my $NETCDF4_defined;
 my $REPO_defined;
@@ -106,7 +106,7 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "netcdf4:s" => \$NETCDF4_defined,
             "hdf5:s" => \$use_HDF5,
             "rttov:s" => \$use_RTTOV,
-            "testfile:s" => \$Testfile,
+            "testfile:s" => \$Testfile_defined,
             "repo:s" => \$REPO_defined,
             "fork:s" => \$Fork,
             "branch:s" => \$Branch,
@@ -168,6 +168,17 @@ if (defined $Debug_defined && $Debug_defined eq 'super') {
    die "Invalid debug option specified ('$Debug_defined'); valid options are 'no', 'yes', or 'super'";
 }
 
+my $Testfile;
+if (defined $Testfile_defined) {
+   $Testfile = $Testfile_defined;
+} else {
+   if ($Debug > 0) {
+      print "\nDebug options specified: reading 'testdata.txt.debug'\nSpecify '--testfile=' on command line to override this test file name\n\n";
+      $Testfile = "testdata.txt.debug";
+   } else {
+      $Testfile = "testdata.txt";
+   }
+}
 if ( $Parallel_compile_num > 16 ) {die "Can not parallel compile using more than 16 processors; set j<=16\n"};
 
 # Who is running the test?
