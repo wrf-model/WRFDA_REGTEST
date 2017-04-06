@@ -784,17 +784,8 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
             ! ($config_line=~/Xeon/) &&
             ! ($config_line=~/SGI MPT/i) &&
             ! ($config_line=~/MIC/) &&
+            ! ($config_line=~/Open MPI/) &&
             ! ($config_line=~/HSW/) ) {
-          $Compile_options{$1} = $par_type;
-          $option = $1;
-          $count++;
-       } elsif ( ($config_line=~ m/(\d+)\. .* $Compiler .* $CCompiler .* ($par_type_escapeplus) .*/ix) &&
-            ! ($config_line=~/Cray/i) &&
-            ! ($config_line=~/PGI accelerator/i) &&
-            ! ($config_line=~/-f90/i) &&
-            ! ($config_line=~/POE/) &&
-            ! ($config_line=~/Xeon/) &&
-            ! ($config_line=~/SGI MPT/i)  ) {
           $Compile_options{$1} = $par_type;
           $option = $1;
           $count++;
