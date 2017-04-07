@@ -80,7 +80,6 @@
  max_ext_its                         = 3,
  ntmax                               = 3, 5, 50,
 /
- eps                                 = 0.01,
 &wrfvar7
  cv_options                          = 5,
  je_factor                           = 1.33,
@@ -96,16 +95,6 @@
  len_scaling4                        = 1.00, 0.50, 0.50,
  len_scaling5                        = 1.00, 0.50, 0.20,
 /
- as1                                 = 1.0,
- as2                                 = 1.0,
- as3                                 = 1.0,
- as4                                 = 1.0,
- as5                                 = 1.0,
- var_scaling1                        = 1.0,
- var_scaling2                        = 1.0,
- var_scaling3                        = 1.0,
- var_scaling4                        = 1.0,
- var_scaling5                        = 1.0,
 &wrfvar8
 /
 &wrfvar9
@@ -121,7 +110,6 @@
  calculate_cg_cost_fn                = .true.,
  q_error_options                     = 2,
 /
- lat_stats_option                    = .false.,
 &wrfvar12
 /
 &wrfvar13
@@ -146,10 +134,11 @@
  varbc_nobsmin                       = 500,
  use_crtm_kmatrix                    = .true.,
 /
- crtm_atmosphere                     = 6,
 &wrfvar15
 /
 &wrfvar16
+ ep_para_read                        = 1,
+ rden_bin                            = 2,
  alphacv_method                      = 2,
  ensdim_alpha                        = 10,
  alpha_corr_type                     = 3,

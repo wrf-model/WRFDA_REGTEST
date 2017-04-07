@@ -58,6 +58,7 @@
 /
 &wrfvar16
  use_4denvar                         = .true.,
+ ep_para_read                        = 1,
  ensdim_alpha                        = 2,
  alphacv_method                      = 2,
  alpha_corr_scale                    = 200.0,
