@@ -151,6 +151,16 @@
 &wrfvar23
  jcdfi_use                           = .false.,
 /
+&radar_da
+ cloudbase_calc_opt                  = 1,
+ radar_saturated_rf                  = 20.0,
+ radar_rqv_thresh1                   = 35.0,
+ radar_rqv_thresh2                   = 45.0,
+ radar_rqv_rh1                       = 80,
+ radar_rqv_rh2                       = 90,
+ radar_rqv_h_lbound                  = 1000.0,
+ radar_rqv_h_ubound                  = 12000.0,
+/
 &time_control
  start_year                          = 2010,
  start_month                         = 09,
