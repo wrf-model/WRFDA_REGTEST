@@ -17,7 +17,7 @@
 #           February 2016, Added HYBRID capabilities for local machines, enabled sm tests, cleaned up library link system
 #           June 2016, Added git/Github functionality
 #           November 2016, Added 4DENVAR as test type (existing HYBRID types are now called 3DENVAR)
-
+#           March 2017, now works for Cheyenne supercomputer
 
 use strict;
 use Term::ANSIColor;
@@ -186,7 +186,6 @@ my $Tester = getlogin();
 
 # Local variables
 my ($Arch, $Machine, $Name, $Compiler, $CCompiler, $Project, $Source, $Queue, $Database, $Baseline, $missvars);
-my $Compile_queue = 'caldera';
 my @compile_job_list;
 my @Message;
 my $Clear = `clear`;
@@ -285,7 +284,7 @@ my $System = `uname -s`; chomp($System);
 my $Local_machine = `uname -m`; chomp($Local_machine);
 my $Machine_name = `uname -n`; chomp($Machine_name); 
 
-if ($Machine_name =~ /yslogin\d/) {$Machine_name = 'yellowstone'};
+if ($Machine_name =~ /cheyenne\d/) {$Machine_name = 'cheyenne'};
 if ($Machine_name =~ /bacon\d/) {$Machine_name = 'bacon'};
 if ( $Machine_name =~ /vpn\d/ ) {
    print " Your machine appears to be connected to VPN so we can't determine what machine you are using\n please enter your machine name (the output of the command `uname -n` when not connected to VPN) below:\a\n";
@@ -467,19 +466,27 @@ unless ( -e "$Database" ) {
    die "DATABASE NOT FOUND: '$Database'\nQuitting $0...\n";
 }
 
-die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (yellowstone): ifort, gfortran, pgf90 \n Linux x86_64 (loblolly): ifort, gfortran, pgf90 \n Linux i486, i586, i686: ifort, gfortran, pgf90 \n Darwin (Mac OSx): pgf90, g95 \n\n" unless (keys %Experiments) > 0 ;
+die "\nCompiler '$Compiler_defined' is not supported on this $System $Local_machine machine, '$Machine_name'. \n Supported combinations are: \n Linux x86_64 (cheyenne): ifort, gfortran \n Linux x86_64 (loblolly): ifort, gfortran, pgf90 \n Linux i486, i586, i686: ifort, gfortran, pgf90 \n Darwin (Mac OSx): pgf90, g95 \n\n" unless (keys %Experiments) > 0 ;
 
 printf "Finished parsing the table, the experiments are : \n";
 &show_tests(%Experiments);
 
-if ($Arch eq "Linux") { #If on a machine with modules, make sure we have the right modules loaded
+if (defined $ENV{'TACC_FAMILY_COMPILER'}) { #If on a machine with modules, make sure we have the right modules loaded
    if ( !( $ENV{TACC_FAMILY_COMPILER} =~ m/$module_loaded/) ) {; # Check ENV variable for current module
       print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
       print "You have specified the $module_loaded compiler, but the $ENV{TACC_FAMILY_COMPILER} module is loaded!";
       print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
       &print_help_and_die;
    }
+} elsif (defined $ENV{'COMPILER'}) {
+   if ( !( $ENV{COMPILER} =~ m/$module_loaded/) ) {; # Check ENV variable for current module
+      print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
+      print "You have specified the $module_loaded compiler, but the $ENV{COMPILER} module is loaded!";
+      print "\n!!!!!     ERROR ERROR ERROR     !!!!!\n";
+      &print_help_and_die;
+   }
 }
+
 
 # If a command-line test list was specified, remove other tests
 if ( $test_list_string ) {
@@ -595,7 +602,7 @@ if (defined $CLOUDCV_defined && $CLOUDCV_defined ne 'no') {
       $ENV{HDF5}="$libdir/HDF5_$Compiler\_$Compiler_version";
       print "Found HDF5 in directory $libdir/HDF5_$Compiler\_$Compiler_version\n";
    } else {
-      unless (-d "$libdir/HDF5_$Compiler\_$Compiler_version") {print "\nDirectory $libdir/HDF5_$Compiler\_$Compiler_version DOES NOT EXIST!\n"};
+      if ($use_HDF5 eq "yes") {print "\nDirectory $libdir/HDF5_$Compiler\_$Compiler_version DOES NOT EXIST!\n"};
       print "\nNot using HDF5\n";
       delete $ENV{HDF5};
    }
@@ -611,7 +618,7 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
    $ENV{RTTOV} = $RTTOV_dir;
    print "Using RTTOV libraries in $RTTOV_dir\n";
 } else {
-   if (-d $RTTOV_dir) {
+   if ( not ($use_RTTOV=~/yes/i) ) {
       print "\$use_RTTOV is not set to 'yes'\n";
       print "Not compiling with RTTOV: RTTOV tests will fail!\n";
    } else {
@@ -850,23 +857,23 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
        printf "Compiling in debug mode, compilation optimizations turned off.\n";
     }
 
-    if ( ($Parallel_compile_num > 1) && ($Machine_name =~ /yellowstone/i) ) {
+    if ( ($Parallel_compile_num > 1) && ($Machine_name =~ /cheyenne/i) ) {
        printf "Submitting job to compile WRFDA_$compile_type with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
 
        # Generate the LSF job script
-       open FH, ">job_compile_${ass_type}_$Compile_options{$option}_opt${option}.csh" or die "Can not open job_compile_${ass_type}_${option}.csh to write. $! \n";
+       open FH, ">job_compile_${ass_type}_$Compile_options{$option}_opt${option}.pbs.csh" or die "Can not open job_compile_${ass_type}_${option}.pbs.csh to write. $! \n";
        print FH '#!/bin/csh'."\n";
        print FH '#',"\n";
-       print FH '# LSF batch script'."\n";
+       print FH '# PBS batch script'."\n";
        print FH '#'."\n";
-       print FH "#BSUB -J compile_${ass_type}_$Compile_options{$option}_opt${option}"."\n";
-       print FH "#BSUB -q ".$Compile_queue."\n";
-       print FH "#BSUB -n $Parallel_compile_num\n";
-       print FH "#BSUB -o job_compile_${ass_type}_$Compile_options{$option}_opt${option}.output"."\n";
-       print FH "#BSUB -e job_compile_${ass_type}_$Compile_options{$option}_opt${option}.error"."\n";
-       print FH "#BSUB -W 100"."\n";
-       print FH "#BSUB -P $Project"."\n";
-       printf FH "#BSUB -R span[ptile=%d]"."\n", $Parallel_compile_num;
+       print FH "#PBS -N compile_${ass_type}_$Compile_options{$option}_opt${option}"."\n";
+       print FH "#PBS -q share\n";
+       print FH "#PBS -j oe\n";
+       print FH "#PBS -o job_compile_${ass_type}_$Compile_options{$option}_opt${option}.out\n";
+       print FH "#PBS -e job_compile_${ass_type}_$Compile_options{$option}_opt${option}.out\n";
+       print FH "#PBS -l walltime=00:99:00"."\n";
+       print FH "#PBS -A $Project"."\n";
+       printf FH "#PBS -l select=1:ncpus=%d:mpiprocs=%d"."\n", $Parallel_compile_num, $Parallel_compile_num;
        print FH "\n";
        print FH "setenv J '-j $Parallel_compile_num'\n";
        if (defined $RTTOV_dir) {print FH "setenv RTTOV $RTTOV_dir\n"};
@@ -876,9 +883,9 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
 
        # Submit the job
        my $submit_message;
-       $submit_message = `bsub < job_compile_${ass_type}_$Compile_options{$option}_opt${option}.csh`;
+       $submit_message = `qsub < job_compile_${ass_type}_$Compile_options{$option}_opt${option}.pbs.csh`;
 
-       if ($submit_message =~ m/.*<(\d+)>/) {;
+       if ($submit_message =~ m/(\d+)\..*/) {;
           print "Job ID for $ass_type $Compiler option $Compile_options{$option} is $1 \n";
           $compile_job_array{$1} = "${ass_type}_$Compile_options{$option}";
           push (@compile_job_list,$1);
@@ -886,7 +893,7 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
           die "\nFailed to submit $ass_type compile job for $Compiler option $Compile_options{$option}!\n";
        };
 
-    } else { #Serial compile OR non-Yellowstone compile
+    } else { #Serial compile OR non-Yellowstone/Cheyenne compile
        printf "Compiling WRFDA_$compile_type with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
 
        # Fork each compilation
@@ -966,24 +973,24 @@ my @temparray = @compile_job_list;
 
 # For batch build, keep track of ongoing compile jobs, continue when finished.
 while ( @compile_job_list ) {
-   # Remove '|' from start of "compile_job_list"
+   if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
+      mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
+   }
 
    for my $i ( 0 .. $#compile_job_list ) {
       my $jobnum = $compile_job_list[$i];
-      my $job_feedback = `bjobs $jobnum`;
-      if ( ($job_feedback =~ m/RUN/) || ( $job_feedback =~ m/PEND/ ) ) {; # Still pending or running
+      my $job_feedback = `qstat -x $jobnum`;
+
+#      print "Command used:\n`qstat -x $jobnum`\n";
+#      print "Job feedback:\n$job_feedback\n";
+      my @jobhist = split('\s+',$job_feedback);
+      unless ( $jobhist[18] eq "F" ) {; # Next unless job has finished
+         print "Job $jobnum not yet done!\n";
          next;
       }
-
-      # Job not found, so assume it's done!
-      my $bhist = `bhist $jobnum`;
-      my @jobhist = split('\s+',$bhist);
-      print "Job $compile_job_array{$jobnum} (job number $jobnum) is finished!\n It took $jobhist[24] seconds\n";
+      print "Job $compile_job_array{$jobnum} (job number $jobnum) is finished!\n It took $jobhist[17]\n";
 
       # Save the compilation log file
-      if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
-         mkpath("$MainDir/regtest_compile_logs/$year$mon$mday") or die "mkpath failed: $!\n$MainDir/regtest_compile_logs/$year$mon$mday";
-      }
       my @details = split /_/, $compile_job_array{$jobnum};
       copy( "WRFDA_$compile_job_array{$jobnum}/compile.log.$details[1]", "regtest_compile_logs/$year$mon$mday/compile_$details[1].log.$details[0]_$Compiler\_$hour:$min:$sec" ) or die "Copy failed: $!\nWRFDA_$compile_job_array{$jobnum}/compile.log.$details[1]\nregtest_compile_logs/$year$mon$mday/compile_$details[1].log.$details[0]_$Compiler\_$hour:$min:$sec";
 
@@ -1003,6 +1010,7 @@ while ( @compile_job_list ) {
       last;
    }
 
+
    @compile_job_list = @temparray;
 
    sleep 5;
@@ -1011,7 +1019,7 @@ while ( @compile_job_list ) {
 
 ####################  END COMPILE SECTION  ####################
 
-
+die "All compiles done!\n";
 
 
 SKIP_COMPILE:
@@ -1022,7 +1030,7 @@ foreach (@Compiletypes) {
 }
 
 # Make working directory for each Experiments:
-if ( ($Machine_name eq "yellowstone") ) {
+if ($Machine_name eq "cheyenne") {
    printf "Moving to scratch space: /glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec\n";
    mkpath("/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec") or die "Mkdir failed: $!";
    chdir "/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec" or die "Chdir failed: $!";
@@ -1036,7 +1044,7 @@ foreach my $name (keys %Experiments) {
       rmtree ($name) or die "Can not rmtree $name :$!\n";
    }
    mkdir "$name", 0755 or warn "Cannot make $name directory: $!\n";
-   if ( ($Machine_name eq "yellowstone") ) {
+   if ($Machine_name eq "cheyenne") {
       if ( -l "$MainDir/$name") {unlink "$MainDir/$name" or die "Cannot unlink '$MainDir/$name'"}
       my $CurrDir = `pwd`;chomp $CurrDir;
       symlink "$CurrDir/$name", "$MainDir/$name"
@@ -1112,7 +1120,7 @@ foreach my $name (keys %Experiments) {
 
 # submit job:
 
- if ( ($Machine_name eq "yellowstone") ) {
+ if ( $Machine_name eq "cheyenne") {
     &submit_job_ys ;
     chdir "$MainDir";
  } else {
@@ -1168,7 +1176,7 @@ print SENDMAIL "Operating system: ",$System,", ",$Machine."<br>";
 print SENDMAIL "Compiler: ",$Compiler." ".$Compiler_version."<br>";
 print SENDMAIL "Baseline: ",$Baseline."<br>";
 print SENDMAIL "<br>";
-if ( $Machine_name eq "yellowstone" ) {
+if ($Machine_name eq "cheyenne") {
     print SENDMAIL "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/workdir/"
                     .$Compiler."_".$year.$mon.$mday."_".$hour.":".$min.":".$sec."'<br>";
     print SENDMAIL "<br>";
@@ -1222,7 +1230,7 @@ if ( $WRFPLUS_Revision ne "NONE" ) {
     print WEBH '<li>'."Baseline : $Baseline".'</li>'."\n";
     print WEBH '<li>'.$End_time.'</li>'."\n";
     print WEBH '</ul>'."\n";
-if ( $Machine_name eq "yellowstone" ) {
+if ($Machine_name eq "cheyenne") {
     print WEBH "Test output can be found at '/glade/scratch/".$ThisGuy."/REGTEST/workdir/"
                     .$Compiler."_".$year.$mon.$mday."_".$hour.":".$min.":".$sec."'<br>";
     print WEBH "<br>";
@@ -1283,7 +1291,7 @@ if ( $Machine_name eq "yellowstone" ) {
 
 # Save summary, send to internet if requested:
 
-    if ( ($Machine_name eq "yellowstone") ) {
+    if ($Machine_name eq "cheyenne") {
         copy("summary_$Compiler\_$Compiler_version.html","/glade/scratch/$ThisGuy/REGTEST/workdir/$Compiler\_$year$mon$mday\_$hour:$min:$sec/summary_$Compiler\_$Compiler_version.html");
     }
 

@@ -1,6 +1,6 @@
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
+Linux    x86_64    cheyenne       ifort     P64000510 regular   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 0        4denvar_large_conus         4DENVAR         48     1      dmpar
@@ -42,7 +42,7 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
+Linux    x86_64    cheyenne       gfortran  P64000510 regular   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 0        4denvar_large_conus         4DENVAR         48     1      dmpar
