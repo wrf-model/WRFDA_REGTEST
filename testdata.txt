@@ -1,6 +1,6 @@
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.8.1.tar
+Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 0        4denvar_large_conus         4DENVAR         48     1      dmpar
@@ -41,7 +41,7 @@ Linux    x86_64    yellowstone    ifort     P64000510 caldera   WRFDA-data-EM  B
 35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.8.1.tar
+Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 0        4denvar_large_conus         4DENVAR         48     1      dmpar
@@ -82,7 +82,7 @@ Linux    x86_64    yellowstone    gfortran  P64000510 caldera   WRFDA-data-EM  B
 35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    yellowstone    pgf90     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.8.1.tar
+Linux    x86_64    yellowstone    pgf90     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 0        4denvar_large_conus         4DENVAR         48     1      dmpar
@@ -123,7 +123,7 @@ Linux    x86_64    yellowstone    pgf90     P64000510 caldera   WRFDA-data-EM  B
 35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    loblolly       gfortran  NA        NA        WRFDA-data-EM  BASELINE.LOBLOLLY   WRFDA_V3.8.1.tar
+Linux    x86_64    loblolly       gfortran  NA        NA        WRFDA-data-EM  BASELINE.LOBLOLLY   WRFDA_V3.9.tar
 # Don't include: 4denvar_large_conus 4dvar_small cv3_guo_32 cycle_ne_blizzard multirad_pacific multirad_pacific_nc4 (testing nc3 on loblolly) wind_sd
 #INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
@@ -156,7 +156,7 @@ Linux    x86_64    loblolly       gfortran  NA        NA        WRFDA-data-EM  B
 28       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    loblolly       ifort     NA        NA        WRFDA-data-EM  BASELINE.LOBLOLLY   WRFDA_V3.8.1.tar
+Linux    x86_64    loblolly       ifort     NA        NA        WRFDA-data-EM  BASELINE.LOBLOLLY   WRFDA_V3.9.tar
 # Don't include: 4denvar_large_conus 4dvar_small cv3_guo_32 cycle_ne_blizzard multirad_pacific multirad_pacific_nc4 (testing nc3 on loblolly) wind_sd
 #INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
@@ -189,7 +189,7 @@ Linux    x86_64    loblolly       ifort     NA        NA        WRFDA-data-EM  B
 28       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Darwin   x86_64    bacon          gfortran  NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.8.1.tar
+Darwin   x86_64    bacon          gfortran  NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.9.tar
 # Don't include: 4denvar_large_conus 4dvar_small cv3_guo_32 cycle_ne_blizzard multirad_pacific wind_sd
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    1       serial|dmpar
@@ -223,7 +223,7 @@ Darwin   x86_64    bacon          gfortran  NA        NA        WRFDA-data-EM  B
 29       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    1       dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Darwin   x86_64    bacon          ifort     NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.8.1.tar
+Darwin   x86_64    bacon          ifort     NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.9.tar
 # Don't include: 4denvar_large_conus 4dvar_small cv3_guo_32 cycle_ne_blizzard multirad_pacific wind_sd
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 1        afwa_t7_ssmi                3DVAR            4    1       serial|dmpar
@@ -257,7 +257,7 @@ Darwin   x86_64    bacon          ifort     NA        NA        WRFDA-data-EM  B
 29       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    1       dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Darwin   x86_64    visit-a05      gfortran  NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.8.1.tar
+Darwin   x86_64    visit-a05      gfortran  NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.9.tar
 # Don't include: 4denvar_large_conus 4dvar_small cv3_guo_32 cycle_ne_blizzard multirad_pacific wind_sd
 #INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
@@ -291,7 +291,7 @@ Darwin   x86_64    visit-a05      gfortran  NA        NA        WRFDA-data-EM  B
 29       tut_xinzhang_rttov_genbe    GENBE|3DVAR      6    16      dmpar
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Darwin   x86_64    visit-a05      ifort     NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.8.1.tar
+Darwin   x86_64    visit-a05      ifort     NA        NA        WRFDA-data-EM  BASELINE.MAC        WRFDA_V3.9.tar
 # Don't include: 4denvar_large_conus 4dvar_small cv3_guo_32 cycle_ne_blizzard multirad_pacific wind_sd
 #INDEX   EXPERIMENT                  CPU     OPENMP       PAROPT
 1        afwa_t7_ssmi                3DVAR            4    16      serial|dmpar
