@@ -1,6 +1,48 @@
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    cheyenne       ifort     P64000510 regular   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
+Linux    x86_64    cheyenne       ifort     P64000510 regular     WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
+#
+#INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
+0        4denvar_large_conus         4DENVAR         72     1      dmpar
+1        4dvar_small                 4DVAR           18     1      serial|dmpar
+2        afwa_t7_ssmi                3DVAR            4     1      serial|dmpar
+3        afwa_t7_ssmi_32             3DVAR            4     1      serial|dmpar
+4        amsr2                       3DVAR           18     1      dmpar
+5        ASR_airs                    3DVAR           18     1      dmpar
+6        ASR_prepbufr                3DVAR           18     1      dmpar|dm+sm
+7        cv3_guo                     3DVAR            7     1      serial|dmpar
+8        cv3_guo_32                  3DVAR            9     1      serial|dmpar
+9        cwb_ascii                   3DVAR            4     4      serial|smpar|dmpar|dm+sm
+10       cwb_ascii_outerloop_rizvi   3DVAR            4     1      serial|dmpar
+11       cwb_ascii_thinning          3DVAR            4     4      serial|smpar|dmpar|dm+sm
+12       cycle_sene_hires            CYCLING         18     1      dmpar
+13       cycle_ne_blizzard           CYCLING         18     1      dmpar
+14       dual_res_hybrid             3DENVAR         18     1      dmpar|dm+sm
+15       iasi_kavulich               3DVAR           18     1      dmpar
+16       lat_lon_outerloops          OBSPROC|3DVAR   18     1      dmpar
+17       multirad_pacific            3DVAR           36     1      dmpar
+18       multirad_pacific_nc4        3DVAR           36     1      dmpar
+19       outerloop_ztd_bench_guo     3DVAR            1     1      serial|smpar|dmpar|dm+sm
+20       radar_4dvar_cv7             GENBE|4DVAR     18     1      dmpar
+21       radar_cv7                   GENBE|3DVAR      8     1      dmpar
+22       radar_meixu                 3DVAR            8     1      serial|dmpar
+23       radar_null_echo             3DVAR           36     1      dmpar
+24       rainfall_outerloops         4DVAR           36     1      dmpar
+25       realtime_hybrid             3DENVAR         36     1      dmpar
+26       rttov_4dvar_madagascar      4DVAR           36     1      dmpar
+27       seviri_varbc                VARBC|3DVAR     18     1      dmpar
+28       sfc_assi_2_outerloop_guo    3DVAR           18     1      serial|dmpar
+29       t44_liuz                    3DVAR            2     2      serial|smpar|dmpar|dm+sm
+30       t44_prepbufr                3DVAR            8     1      serial|dmpar
+31       tut_xinzhang_4dvar          OBSPROC|4DVAR   36     1      dmpar
+32       tut_xinzhang_fgat           OBSPROC|FGAT    18     1      dmpar
+33       tut_xinzhang_obsproc        OBSPROC|3DVAR   18     1      dmpar
+34       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10     1      dmpar
+#34       varbc_4dvar                 VARBC|4DVAR     36     1      dmpar
+35       wind_sd                     3DVAR           18     1      serial|dmpar|dm+sm
+###########################################################################################
+#ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
+Linux    x86_64    cheyenne       gfortran  P64000510 share     WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 0        4denvar_large_conus         4DENVAR         48     1      dmpar
@@ -42,49 +84,7 @@ Linux    x86_64    cheyenne       ifort     P64000510 regular   WRFDA-data-EM  B
 35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
 ###########################################################################################
 #ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    cheyenne       gfortran  P64000510 regular   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
-#
-#INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
-0        4denvar_large_conus         4DENVAR         48     1      dmpar
-1        4dvar_small                 4DVAR           16     1      serial|dmpar
-2        afwa_t7_ssmi                3DVAR            4     1      serial|dmpar
-3        afwa_t7_ssmi_32             3DVAR            4     1      serial|dmpar
-4        amsr2                       3DVAR           16     1      dmpar
-5        ASR_airs                    3DVAR           16     1      dmpar
-6        ASR_prepbufr                3DVAR           16     1      dmpar|dm+sm
-7        cv3_guo                     3DVAR            7     1      serial|dmpar
-8        cv3_guo_32                  3DVAR            9     1      serial|dmpar
-9        cwb_ascii                   3DVAR            4     4      serial|smpar|dmpar|dm+sm
-10       cwb_ascii_outerloop_rizvi   3DVAR            4     1      serial|dmpar
-11       cwb_ascii_thinning          3DVAR            4     4      serial|smpar|dmpar|dm+sm
-12       cycle_sene_hires            CYCLING         16     1      dmpar
-13       cycle_ne_blizzard           CYCLING         16     1      dmpar
-14       dual_res_hybrid             3DENVAR         16     1      dmpar|dm+sm
-15       iasi_kavulich               3DVAR           16     1      dmpar
-16       lat_lon_outerloops          OBSPROC|3DVAR   16     1      dmpar
-17       multirad_pacific            3DVAR           32     1      dmpar
-18       multirad_pacific_nc4        3DVAR           32     1      dmpar
-19       outerloop_ztd_bench_guo     3DVAR            1     1      serial|smpar|dmpar|dm+sm
-20       radar_4dvar_cv7             GENBE|4DVAR     16     1      dmpar
-21       radar_cv7                   GENBE|3DVAR      8     1      dmpar
-22       radar_meixu                 3DVAR            8     1      serial|dmpar
-23       radar_null_echo             3DVAR           16     1      dmpar
-24       rainfall_outerloops         4DVAR           32     1      dmpar
-25       realtime_hybrid             3DENVAR         32     1      dmpar
-26       rttov_4dvar_madagascar      4DVAR           32     1      dmpar
-27       seviri_varbc                VARBC|3DVAR     16     1      dmpar
-28       sfc_assi_2_outerloop_guo    3DVAR           16     1      serial|dmpar
-29       t44_liuz                    3DVAR            2     2      serial|smpar|dmpar|dm+sm
-30       t44_prepbufr                3DVAR            8     1      serial|dmpar
-31       tut_xinzhang_4dvar          OBSPROC|4DVAR   32     1      dmpar
-32       tut_xinzhang_fgat           OBSPROC|FGAT    16     1      dmpar
-33       tut_xinzhang_obsproc        OBSPROC|3DVAR   16     1      dmpar
-34       tut_xinzhang_rttov_genbe    GENBE|3DVAR     10     1      dmpar
-#34       varbc_4dvar                 VARBC|4DVAR     32     1      dmpar
-35       wind_sd                     3DVAR           16     1      serial|dmpar|dm+sm
-###########################################################################################
-#ARCH    MACHINE   NAME           COMPILER  PROJECT   QUEUE     DATABASE       BASELINE            SOURCE
-Linux    x86_64    yellowstone    pgf90     P64000510 caldera   WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
+Linux    x86_64    cheyenne       pgf90     P64000510 share     WRFDA-data-EM  BASELINE.NEW        WRFDA_V3.9.tar
 #
 #INDEX   EXPERIMENT                  TYPE            CPU   OPENMP  PAROPT
 0        4denvar_large_conus         4DENVAR         48     1      dmpar
