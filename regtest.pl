@@ -33,6 +33,7 @@ use Net::FTP;
 use Getopt::Long;
 use Data::Dumper;
 use Scalar::Util qw(looks_like_number);
+use POSIX qw(ceil);
 # Start time:
 
 my $Start_time;
@@ -67,8 +68,9 @@ my $RTTOV_dir;
 my $test_list_string = '';
 my $use_HDF5 = "yes";
 my $use_RTTOV = "yes";
+my $batch_compile = "yes";
 my $libdir = "$MainDir/libs";
-my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","rttov","testfile","repo","tests","libs","branch","fork");
+my @valid_options = ("compiler","cc","source","revision","upload","exec","debug","j","cloudcv","netcdf4","hdf5","rttov","testfile","repo","tests","libs","branch","fork","batchcompile");
 
 #This little bit makes sure the input arguments are formatted correctly
 foreach my $arg ( @ARGV ) {
@@ -111,7 +113,8 @@ GetOptions( "compiler=s" => \$Compiler_defined,
             "fork:s" => \$Fork,
             "branch:s" => \$Branch,
             "tests:s" => \$test_list_string,
-            "libs:s" => \$libdir ) or &print_help_and_die;
+            "libs:s" => \$libdir ,
+            "batchcompile:s" => \$batch_compile) or &print_help_and_die;
 
 unless ( defined $Compiler_defined ) {
   print "\nA compiler must be specified!\n\nAborting the script with dignity.\n";
@@ -124,7 +127,7 @@ sub print_help_and_die {
   print "                   --j=NUM_PROCS --exec=[no]/yes --debug=[no]/yes/super --testfile=testdata.txt \n";
   print "                   --netcdf4=[no]/yes --hdf5=no/[yes] --rttov=no/[yes] --cloudcv=[no]/yes\n";
   print "                   --repo=git\@github.com:wrf-model/WRF --fork=github_username --branch=branchname\n";
-  print "                   --tests='testname1 testname2' --libs=`pwd`/libs\n\n";
+  print "                   --tests='testname1 testname2' --libs=`pwd`/libs --batchcompile=no/[yes]\n\n";
   print "        compiler: [REQUIRED] Compiler name (supported options: ifort, gfortran, xlf, pgf90, g95)\n";
   print "        cc:       C Compiler name (supported options: icc, gcc, xlf, pgcc, g95)\n";
   print "        source:   Specify location of source code in one of 3 formats:\n";
@@ -147,6 +150,7 @@ sub print_help_and_die {
   print "        branch:   (git only) branch of repository to use\n";
   print "        tests:    Test names to run (prunes test list taken from testfile; test specs must exist there!)\n";
   print "        libs:     Specify where the necessary libraries are located\n";
+  print "        batchcompile:\n                  Submit compilation jobs to appropriate queue instead of local compilation\n";
   die "\n";
 }
 
@@ -188,8 +192,8 @@ my $Tester = getlogin();
 my ($Arch, $Machine, $Name, $Compiler, $CCompiler, $Project, $Source, $Queue, $Database, $Baseline, $missvars);
 my @compile_job_list;
 my @Message;
-my $Clear = `clear`;
-my $diffwrfdir = "";
+my $Clear = "\n\n\n\n\n\n\n\n";
+my $diffwrfdir = "bin";
 my @gtsfiles;
 my @childs;
 my @exefiles;
@@ -524,7 +528,10 @@ if ( $test_list_string ) {
 
 # Set paths to necessary utilities, set BUFR read ENV variables if needed
 
-if ($Arch eq "Linux") {
+
+if ($Machine_name =~ /cheyenne/i) {
+   $diffwrfdir = "~/bin_cheyenne/";
+} elsif ($Arch eq "Linux") {
    $diffwrfdir = "~/bin/";
 }
 
@@ -857,10 +864,10 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
        printf "Compiling in debug mode, compilation optimizations turned off.\n";
     }
 
-    if ( ($Parallel_compile_num > 1) && ($Machine_name =~ /cheyenne/i) ) {
+    if ( ($Parallel_compile_num > 1) && ($Machine_name =~ /cheyenne/i) && ($batch_compile =~ /Y/i) ) {
        printf "Submitting job to compile WRFDA_$compile_type with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
 
-       # Generate the LSF job script
+       # Generate the PBS job script
        open FH, ">job_compile_${ass_type}_$Compile_options{$option}_opt${option}.pbs.csh" or die "Can not open job_compile_${ass_type}_${option}.pbs.csh to write. $! \n";
        print FH '#!/bin/csh'."\n";
        print FH '#',"\n";
@@ -885,7 +892,7 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
        my $submit_message;
        $submit_message = `qsub < job_compile_${ass_type}_$Compile_options{$option}_opt${option}.pbs.csh`;
 
-       if ($submit_message =~ m/(\d+)\..*/) {;
+       if ($submit_message =~ m/(\d+\..*)/) {;
           print "Job ID for $ass_type $Compiler option $Compile_options{$option} is $1 \n";
           $compile_job_array{$1} = "${ass_type}_$Compile_options{$option}";
           push (@compile_job_list,$1);
@@ -893,7 +900,7 @@ if ( (-d $RTTOV_dir) and ($use_RTTOV=~/yes/i) ) {
           die "\nFailed to submit $ass_type compile job for $Compiler option $Compile_options{$option}!\n";
        };
 
-    } else { #Serial compile OR non-Yellowstone/Cheyenne compile
+    } else { #Serial compile
        printf "Compiling WRFDA_$compile_type with %10s for %6s ....\n", $Compiler, $Compile_options{$option};
 
        # Fork each compilation
@@ -970,7 +977,6 @@ foreach (@childs) {
 #Because Perl is Perl, must create a temporary array to modify while in "for" loop
 my @temparray = @compile_job_list;
 
-
 # For batch build, keep track of ongoing compile jobs, continue when finished.
 while ( @compile_job_list ) {
    if (!-d "$MainDir/regtest_compile_logs/$year$mon$mday") {
@@ -981,11 +987,8 @@ while ( @compile_job_list ) {
       my $jobnum = $compile_job_list[$i];
       my $job_feedback = `qstat -x $jobnum`;
 
-#      print "Command used:\n`qstat -x $jobnum`\n";
-#      print "Job feedback:\n$job_feedback\n";
       my @jobhist = split('\s+',$job_feedback);
       unless ( $jobhist[18] eq "F" ) {; # Next unless job has finished
-         print "Job $jobnum not yet done!\n";
          next;
       }
       print "Job $compile_job_array{$jobnum} (job number $jobnum) is finished!\n It took $jobhist[17]\n";
@@ -1018,8 +1021,6 @@ while ( @compile_job_list ) {
 
 
 ####################  END COMPILE SECTION  ####################
-
-die "All compiles done!\n";
 
 
 SKIP_COMPILE:
@@ -1496,7 +1497,7 @@ sub new_job {
 
      if ($i == 1) {
         # Before first job is run, symbolically link all fix files from code
-        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i)) {
+        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i) or ($types =~ /4DENVAR/i) ) {
 
            my @fixfiles = glob ("$MainDir/WRFDA_3DVAR_$par/var/run/*");
            push @fixfiles, "$MainDir/WRFDA_3DVAR_$par/run/LANDUSE.TBL";
@@ -1508,7 +1509,7 @@ sub new_job {
                  symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
               }
            }
-        } elsif ( ($types =~ /4DVAR/i) or ($types =~ /4DENVAR/i) ) {
+        } elsif ($types =~ /4DVAR/i) {
            my @fixfiles = glob ("$MainDir/WRFDA_4DVAR_$par/var/run/*");
            push @fixfiles, glob ("$MainDir/WRFDA_4DVAR_$par/run/*.TBL");
            foreach (@fixfiles) {
@@ -2192,31 +2193,52 @@ sub create_ys_job_script {
     # jobcompiler: name of compiler (not currently used, but might be useful in the future)
     # jobcores:    number of MPI tasks to run with
     # jobcpus:     number of OPENMP threads to run with
-    # jobqueue
+    # jobqueue:    queue to run the job in
 
-    printf "Creating $jobtype job: $jobname, $jobpar\n";
+    printf "\nCreating $jobtype job: $jobname, $jobpar\n";
 
-    # Generate the LSF job script
-    unlink "job_${jobname}_${jobtype}_${jobpar}.pl" if -e "job_${jobname}_${jobtype}_${jobpar}.pl";
-    open FH, ">job_${jobname}_${jobtype}_${jobpar}.pl" or die "Can not open job_${jobname}_${jobtype}_${jobpar}.pl to write. $! \n";
+    # Determine how many nodes to request given input settings
+    my $nodes;
+    my $ncpus = ($jobcores * $jobcpus);
+    my $mpiprocs = $jobcores;
+    my $ompthreads = $jobcpus;
+
+    if ($jobqueue eq 'share') {
+       $nodes = 1;
+    } else {
+       $nodes = ceil( ($ncpus) / 36 );
+    }
+
+    if ($ncpus > 36) {$ncpus = 36};
+    if ($mpiprocs > 36) {$mpiprocs = 36};
+    if ($ompthreads > 36) {die "\nERROR ERROR ERROR\n\nompthreads=$ompthreads, greater than 36 ompthreads not supported\n"};
+
+#    print "QUEUE: $jobqueue\n";
+#    print "CORES: $jobcores\n";
+#    print "CPUS:  $jobcpus\n";
+#    print "NODES: $nodes\n";
+#    print "NCPUS: $ncpus\n";
+#    print "MPIPROCS: $mpiprocs\n";
+#    print "OMPTHREADS: $ompthreads\n\n";
+
+    # Generate the PBS job script
+    unlink "job_${jobname}_${jobtype}_${jobpar}.pbs.pl" if -e "job_${jobname}_${jobtype}_${jobpar}.pbs.pl";
+    open FH, ">job_${jobname}_${jobtype}_${jobpar}.pbs.pl" or die "Can not open job_${jobname}_${jobtype}_${jobpar}.pbs.pl to write. $! \n";
 
     print FH '#!/usr/bin/perl -w'."\n";
+    print FH '# PBS batch script'."\n";
+    print FH "# Automatically generated by $0\n";
+    print FH "#PBS -A $jobproj"."\n";
+    print FH "#PBS -N $jobname"."\n";
+    # If more than 18 cores, can't use share
+    print FH "#PBS -q ".(($jobqueue eq 'share' && $jobcores > 18) ? "regular" : $jobqueue)."\n";
+    printf FH "#PBS -l walltime=00:%2d:00"."\n", ($Debug > 0) ? (($jobpar eq 'dmpar' || $jobpar eq 'dm+sm') ? 30: 60) : 15;
+    printf FH "#PBS -l select=$nodes:ncpus=$ncpus:mpiprocs=$mpiprocs:ompthreads=$ompthreads\n";
+    print FH "#PBS -j oe\n";
+    print FH "\n"; #End of PBS commands; add newline for readability
     print FH "use strict;\n"; #Always use "use strict"!
     print FH "use File::Copy;\n"; #This module is usually needed
-    print FH '#',"\n";
-    print FH '# LSF batch script'."\n";
-    print FH "# Automatically generated by $0\n";
-    print FH "#BSUB -J $jobname"."\n";
-    # If more than 16 cores, can't use caldera
-    print FH "#BSUB -q ".(($jobqueue eq 'caldera' && $jobcores > 16) ? "regular" : $jobqueue)."\n";
-    printf FH "#BSUB -n %-3d"."\n",($jobpar eq 'dmpar' || $jobpar eq 'dm+sm') ? $jobcores: 1;
-    print FH "#BSUB -o job_${jobname}_${jobtype}_${jobpar}.output"."\n";
-    print FH "#BSUB -e job_${jobname}_${jobtype}_${jobpar}.error"."\n";
-    printf FH "#BSUB -W %d"."\n", ($Debug > 0) ? (($jobpar eq 'dmpar' || $jobpar eq 'dm+sm') ? 30: 60) : 15;
-    print FH "#BSUB -P $jobproj"."\n";
-    # If job serial or smpar, span[ptile=1]; if job dmpar, span[ptile=16] or span[ptile=$cpun], whichever is less
-    printf FH "#BSUB -R span[ptile=%d]"."\n", ($jobpar eq 'serial' || $jobpar eq 'smpar') ? 1 : (($jobcores < 16 ) ? $jobcores : 16);
-    print FH "\n"; #End of BSUB commands; add newline for readability
+    print FH "\n";
 
     # Hack to find correct dynamic libraries for HDF5 with gfortran/pgi:
     if ( ((-d "$libdir/HDF5_$Compiler\_$Compiler_version") && ($use_HDF5 eq "yes"))) {
@@ -2263,7 +2285,7 @@ sub new_job_ys {
      }
      if ($i == 1) {
         # Before first job is run, symbolically link all fix files from code
-        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i)) {
+        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i) or ($types =~ /4DENVAR/i) ) {
            my @fixfiles = glob ("$MainDir/WRFDA_3DVAR_$par/var/run/*");
            push @fixfiles, "$MainDir/WRFDA_3DVAR_$par/run/LANDUSE.TBL";
            foreach (@fixfiles) {
@@ -2274,7 +2296,7 @@ sub new_job_ys {
               }
               symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
            }
-        } elsif ( ($types =~ /4DVAR/i) or ($types =~ /4DENVAR/i) ) {
+        } elsif ($types =~ /4DVAR/i) {
            my @fixfiles = glob ("$MainDir/WRFDA_4DVAR_$par/var/run/*");
            push @fixfiles, glob ("$MainDir/WRFDA_4DVAR_$par/run/*.TBL");
            push @fixfiles, "$MainDir/WRFDA_4DVAR_$par/run/LANDUSE.TBL";
@@ -2329,12 +2351,12 @@ sub new_job_ys {
          # Submit the job
 
          if ($i == 1) {
-            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})"  < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{1}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          }
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2395,17 +2417,18 @@ sub new_job_ys {
          }
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
-                                 $Queue, $Project, @obsproc_commands );
+#                                 'share', $Project, @obsproc_commands );
+                                 'regular', $Project, @obsproc_commands );
 
          # Submit the job
 
          if ($i == 1) {
-            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl `;
          } else {
             $h = $i - 1;
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          }
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2415,6 +2438,8 @@ sub new_job_ys {
             }
             $i ++;
          } else {
+            print "FEEDBACK:\n";
+            print "$job_feedback";
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit OBSPROC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             chdir "../.." or die "Cannot chdir to ../.. : $!\n";
             return undef;
@@ -2433,11 +2458,11 @@ sub new_job_ys {
          if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) ) {
             $varbc_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
                 "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
-                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+                "system('mpirun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
          } elsif ($types =~ /4DVAR/i) {
             $varbc_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
                 "system('$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n" :
-                "system('mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n";
+                "system('mpirun $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n";
          } else {
             print "\nVARBC jobs can only be run in combination with 3DVAR, FGAT, or 4DVAR tasks for now\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit VARBC job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -2460,12 +2485,12 @@ sub new_job_ys {
          # Submit the job
 
          if ($i == 1) {
-            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          }
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2493,19 +2518,19 @@ sub new_job_ys {
          my @fgat_commands;
          $fgat_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+             "system('mpirun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @fgat_commands );
 
          # Submit the job
          if ($i == 1) {
-            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          }
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2533,7 +2558,7 @@ sub new_job_ys {
          my @_3dvar_commands;
          $_3dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+             "system('mpirun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_3dvar_commands );
@@ -2541,12 +2566,13 @@ sub new_job_ys {
          # Submit the job
 
          if ($i == 1) {
-            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            print "job=  qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null";
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          }
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2591,7 +2617,7 @@ sub new_job_ys {
          my @_3dvar_init_commands;
          $_3dvar_init_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+             "system('mpirun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
          $_3dvar_init_commands[1] = 'if ( ! -e "wrfvar_output") {'."\n";
          $_3dvar_init_commands[2] = '   open FH,">FAIL";'."\n";
          $_3dvar_init_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
@@ -2602,12 +2628,12 @@ sub new_job_ys {
                                  $Queue, $Project, @_3dvar_init_commands );
 
          # Submit initial 3DVAR job
-         $job_feedback = ` bsub < job_${nam}_WRFDA_init_${par}.pl 2>/dev/null `;
+         $job_feedback = ` qsub < job_${nam}_WRFDA_init_${par}.pbs.pl 2>/dev/null `;
 
 
          # We're gonna use some fancy Yellowstone finagling to submit all our jobs in sequence without the parent script 
          # having to wait. To do this, we need to keep track of job numbers (hashes are unordered so we can't rely on %Experiments)
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2633,13 +2659,14 @@ sub new_job_ys {
          $lat_bc_commands[3] = "copy('wrfvar_output','../WRF/wrfinput_d01');\n";
 
          &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
-                                 'caldera', $Project, @lat_bc_commands );
+#                                 'share', $Project, @lat_bc_commands );
+                                 'regular', $Project, @lat_bc_commands );
          
          # Here's the finagling I was talking about. Since these jobs all require input from the previous job,
          # We can use -w "ended($jobid)" to wait for job $jobid to finish
-         $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+         $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
 
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2665,14 +2692,14 @@ sub new_job_ys {
          $wrf_commands[4] = 'foreach (@wrffiles){ symlink($_,basename($_))};'."\n";
          $wrf_commands[5] = '@wrffiles = glob("'."$libdir/WRFV3_$com/run/ozone*\");\n";
          $wrf_commands[6] = 'foreach (@wrffiles){ symlink($_,basename($_))};'."\n";
-         $wrf_commands[7] = ($par eq 'serial' || $par eq 'smpar') ? "system('$libdir/WRFV3_$com/main/wrf.exe');\n" : "system('mpirun.lsf $libdir/WRFV3_$com/main/wrf.exe');\n";
+         $wrf_commands[7] = ($par eq 'serial' || $par eq 'smpar') ? "system('$libdir/WRFV3_$com/main/wrf.exe');\n" : "system('mpirun $libdir/WRFV3_$com/main/wrf.exe');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @wrf_commands );
 
-         $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+         $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
 
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2702,11 +2729,12 @@ sub new_job_ys {
          $low_bc_commands[7] = "}\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
-                                 'caldera', $Project, @low_bc_commands );
+#                                 'share', $Project, @low_bc_commands );
+                                 'regular', $Project, @low_bc_commands );
 
-         $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+         $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
 
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2726,7 +2754,7 @@ sub new_job_ys {
          my @_3dvar_final_commands;
          $_3dvar_final_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe')\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+             "system('mpirun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
          $_3dvar_final_commands[1] = 'if ( ! -e "wrfvar_output") {'."\n";
          $_3dvar_final_commands[2] = '   open FH,">FAIL";'."\n";
          $_3dvar_final_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
@@ -2736,9 +2764,9 @@ sub new_job_ys {
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_3dvar_final_commands );
 
-         $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+         $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
 
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -2798,11 +2826,12 @@ sub new_job_ys {
                }
 
                &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
-                                    'caldera', $Project, @untar_commands );
+#                                    'share', $Project, @untar_commands );
+                                    'regular', $Project, @untar_commands );
    
-               $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+               $job_feedback = ` qsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
 
-               if ($job_feedback =~ m/.*<(\d+)>/) {
+               if ($job_feedback =~ m/(\d+\..*)/) {
                   $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
                   $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
                   if ($i == 1) {
@@ -2823,7 +2852,7 @@ sub new_job_ys {
             $hybrid_commands[0] = "use File::Basename;\n";
             $hybrid_commands[1] = ($par eq 'serial' || $par eq 'smpar') ?
                 "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
-                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+                "system('mpirun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
             $hybrid_commands[2] = 'if ( ! -e "wrfvar_output") {'."\n";
             $hybrid_commands[3] = '   open FH,">FAIL";'."\n";
             $hybrid_commands[4] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
@@ -2885,11 +2914,12 @@ sub new_job_ys {
             $ensmean_commands[2] = "system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ensmean.exe >& ensmean.out');\n";
 
             &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
-                                 'caldera', $Project, @ensmean_commands );
+#                                 'share', $Project, @ensmean_commands );
+                                 'regular', $Project, @ensmean_commands );
 
-            $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
 
-            if ($job_feedback =~ m/.*<(\d+)>/) {
+            if ($job_feedback =~ m/(\d+\..*)/) {
                $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
                $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
                if ($i == 1) {
@@ -2924,11 +2954,12 @@ sub new_job_ys {
             $enspert_commands[5] = "}\n";
 
             &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
-                                 'caldera', $Project, @enspert_commands );
+#                                 'share', $Project, @enspert_commands );
+                                 'regular', $Project, @enspert_commands );
 
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
 
-            if ($job_feedback =~ m/.*<(\d+)>/) {
+            if ($job_feedback =~ m/(\d+\..*)/) {
                $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
                $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
                if ($i == 1) {
@@ -2955,11 +2986,12 @@ sub new_job_ys {
             $vertloc_commands[5] = "}\n";
 
             &create_ys_job_script ( $nam,$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, 1,
-                                 'caldera', $Project, @vertloc_commands );
+#                                 'share', $Project, @vertloc_commands );
+                                 'regular', $Project, @vertloc_commands );
 
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
 
-            if ($job_feedback =~ m/.*<(\d+)>/) {
+            if ($job_feedback =~ m/(\d+\..*)/) {
                $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
                $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
                if ($i == 1) {
@@ -2985,7 +3017,7 @@ sub new_job_ys {
             $hybrid_commands[3] = '}'."\n";
             $hybrid_commands[4] = ($par eq 'serial' || $par eq 'smpar') ?
                 "system('$MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n" :
-                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
+                "system('mpirun $MainDir/WRFDA_3DVAR_$par/var/build/da_wrfvar.exe');\n";
             $hybrid_commands[5] = 'if ( ! -e "wrfvar_output") {'."\n";
             $hybrid_commands[6] = '   open FH,">FAIL";'."\n";
             $hybrid_commands[7] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
@@ -2998,12 +3030,12 @@ sub new_job_ys {
                                  $Queue, $Project, @hybrid_commands );
 
          if ( exists $Experiments{$nam}{paropt}{$par}{job}{$h} ) { # There is a possibility this is the first job, need to check
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
          } else {
-            $job_feedback = ` bsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub < job_${nam}_$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}_${par}.pbs.pl 2>/dev/null `;
          }
 
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -3029,19 +3061,19 @@ sub new_job_ys {
          my @_4dvar_commands;
          $_4dvar_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
              "system('$MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n" :
-             "system('mpirun.lsf $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n";
+             "system('mpirun $MainDir/WRFDA_4DVAR_$par/var/build/da_wrfvar.exe');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, $Experiments{$nam}{cpu_mpi}, 1,
                                  $Queue, $Project, @_4dvar_commands );
 
          # Submit the job
          if ($i == 1) {
-            $job_feedback = ` bsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            $job_feedback = ` bsub -w "ended($Experiments{$nam}{paropt}{$par}{job}{$h}{jobid})" < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pl 2>/dev/null `;
+            $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          }
-         if ($job_feedback =~ m/.*<(\d+)>/) {
+         if ($job_feedback =~ m/(\d+\..*)/) {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobid} = $1;
             $Experiments{$nam}{paropt}{$par}{job}{$i}{walltime} = 0;
             if ($i == 1) {
@@ -3052,7 +3084,8 @@ sub new_job_ys {
             $i ++;
          } else {
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit 4DVAR job for task $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-           return undef;
+            chdir "../.." or die "Cannot chdir to ../.. : $!\n";
+            return undef;
          }
 
      }
@@ -3065,7 +3098,7 @@ sub new_job_ys {
 
      # Pick the job id
 
-     if ($job_feedback =~ m/.*<(\d+)>/) {;
+     if ($job_feedback =~ m/(\d+\..*)/) {
          return 1;
      } else {
          print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nFailed to submit task for $nam\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -3241,12 +3274,12 @@ $count = 0;
                          $Experiments{$name}{paropt}{$par}{currjobid} = $Experiments{$name}{paropt}{$par}{job}{$rc}{jobid} ;    # assign the current jobid.
                          $Experiments{$name}{paropt}{$par}{currjobname} = $Experiments{$name}{paropt}{$par}{job}{$rc}{jobname} ;    # assign the current job name
                          $Experiments{$name}{status} = "close";
-                         my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{currjobid}`;
+                         my $checkQ = `qstat -x $Experiments{$name}{paropt}{$par}{currjobid}`;
                          if ($checkQ =~ /\sregular\s/) {
-                             printf "%-10s job for %-30s,%8s was submitted to queue 'regular' with jobid: %10d \n",
+                             printf "%-10s job for %-30s,%8s was submitted to queue 'regular' with jobid: %15s \n",
                                   $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
                          } else {
-                             printf "%-10s job for %-30s,%8s was submitted to queue '$Queue' with jobid: %10d \n",
+                             printf "%-10s job for %-30s,%8s was submitted to queue '$Queue' with jobid: %15s \n",
                                   $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
                          }
                      } else {
@@ -3263,8 +3296,9 @@ $count = 0;
                  }
 
                  # If we got to this point, job is still in queue.
-                 my $checkjob = `bjobs $Experiments{$name}{paropt}{$par}{currjobid}`;
-                 if ( $checkjob =~ m/RUN/ ) {; # Still running
+                 my $checkjob = `qstat -x $Experiments{$name}{paropt}{$par}{currjobid}`;
+                 my @jobhist = split('\s+',$checkjob);
+                 if ( $jobhist[18] eq "R" ) {; # Job running
                      unless ($Experiments{$name}{paropt}{$par}{started} == 1) { #Set job status to running if this is the first time we've found it running
                          $Experiments{$name}{paropt}{$par}{status} = "running";
                          $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{status} = "running";
@@ -3272,15 +3306,26 @@ $count = 0;
                          &flush_status (); # refresh the status
                      }
                      next;
-                 } elsif ( $checkjob =~ m/PEND/ ) { # Still Pending
+                 } elsif ( ( $jobhist[18] eq "H" ) or ( $jobhist[18] eq "Q" ) ) { # Still Pending
                      next;
                  }
 
                  # If we got to this point, job is finished. Finalize the test or prepare for next job
-                 my $bhist = `bhist $Experiments{$name}{paropt}{$par}{currjobid}`;
-                 my @jobhist = split('\s+',$bhist);  # Get runtime using bhist command, then store this job's runtime and add it to total runtime
-                 $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{walltime} = $jobhist[24];
-                 $Experiments{$name}{paropt}{$par}{walltime} = $Experiments{$name}{paropt}{$par}{walltime} + $jobhist[24];
+                 # Store this job's runtime and add it to total runtime
+                 my $jobinfo = `qstat -xf $Experiments{$name}{paropt}{$par}{currjobid}`;
+                 my $jobtime;
+                 if ( $jobinfo =~ m/resources_used.walltime = (\d\d:\d\d:\d\d)/) {
+                    $jobtime = $1;
+                 } else {
+                    $jobtime = $jobhist[17];
+                 }
+                    
+                 my @jobtimes = split(':',$jobtime);
+
+                 my $jobsecs = $jobtimes[2] + ( 60 * $jobtimes[1]) + ( 3600 * $jobtimes[0]);
+
+                 $Experiments{$name}{paropt}{$par}{job}{$Experiments{$name}{paropt}{$par}{currjob}}{walltime} = $jobsecs;
+                 $Experiments{$name}{paropt}{$par}{walltime} = $Experiments{$name}{paropt}{$par}{walltime} + $jobsecs;
 
                  my $i = 1;
                  while ( exists $Experiments{$name}{paropt}{$par}{job}{$i} ) { # Loop through each job to determine if there are any left to run
@@ -3333,12 +3378,12 @@ $count = 0;
                              $Experiments{$name}{paropt}{$par}{currjob} = $j;
                              $Experiments{$name}{paropt}{$par}{currjobid} = $Experiments{$name}{paropt}{$par}{job}{$j}{jobid};
                              $Experiments{$name}{paropt}{$par}{currjobname} = $Experiments{$name}{paropt}{$par}{job}{$j}{jobname};
-                             my $checkQ = `bjobs $Experiments{$name}{paropt}{$par}{currjobid}`;
+                             my $checkQ = `qstat -x $Experiments{$name}{paropt}{$par}{currjobid}`;
                              if ($checkQ =~ /\sregular\s/) {
-                                printf "%-10s job for %-30s,%8s was submitted to queue 'regular' with jobid: %10d \n",
+                                printf "%-10s job for %-30s,%8s was submitted to queue 'regular' with jobid: %15s \n",
                                      $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
                              } else {
-                                printf "%-10s job for %-30s,%8s was submitted to queue '$Queue' with jobid: %10d \n",
+                                printf "%-10s job for %-30s,%8s was submitted to queue '$Queue' with jobid: %15s \n",
                                      $Experiments{$name}{paropt}{$par}{currjobname}, $name, $par,$Experiments{$name}{paropt}{$par}{currjobid};
                              }
 
