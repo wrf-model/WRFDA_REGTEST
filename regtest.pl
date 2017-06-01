@@ -1056,9 +1056,15 @@ foreach my $name (keys %Experiments) {
       my @datafiles = glob ("$Database/$name/*");
       foreach (@datafiles) {
          next if $_ =~ /namelist./;
-         symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+         if ($_ =~ /gen_be_wrapper.ksh/) {
+            #Copy gen_be_wrapper so tests can be easily re-run and avoid accidental changes to test data
+            copy("$_", basename($_)) or warn "Cannot copy $_ to local directory: $!\n";
+            chmod 0755, basename($_) or warn "Cannot add execute permissions to $_: $!\n";
+         } else {
+            symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
+         }
       }
-      # Copy namelists so test can be easily re-run with different namelist options
+      # Copy namelist and gen_be_wrapper so tests can be easily re-run with different options
       copy("$MainDir/namelists/namelist.input.$name", "namelist.input") or warn "Cannot copy namelist.input to local directory: $!\n";
       if ($Experiments{$name}{test_type} =~ /OBSPROC/i) {
          copy("$MainDir/namelists/namelist.obsproc.$name", "namelist.obsproc") or warn "Cannot copy namelist.obsproc to local directory: $!\n";
@@ -2899,6 +2905,10 @@ sub new_job_ys {
             $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname} = "ENS_PERT";
             my @enspert_commands;
             $enspert_commands[0] = "system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out');\n";
+#  Parallelism for gen_be_ep2.exe was removed for now, these lines should be used if re-introduced
+#            $enspert_commands[0] = ($par eq 'serial' || $par eq 'smpar') ?
+#                "system('$MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out');\n" :
+#                "system('mpirun.lsf $MainDir/WRFDA_3DVAR_$par/var/build/gen_be_ep2.exe $date $ens_num . ../$ens_filename >& enspert.out');\n";
             $enspert_commands[1] = 'if ( ! -e "ps.e001") {'."\n";
             $enspert_commands[2] = '   open FH,">../FAIL";'."\n";
             $enspert_commands[3] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
