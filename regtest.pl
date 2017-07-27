@@ -2343,7 +2343,6 @@ sub new_job_ys {
          $genbe_commands[8] = "   print FH '".$Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}."';\n";
          $genbe_commands[9] = "   close FH;\n";
          $genbe_commands[10] = "}\n";
-         $genbe_commands[11] = "move('gen_be_run','gen_be_run_$par');\n";
 
          &create_ys_job_script ( $nam, $Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}, $par, $com, 1, $cpum,
                                  $Queue, $Project, @genbe_commands );
@@ -2569,7 +2568,6 @@ sub new_job_ys {
             $job_feedback = ` qsub < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          } else {
             $h = $i - 1;
-            print "job=  qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null";
             $job_feedback = ` qsub -W depend=afterany:$Experiments{$nam}{paropt}{$par}{job}{$h}{jobid} < job_${nam}_${Experiments{$nam}{paropt}{$par}{job}{$i}{jobname}}_${par}.pbs.pl 2>/dev/null `;
          }
          if ($job_feedback =~ m/(\d+\..*)/) {
@@ -3232,6 +3230,7 @@ sub submit_job {
 
             # Wrap-up this job:
             system("ncdiff $name/$par/wrfvar_output $name/$par/fg $name/$par/increment.nc");
+            print "Renaming '$name/$par/wrfvar_output' to '$name/$par/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version'\n";
             rename "$name/$par/wrfvar_output", "$name/$par/wrfvar_output.$Arch.$Machine_name.$name.$par.$Compiler.$Compiler_version";
 
             # Compare the wrfvar_output with the BASELINE:
@@ -3532,7 +3531,7 @@ sub check_baseline {
 
     my ($cbname, $cbArch, $cbMachine_name, $cbpar, $cbCompiler, $cbBaseline, $cbCompiler_version) = @_;
 
-    print "\nComparing '$cbname/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version' 
+    print "\nComparing '$cbname/$cbpar/wrfvar_output' 
               to '$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version'" ;
     if (compare ("$cbname/$cbpar/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version",
                      "$cbBaseline/wrfvar_output.$cbArch.$cbMachine_name.$cbname.$cbpar.$cbCompiler.$cbCompiler_version") == 0) {
