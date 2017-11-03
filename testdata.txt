@@ -215,7 +215,7 @@ Darwin   x86_64    bacon          gfortran  NA        NA        WRFDA-data-EM  B
 16       radar_4dvar_cv7             GENBE|4DVAR      6    1       dmpar
 17       radar_cv7                   GENBE|3DVAR      6    1       dmpar
 18       radar_meixu                 3DVAR            6    1       serial|dmpar
-19       radar_null_echo             3DVAR           16     1      dmpar
+19       radar_null_echo             3DVAR            6     1      dmpar
 20       rainfall_outerloops         4DVAR            6    1       dmpar
 21       realtime_hybrid             HYBRID           6    1       dmpar
 22       rttov_4dvar_madagascar      4DVAR            6    1       dmpar

@@ -1488,25 +1488,25 @@ sub new_job {
 
      if ($i == 1) {
         # Before first job is run, symbolically link all fix files from code
-        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i)) {
+        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i) or ($types =~ /4DENVAR/i) ) {
 
            my @fixfiles = glob ("$MainDir/WRFDA_3DVAR_$par/var/run/*");
            push @fixfiles, "$MainDir/WRFDA_3DVAR_$par/run/LANDUSE.TBL";
            foreach (@fixfiles) {
               if (-e basename($_)) {
 # Don't warn for this yet, might need to warn in future if we move to subdirectories for different parallelisms
-#                 warn "WARNING: file basename($_) already exists in test directory $nam\n";
+                 warn "WARNING: file basename($_) already exists in test directory $nam\n";
               } else {
                  symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
               }
            }
-        } elsif ( ($types =~ /4DVAR/i) or ($types =~ /4DENVAR/i) ) {
+        } elsif ($types =~ /4DVAR/i) {
            my @fixfiles = glob ("$MainDir/WRFDA_4DVAR_$par/var/run/*");
            push @fixfiles, glob ("$MainDir/WRFDA_4DVAR_$par/run/*.TBL");
            foreach (@fixfiles) {
               if (-e basename($_)) {
 # Don't warn for this yet, might need to warn in future if we move to subdirectories for different parallelisms
-#                 warn "WARNING: file basename($_) already exists in test directory $nam\n";
+                 warn "WARNING: file basename($_) already exists in test directory $nam\n";
               } else {
                  symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
               }
@@ -2255,7 +2255,7 @@ sub new_job_ys {
      }
      if ($i == 1) {
         # Before first job is run, symbolically link all fix files from code
-        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i)) {
+        if ( ($types =~ /3DVAR/i) or ($types =~ /FGAT/i) or ($types =~ /CYCLING/i) or ($types =~ /HYBRID/i) or ($types =~ /3DENVAR/i) or ($types =~ /4DENVAR/i) ) {
            my @fixfiles = glob ("$MainDir/WRFDA_3DVAR_$par/var/run/*");
            push @fixfiles, "$MainDir/WRFDA_3DVAR_$par/run/LANDUSE.TBL";
            foreach (@fixfiles) {
@@ -2266,10 +2266,9 @@ sub new_job_ys {
               }
               symlink "$_", basename($_) or warn "Cannot symlink $_ to local directory: $!\n";
            }
-        } elsif ( ($types =~ /4DVAR/i) or ($types =~ /4DENVAR/i) ) {
+        } elsif ($types =~ /4DVAR/i) {
            my @fixfiles = glob ("$MainDir/WRFDA_4DVAR_$par/var/run/*");
            push @fixfiles, glob ("$MainDir/WRFDA_4DVAR_$par/run/*.TBL");
-           push @fixfiles, "$MainDir/WRFDA_4DVAR_$par/run/LANDUSE.TBL";
            foreach (@fixfiles) {
               if (-e basename($_)) {
 # Don't warn for this yet, might need to warn in future if we move to subdirectories for different parallelisms
